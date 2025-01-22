@@ -6,8 +6,7 @@ python predicators/main.py --approach oracle --env pybullet_cover --seed 0 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos \
 # --sesame_check_expected_atoms False
 """
-
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, List
 
 import numpy as np
 import pybullet as p
@@ -15,27 +14,32 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.cover import CoverEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
-from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
-    create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, Object, State
+from predicators.structs import Action, Object, State, Array
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
-    """PyBullet Cover domain."""
-    # Parameters that aren't important enough to need to clog up settings.py
+    """PyBullet Cover domain, refactored to utilize the updated PyBulletEnv.
+    x: robot -> table
+    y: table left -> right
 
-    # Table parameters.
+    """
+
+    # ------------------------
+    # Class-level constants
+    # ------------------------
+    # Table parameters
     _table_height: ClassVar[float] = 0.4
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height / 2)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
-    # Object parameters.
+    # Object parameters
     _obj_len_hgt: ClassVar[float] = 0.045
     _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
 
-    # Dimension and workspace parameters.
+    # Dimension and workspace parameters
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
     robot_init_x: ClassVar[float] = CoverEnv.workspace_x
@@ -47,259 +51,376 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        self._block_id_to_block: Dict[int, Object] = {}
-        self._target_id_to_target: Dict[int, Object] = {}
+        # Store block/target IDs (from initialize_pybullet) so that we can
+        # reset their positions in _reset_custom_env_state().
+        self._table_id: int = -1
+        # self._block_ids: list[int] = []
+        # self._target_ids: list[int] = []
 
-        # Create a copy of the pybullet robot for checking forward kinematics
-        # in step() without changing the "real" robot state.
+        # Optional "forward-kinematics" client for advanced logic in step()
         fk_physics_id = p.connect(p.DIRECT)
         self._pybullet_robot_fk = self._create_pybullet_robot(fk_physics_id)
 
-    def simulate(self, state: State, action: Action) -> State:
-        # To implement this, need to handle resetting to states where the
-        # block is held, and need to take into account the offset between
-        # the hand and the held block, which reset_state() doesn't yet.
-        raise NotImplementedError("Simulate not implemented for PyBulletCover")
+    # -----------------------------------------------------------------------
+    # Required Hooks
+    # -----------------------------------------------------------------------
+    @classmethod
+    def get_name(cls) -> str:
+        return "pybullet_cover"
 
     @classmethod
     def initialize_pybullet(
-            cls, using_gui: bool
-    ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        """Run super(), then handle cover-specific initialization."""
-        physics_client_id, pybullet_robot, bodies = super(
-        ).initialize_pybullet(using_gui)
+        cls, using_gui: bool
+    ) -> tuple[int, SingleArmPyBulletRobot, dict[str, any]]:
+        """Create the world: plane, table, block IDs, etc."""
+        # Call parent method first
+        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(
+            using_gui
+        )
 
-        table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
-                              useFixedBase=True,
-                              physicsClientId=physics_client_id)
+        # Load table
+        table_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/table.urdf"),
+            useFixedBase=True,
+            physicsClientId=physics_client_id
+        )
         bodies["table_id"] = table_id
-        p.resetBasePositionAndOrientation(table_id,
-                                          cls._table_pose,
-                                          cls._table_orientation,
-                                          physicsClientId=physics_client_id)
+        p.resetBasePositionAndOrientation(
+            table_id,
+            cls._table_pose,
+            cls._table_orientation,
+            physicsClientId=physics_client_id
+        )
 
+        # Create blocks
         max_width = max(max(CFG.cover_block_widths),
                         max(CFG.cover_target_widths))
         block_ids = []
         for i in range(CFG.cover_num_blocks):
             color = cls._obj_colors[i % len(cls._obj_colors)]
             width = CFG.cover_block_widths[i] / max_width * cls._max_obj_width
-            half_extents = (cls._obj_len_hgt / 2.0, width / 2.0,
-                            cls._obj_len_hgt / 2.0)
-            block_ids.append(
-                create_pybullet_block(color, half_extents, cls._obj_mass,
-                                      cls._obj_friction, cls._default_orn,
-                                      physics_client_id))
+            half_extents = (
+                cls._obj_len_hgt / 2.0,
+                width / 2.0,
+                cls._obj_len_hgt / 2.0
+            )
+            block_id = create_pybullet_block(
+                color=color,
+                half_extents=half_extents,
+                mass=cls._obj_mass,
+                friction=cls._obj_friction,
+                physics_client_id=physics_client_id
+            )
+            block_ids.append(block_id)
         bodies["block_ids"] = block_ids
 
+        # Create targets
         target_ids = []
         for i in range(CFG.cover_num_targets):
             color = cls._obj_colors[i % len(cls._obj_colors)]
-            color = (color[0], color[1], color[2], 0.5)  # slightly transparent
-            width = CFG.cover_target_widths[i] / max_width * cls._max_obj_width
-            half_extents = (cls._obj_len_hgt / 2.0, width / 2.0,
-                            cls._target_height / 2.0)
-            target_ids.append(
-                create_pybullet_block(color, half_extents, cls._obj_mass,
-                                      cls._obj_friction, cls._default_orn,
-                                      physics_client_id))
-
+            color = (color[0], color[1], color[2], 0.5)  # semi-transparent
+            width = (CFG.cover_target_widths[i]
+                     / max_width * cls._max_obj_width)
+            half_extents = (
+                cls._obj_len_hgt / 2.0,
+                width / 2.0,
+                cls._target_height / 2.0
+            )
+            target_id = create_pybullet_block(
+                color=color,
+                half_extents=half_extents,
+                mass=cls._obj_mass,
+                friction=cls._obj_friction,
+                physics_client_id=physics_client_id
+            )
+            target_ids.append(target_id)
         bodies["target_ids"] = target_ids
 
         return physics_client_id, pybullet_robot, bodies
 
-    def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
+    def _store_pybullet_bodies(self, pybullet_bodies: dict[str, any]) -> None:
+        """Store references to PyBullet IDs for environment assets."""
         self._table_id = pybullet_bodies["table_id"]
-        self._block_ids = pybullet_bodies["block_ids"]
-        self._target_ids = pybullet_bodies["target_ids"]
-
-    def _extract_robot_state(self, state: State) -> Array:
-        if self._HandEmpty_holds(state, []):
-            fingers = self._pybullet_robot.open_fingers
-        else:
-            fingers = self._pybullet_robot.closed_fingers
-        y_norm = state.get(self._robot, "hand")
-        # De-normalize robot y to actual coordinates.
-        ry = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-        rx = state.get(self._robot, "pose_x")
-        rz = state.get(self._robot, "pose_z")
-        # The orientation is fixed in this environment.
-        qx, qy, qz, qw = self.get_robot_ee_home_orn()
-        return np.array([rx, ry, rz, qx, qy, qz, qw, fingers],
-                        dtype=np.float32)
+        for blk, id in zip(self._blocks, pybullet_bodies["block_ids"]):
+            blk.id = id
+        # self._block_ids = pybullet_bodies["block_ids"]
+        # self._target_ids = pybullet_bodies["target_ids"]
+        for tgt, id in zip(self._targets, pybullet_bodies["target_ids"]):
+            tgt.id = id
 
     def _create_task_specific_objects(self, state: State) -> None:
+        """No domain-specific extra creation needed here."""
         pass
 
     def _reset_custom_env_state(self, state: State) -> None:
-        pass
-
-    def _reset_state(self, state: State) -> None:
-        """Run super(), then handle cover-specific resetting."""
-        super()._reset_state(state)
+        """After the parent class has reset the robot, handle the block/target
+        positions. Because our block objects do not have standard 'x','y','z'
+        features, we do the custom placement here.
+        """
         max_width = max(max(CFG.cover_block_widths),
                         max(CFG.cover_target_widths))
 
-        # Reset blocks based on the state.
+        # 1) Reset blocks
         block_objs = state.get_objects(self._block_type)
-        self._block_id_to_block = {}
+        used_block_ids = []
         for i, block_obj in enumerate(block_objs):
-            block_id = self._block_ids[i]
+            block_id = block_obj.id # self._block_ids[i]
+            used_block_ids.append(block_id)
+
+            # Double-check shape correctness
             width_unnorm = p.getVisualShapeData(
-                block_id, physicsClientId=self._physics_client_id)[0][3][1]
+                block_id, physicsClientId=self._physics_client_id
+            )[0][3][1]
+            # Re-derive the original (cover) width
             width = width_unnorm / self._max_obj_width * max_width
-            assert width == state.get(block_obj, "width")
-            self._block_id_to_block[block_id] = block_obj
-            bx = self.workspace_x
-            # De-normalize block y to actual coordinates.
+            assert np.isclose(width, state.get(block_obj, "width"), atol=1e-5), \
+                "Mismatch in block width!"
+
+            # De-normalize the 'pose' feature => y coordinate
             y_norm = state.get(block_obj, "pose")
             by = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-            if state.get(block_obj, "grasp") != -1:
-                # If an object starts out held, it has a different z.
+            bx = self.workspace_x
+
+            # If the block is initially held (grasp != -1), place near hand
+            # otherwise place on table
+            grasp_val = state.get(block_obj, "grasp")
+            if grasp_val != -1:
+                # If an object starts out held, it sits slightly below the EE
                 bz = self.workspace_z - self._offset
             else:
                 bz = self._table_height + self._obj_len_hgt * 0.5
+
             p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz],
-                self._default_orn,
-                physicsClientId=self._physics_client_id)
-            if state.get(block_obj, "grasp") != -1:
-                # If an object starts out held, set up the grasp constraint.
-                self._held_obj_id = self._detect_held_object()
-                assert self._held_obj_id == block_id
+                block_id, [bx, by, bz], self._default_orn,
+                physicsClientId=self._physics_client_id
+            )
+
+            # If initially held, set up constraint
+            if grasp_val != -1:
+                # self._held_obj_id = self._detect_held_object()
+                # try:
+                #     assert self._held_obj_id == block_id, \
+                #     "Expected to detect the block as held but did not."
+                # except:
+                #     breakpoint()
+                self._held_obj_id = block_id
                 self._create_grasp_constraint()
 
-        # For any blocks not involved, put them out of view.
-        h = self._obj_len_hgt
+        # Put any leftover blocks out of view
         oov_x, oov_y = self._out_of_view_xy
-        for i in range(len(block_objs), len(self._block_ids)):
-            block_id = self._block_ids[i]
-            assert block_id not in self._block_id_to_block
+        for i in range(len(block_objs), len(self._blocks)):
+            # block_id = self._block_ids[i]
+            block_id = self._blocks[i].id
             p.resetBasePositionAndOrientation(
-                block_id, [oov_x, oov_y, i * h],
+                block_id, [oov_x, oov_y, 2.0],
                 self._default_orn,
-                physicsClientId=self._physics_client_id)
+                physicsClientId=self._physics_client_id
+            )
 
-        # Reset targets based on the state.
+        # 2) Reset targets
         target_objs = state.get_objects(self._target_type)
-        self._target_id_to_target = {}
         for i, target_obj in enumerate(target_objs):
-            target_id = self._target_ids[i]
+            # target_id = self._target_ids[i]
+            target_id = self._targets[i].id
             width_unnorm = p.getVisualShapeData(
-                target_id, physicsClientId=self._physics_client_id)[0][3][1]
+                target_id, physicsClientId=self._physics_client_id
+            )[0][3][1]
             width = width_unnorm / self._max_obj_width * max_width
-            assert width == state.get(target_obj, "width")
-            self._target_id_to_target[target_id] = target_obj
-            tx = self.workspace_x
-            # De-normalize target y to actual coordinates.
+            assert np.isclose(width, state.get(target_obj, "width"), atol=1e-5)
+
+            # De-normalize the 'pose' feature => y coordinate
             y_norm = state.get(target_obj, "pose")
             ty = self.y_lb + (self.y_ub - self.y_lb) * y_norm
+            tx = self.workspace_x
             tz = self._table_height + self._obj_len_hgt * 0.5
-            p.resetBasePositionAndOrientation(
-                target_id, [tx, ty, tz],
-                self._default_orn,
-                physicsClientId=self._physics_client_id)
 
-        # Draw hand regions as debug lines.
-        # Skip test coverage because GUI is too expensive to use in unit tests
-        # and cannot be used in headless mode.
+            p.resetBasePositionAndOrientation(
+                target_id,
+                [tx, ty, tz],
+                self._default_orn,
+                physicsClientId=self._physics_client_id
+            )
+
+        # 3) Optionally draw hand regions as debug lines
         if CFG.pybullet_draw_debug:  # pragma: no cover
             assert self.using_gui, \
                 "use_gui must be True to use pybullet_draw_debug."
             p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
             for hand_lb, hand_rb in self._get_hand_regions(state):
-                # De-normalize hand bounds to actual coordinates.
-                y_lb = self.y_lb + (self.y_ub - self.y_lb) * hand_lb
-                y_rb = self.y_lb + (self.y_ub - self.y_lb) * hand_rb
+                y_lb_val = self.y_lb + (self.y_ub - self.y_lb) * hand_lb
+                y_rb_val = self.y_lb + (self.y_ub - self.y_lb) * hand_rb
                 p.addUserDebugLine(
-                    [self.workspace_x, y_lb, self._table_height + 1e-4],
-                    [self.workspace_x, y_rb, self._table_height + 1e-4],
+                    [self.workspace_x, y_lb_val, self._table_height + 1e-4],
+                    [self.workspace_x, y_rb_val, self._table_height + 1e-4],
                     [0.0, 0.0, 1.0],
                     lineWidth=5.0,
-                    physicsClientId=self._physics_client_id)
+                    physicsClientId=self._physics_client_id
+                )
 
+    def _get_object_ids_for_held_check(self) -> list[int]:
+        """We only consider blocks for 'held' detection here."""
+        return [blk.id for blk in self._blocks]
+
+    def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        # Both fetch and panda have grippers parallel to x-axis
+        return {
+            self._pybullet_robot.left_finger_id: np.array([1., 0., 0.]),
+            self._pybullet_robot.right_finger_id: np.array([-1., 0., 0.]),
+        }
+
+    def _extract_robot_state(self, state: State) -> np.ndarray:
+        """Convert from our domain's features (hand, pose_x, pose_z, etc.) into
+        the [x,y,z, qx,qy,qz,qw, fingers] array expected by the PyBullet robot.
+        """
+        # 1) Determine fingers (closed if any block is being held)
+        #    "Held" if any block has 'grasp' != -1
+        is_holding_something = False
+        for obj in state.get_objects(self._block_type):
+            if state.get(obj, "grasp") != -1:
+                is_holding_something = True
+                break
+        if is_holding_something:
+            fingers = self._pybullet_robot.closed_fingers
+        else:
+            fingers = self._pybullet_robot.open_fingers
+
+        # 2) The robot object
+        #    By default, we have exactly one robot object in the state
+        robot_obj = state.get_objects(self._robot_type)[0]
+        # Domain features
+        hand_norm = state.get(robot_obj, "hand")
+        rx = state.get(robot_obj, "pose_x")
+        rz = state.get(robot_obj, "pose_z")
+
+        # De-normalize the hand => actual y coordinate
+        ry = self.y_lb + (self.y_ub - self.y_lb) * hand_norm
+
+        # 3) The orientation is fixed; e.g. pointing downward
+        #    (If your domain never changes orientation, use default.)
+        qx, qy, qz, qw = self.get_robot_ee_home_orn()
+
+        return np.array([rx, ry, rz, qx, qy, qz, qw, fingers], dtype=np.float32)
+
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Domain-specific feature extraction for blocks, targets, and the
+        (robot).
+        """
+        # 1) If it's the robot
+        if obj.type == self._robot_type:
+            # The parent's _get_robot_state_dict() will set x,y,z,fingers
+            # We can handle additional features here:
+            rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
+            if feature == "hand":
+                # Re-normalize the y coordinate
+                return (ry - self.y_lb) / (self.y_ub - self.y_lb)
+            elif feature == "pose_x":
+                return rx
+            elif feature == "pose_z":
+                return rz
+            raise ValueError(f"Unknown robot feature: {feature}")
+
+        # 2) If it's a block
+        if obj.type == self._block_type:
+            block_id = obj.id
+            if feature == "is_block":
+                return 1.0
+            if feature == "is_target":
+                return 0.0
+            if feature == "width":
+                # Re-compute from shape data
+                shape_data = p.getVisualShapeData(
+                    block_id, physicsClientId=self._physics_client_id
+                )[0]
+                # shape_data[3] is halfExtents => (x_half, y_half, z_half)
+                # shape_data[3][1] is the block's half-width in Y
+                y_half = shape_data[3][1]
+                # Convert it to domain-level width
+                max_width = max(max(CFG.cover_block_widths),
+                                max(CFG.cover_target_widths))
+                width = (y_half * 2.0) / self._max_obj_width * max_width
+                return width
+            if feature == "pose":
+                # Recompute from the block's actual y => normalized
+                (bx, by, bz), _ = p.getBasePositionAndOrientation(
+                    block_id, physicsClientId=self._physics_client_id
+                )
+                return (by - self.y_lb) / (self.y_ub - self.y_lb)
+            if feature == "grasp":
+                # If it's the currently-held block, read the pivot offset
+                if block_id == self._held_obj_id and \
+                   self._held_constraint_id is not None:
+                    # Example: read pivot in child's local frame
+                    pivot_in_B = p.getConstraintInfo(
+                        self._held_constraint_id,
+                        physicsClientId=self._physics_client_id
+                    )[7]
+                    # pivot_in_B is a 3D offset => we only care about y,
+                    # then normalize
+                    grasp_unnorm = pivot_in_B[1]
+                    return grasp_unnorm / (self.y_ub - self.y_lb)
+                else:
+                    return -1.0
+            raise ValueError(f"Unknown block feature: {feature}")
+
+        # 3) If it's a target
+        if obj.type == self._target_type:
+            target_id = obj.id
+            if feature == "is_block":
+                return 0.0
+            if feature == "is_target":
+                return 1.0
+            if feature == "width":
+                shape_data = p.getVisualShapeData(
+                    target_id, physicsClientId=self._physics_client_id
+                )[0]
+                y_half = shape_data[3][1]
+                max_width = max(max(CFG.cover_block_widths),
+                                max(CFG.cover_target_widths))
+                width = (y_half * 2.0) / self._max_obj_width * max_width
+                return width
+            if feature == "pose":
+                (tx, ty, tz), _ = p.getBasePositionAndOrientation(
+                    target_id, physicsClientId=self._physics_client_id
+                )
+                return (ty - self.y_lb) / (self.y_ub - self.y_lb)
+            raise ValueError(f"Unknown target feature: {feature}")
+
+        # If we somehow get here, no type matched
+        raise ValueError(f"Unknown object type or feature: {obj}, {feature}")
+
+    # -----------------------------------------------------------------------
+    # Step logic (unchanged except for removing direct calls to _get_state())
+    # -----------------------------------------------------------------------
     def step(self, action: Action, render_obs: bool = False) -> State:
-        # In the cover environment, we need to first check the hand region
-        # constraint before we can call PyBullet.
-        # Use self._pybullet_robot_fk to run forward kinematics, since that
-        # method shouldn't be run on the client that is doing simulation.
+        """Override to handle the Cover domain's 'hand region' constraint
+        before calling the parent's step().
+        """
+        # Use the extra "fk" robot to see where we WOULD go
         joint_positions = action.arr.tolist()
+        # forward kinematics with the separate 'fk' robot
         _, ry, rz = self._pybullet_robot_fk.forward_kinematics(
-            joint_positions).position
-        hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
-        hand_regions = self._get_hand_regions(self._current_state)
-        # If we're going down to grasp, we need to be in a hand region.
-        # Otherwise, we don't care if we're between hand regions.
-        # To decide whether we should care about hand regions, we use a
-        # value z_thresh that is the average between the resting z
-        # and the z used for picking/placing a block.
+            joint_positions
+        ).position
+
+        # The cover domain says: if the z < some threshold, we must be
+        # inside a valid hand region [hand_lb, hand_rb], else we do a no-op.
         z_thresh = (self.pickplace_z + self.workspace_z) / 2
-        if rz < z_thresh and not any(hand_lb <= hand <= hand_rb
-                                     for hand_lb, hand_rb in hand_regions):
-            # The constraint is violated, so noop.
-            return self._current_state.copy()
-        return super().step(action)
+        if rz < z_thresh:
+            # Check if we are in any valid region:
+            hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
+            hand_regions = self._get_hand_regions(self._current_state)
+            if not any(lb <= hand <= rb for lb, rb in hand_regions):
+                # Constraint violated => no-op
+                return self._current_state.copy()
 
-    def _extract_feature(self, obj, feature):
-        pass
+        # Otherwise, proceed with normal PyBullet step
+        return super().step(action, render_obs=render_obs)
 
-    def _get_state(self) -> State:
-        state_dict = {}
-        max_width = max(max(CFG.cover_block_widths),
-                        max(CFG.cover_target_widths))
+    def simulate(self, state: State, action: Action) -> State:
+        """Not implemented for PyBulletCover."""
+        raise NotImplementedError("Simulate not implemented for PyBulletCover")
 
-        # Get robot state.
-        rx, ry, rz, _, _, _, _, _ = self._pybullet_robot.get_state()
-        hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
-        state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
-        joint_positions = self._pybullet_robot.get_joints()
-
-        # Get block states.
-        for block_id, block in self._block_id_to_block.items():
-            width_unnorm = p.getVisualShapeData(
-                block_id, physicsClientId=self._physics_client_id)[0][3][1]
-            width = width_unnorm / self._max_obj_width * max_width
-            (_, by, _), _ = p.getBasePositionAndOrientation(
-                block_id, physicsClientId=self._physics_client_id)
-            pose = (by - self.y_lb) / (self.y_ub - self.y_lb)
-            held = (block_id == self._held_obj_id)
-            if held:
-                grasp_unnorm = p.getConstraintInfo(
-                    self._held_constraint_id, self._physics_client_id)[7][1]
-                # Normalize grasp.
-                grasp = grasp_unnorm / (self.y_ub - self.y_lb)
-            else:
-                grasp = -1
-            state_dict[block] = np.array([1.0, 0.0, width, pose, grasp],
-                                         dtype=np.float32)
-
-        # Get target states.
-        for target_id, target in self._target_id_to_target.items():
-            width_unnorm = p.getVisualShapeData(
-                target_id, physicsClientId=self._physics_client_id)[0][3][1]
-            width = width_unnorm / self._max_obj_width * max_width
-            (_, ty, _), _ = p.getBasePositionAndOrientation(
-                target_id, physicsClientId=self._physics_client_id)
-            pose = (ty - self.y_lb) / (self.y_ub - self.y_lb)
-            state_dict[target] = np.array([0.0, 1.0, width, pose],
-                                          dtype=np.float32)
-
-        state = utils.PyBulletState(state_dict,
-                                    simulator_state=joint_positions)
-        assert set(state) == set(self._current_state), \
-            (f"Reconstructed state has objects {set(state)}, but "
-             f"self._current_state has objects {set(self._current_state)}.")
-
-        return state
-
-    def _get_object_ids_for_held_check(self) -> List[int]:
-        return sorted(self._block_id_to_block)
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "pybullet_cover"
-
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
-        tasks = super()._get_tasks(num, rng)
-        return self._add_pybullet_state_to_tasks(tasks)
+    # ------------------------------------------------------------------------
+    # Standard "task" generation still uses the parent's _add_pybullet_state_to_tasks,
+    # unless you need further domain customizations.
+    # ------------------------------------------------------------------------

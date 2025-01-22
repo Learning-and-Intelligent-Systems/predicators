@@ -202,6 +202,8 @@ def create_change_fingers_option(
         target = np.array(state.joint_positions, dtype=np.float32)
         target[robot.left_finger_joint_idx] = f_action
         target[robot.right_finger_joint_idx] = f_action
+        # logging.debug(f"[policy] current_val: {current_val}, target_val: {target_val}, "
+        #               f"f_action: {f_action})")
         # This clipping is needed sometimes for the joint limits.
         target = np.clip(target, robot.action_space.low,
                          robot.action_space.high)
@@ -214,8 +216,8 @@ def create_change_fingers_option(
         current_val, target_val = get_current_and_target_val(
             state, objects, params)
         squared_dist = (target_val - current_val)**2
-        logging.debug(f"current_val: {current_val}, target_val: {target_val}, "
-                      f"squared_dist: {squared_dist}, grasp_tol: {grasp_tol}")
+        # logging.debug(f"[terminal] current_val: {current_val}, target_val: {target_val}, "
+        #               f"squared_dist: {squared_dist}, grasp_tol: {grasp_tol}")
         return squared_dist < grasp_tol
 
     return ParameterizedOption(name,

@@ -49,6 +49,9 @@ class CoverEnv(BaseEnv):
                                   self._Holding_holds)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._blocks = []
+        self._targets = []
+        self._create_blocks_and_targets()
 
     @classmethod
     def get_name(cls) -> str:
@@ -231,19 +234,16 @@ class CoverEnv(BaseEnv):
         return hand_regions
 
     def _create_blocks_and_targets(self) -> Tuple[List[Object], List[Object]]:
-        blocks = []
-        targets = []
         for i in range(CFG.cover_num_blocks):
-            blocks.append(Object(f"block{i}", self._block_type))
+            self._blocks.append(Object(f"block{i}", self._block_type))
         for i in range(CFG.cover_num_targets):
-            targets.append(Object(f"target{i}", self._target_type))
-        return blocks, targets
+            self._targets.append(Object(f"target{i}", self._target_type))
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Create blocks and targets.
-        blocks, targets = self._create_blocks_and_targets()
+        blocks, targets = self._blocks, self._targets
         # Create goals.
         goal1 = {GroundAtom(self._Covers, [blocks[0], targets[0]])}
         goals = [goal1]

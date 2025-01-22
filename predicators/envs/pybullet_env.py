@@ -331,8 +331,11 @@ class PyBulletEnv(BaseEnv):
         # standard features: x, y, z, rot, is_held.
 
         # 1) Position/orientation if those features exist
+        # try:
         cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(
             obj.id, physicsClientId=self._physics_client_id)[0]
+        # except:
+        #     breakpoint()
         px = state.get(obj, "x") if "x" in obj.type.feature_names else cur_x
         py = state.get(obj, "y") if "y" in obj.type.feature_names else cur_y
         pz = state.get(obj, "z") if "z" in obj.type.feature_names else cur_z
@@ -418,7 +421,10 @@ class PyBulletEnv(BaseEnv):
             state_dict[obj] = obj_dict
 
         # Convert to a PyBulletState
+        # try:
         state = utils.create_state_from_dict(state_dict)
+        # except:
+        #     breakpoint()
         joint_positions = self._pybullet_robot.get_joints()
         pyb_state = PyBulletState(
             state.data, simulator_state={"joint_positions": joint_positions})
@@ -432,13 +438,18 @@ class PyBulletEnv(BaseEnv):
         """Get dict state of the robot."""
         r_dict = {}
         r_features = self._robot.type.feature_names
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        r_dict.update({"x": rx, "y": ry, "z": rz, "fingers": rf})
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        if "tilt" in r_features:
-            r_dict["tilt"] = tilt
-        if "wrist" in r_features:
-            r_dict["wrist"] = wrist
+        if CFG.env == "pybullet_cover":
+            rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
+            hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
+            r_dict.update({"hand": hand, "pose_x": rx, "pose_z": rz})
+        else:
+            rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
+            r_dict.update({"x": rx, "y": ry, "z": rz, "fingers": rf})
+            _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
+            if "tilt" in r_features:
+                r_dict["tilt"] = tilt
+            if "wrist" in r_features:
+                r_dict["wrist"] = wrist
         return r_dict
 
     def render(self,
@@ -582,9 +593,11 @@ class PyBulletEnv(BaseEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and self._fingers_closing(action):
+            # logging.debug("Finger closing")
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
             # logging.debug(f"Detected held object: {self._held_obj_id}")
+            # breakpoint()
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
 
