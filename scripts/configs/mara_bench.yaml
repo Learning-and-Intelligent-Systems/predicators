@@ -1,4 +1,6 @@
 # Config file for generating the mara_bench videos
+# Excample run: 
+#    python scripts/local/launch_simp.py -c mara_bench.yaml
 ---
 APPROACHES:
   oracle:
@@ -7,12 +9,18 @@ APPROACHES:
     # ARGS:
 
 ENVS:
-  cf_cover:
-    NAME: "pybullet_cover"
+  blocks:
+    NAME: "pybullet_blocks"
+  blocks_cf:
+    NAME: "pybullet_blocks"
     FLAGS:
-      cover_blocks_change_color_when_cover: True
-  cover:
-    NAME: "pybullet_cover"
+      blocks_high_towers_are_unstable: True
+  # cover_cf:
+  #   NAME: "pybullet_cover"
+  #   FLAGS:
+  #     cover_blocks_change_color_when_cover: True
+  # cover:
+  #   NAME: "pybullet_cover"
 
 ARGS:
   - "debug"
@@ -21,12 +29,17 @@ ARGS:
   - "make_failure_videos"
   - "make_test_videos"
 FLAGS:
+  # This is particularly useful in some envs. In blocks with high towers are
+  # unstable, this is useful to capture the unstability and to avoid force from
+  # the prev. episode to affect the current episode.
+  terminate_on_goal_reached: False
   num_train_tasks: 1
   num_test_tasks: 1
   video_fps: 20
   pybullet_camera_height: 900
   pybullet_camera_width: 900
   use_counterfactual_dataset_path_name: True
+  keep_failed_demos: True
 START_SEED: 0
 NUM_SEEDS: 1
 # 

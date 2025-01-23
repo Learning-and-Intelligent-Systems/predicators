@@ -82,6 +82,7 @@ class GlobalSettings:
     blocks_num_blocks_test = [5, 6]
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
+    blocks_high_towers_are_unstable = False
 
     # balance env parameters
     balance_num_blocks_train = [2, 4]
@@ -495,6 +496,7 @@ class GlobalSettings:
     video_fps = 2
     failure_video_mode = "longest_only"
     terminate_on_goal_reached = True
+    keep_failed_demos = False # For saving videos
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
