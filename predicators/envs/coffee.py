@@ -46,8 +46,8 @@ class CoffeeEnv(BaseEnv):
     robot_init_z: ClassVar[float] = z_ub
     robot_init_tilt: ClassVar[float] = 0.0
     robot_init_wrist: ClassVar[float] = 0.0
-    open_fingers: ClassVar[float] = 0.4
-    closed_fingers: ClassVar[float] = 0.1
+    open_fingers: ClassVar[float] = 0.04
+    closed_fingers: ClassVar[float] = 0.01
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)  # 0.1
     machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)  # 0.2

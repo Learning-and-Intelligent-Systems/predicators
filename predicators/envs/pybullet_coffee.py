@@ -335,7 +335,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         for i, cup_obj in enumerate(cup_objs):
             cup_cap = state.get(cup_obj, "capacity_liquid")
             global_scale = 0.5 * cup_cap / self.cup_capacity_ub
-            color = random.choice(self.cup_colors)
+            color = self._obj_colors[self._train_rng.choice(
+                len(self._obj_colors))]
             if CFG.coffee_use_pixelated_jug:
                 file = "urdf/pot-pixel.urdf"
                 global_scale *= 0.5
@@ -390,7 +391,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                    physicsClientId=self._physics_client_id)
                 self._machine_plugged_in_id = None
             # Rebuild the cord chain
-            self._cord_ids = self._add_pybullet_cord(self._physics_client_id)
+            self._cord_ids, self._cord_constraints = self._add_pybullet_cord(
+                    self._physics_client_id)
             self._plug.id = self._cord_ids[-1]
 
     def _reset_custom_env_state(self, state: State) -> None:
@@ -513,6 +515,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 -1,
                                 rgbaColor=self.button_color_off,
                                 physicsClientId=self._physics_client_id)
+            if CFG.coffee_plug_break_after_plugged_in:
+                p.removeConstraint(self._cord_constraints[2],
+                                   physicsClientId=self._physics_client_id)
 
     def _handle_machine_on_and_jug_filling(self, state: State) -> None:
         """If the robot is pressing the machine button, turn on the machine and
@@ -978,6 +983,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Rope parameters
         base_position = [cls.cord_start_x, cls.cord_start_y, cls.cord_start_z]
         segments = []
+        constraint_ids = []
 
         # Create rope segments
         for i in range(cls.num_cord_links):
@@ -1030,7 +1036,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Connect segments with joints
         half_gap = cls.cord_segment_gap / 2
         for i in range(len(segments) - 1):
-            p.createConstraint(
+            constraint_id = p.createConstraint(
                 parentBodyUniqueId=segments[i],
                 parentLinkIndex=-1,
                 childBodyUniqueId=segments[i + 1],
@@ -1041,13 +1047,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                     -cls.cord_link_length / 2 - half_gap, 0, 0
                 ],
                 childFramePosition=[cls.cord_link_length / 2 + half_gap, 0, 0])
+            constraint_ids.append(constraint_id)
             # Adjust constraint parameters for softness
             # p.changeConstraint(
             #     constraint_id,
             #     maxForce=0.1,    # Lower max force for flexibility
             #     erp=0.1         # Adjust error reduction parameter
             # )
-        return segments
+        return segments, constraint_ids
 
     @classmethod
     def _add_pybullet_socket(cls, physics_client_id: int) -> None:

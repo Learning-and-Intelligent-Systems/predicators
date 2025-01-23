@@ -991,10 +991,12 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     finger_status="closed")
 
             # Move backward and to a safe moving height.
+            dwrist = cls.env_cls.robot_init_wrist - state.get(robot, "wrist")
             return cls._get_move_action(
                 state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
                 dtilt=0.0,
+                dwrist=dwrist,
                 finger_status="closed")
 
         return policy
