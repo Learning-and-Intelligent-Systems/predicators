@@ -16,6 +16,7 @@ from predicators.envs.cover import CoverEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.pybullet_helpers.objects import update_object
 from predicators.settings import CFG
 from predicators.structs import Action, Object, State, Array
 
@@ -40,6 +41,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     # Object parameters
     _obj_len_hgt: ClassVar[float] = 0.045
     _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
+    _block_cover_color: ClassVar[Array] = (1.0, 1.0, 1.0, 1.0)
 
     # Dimension and workspace parameters
     y_lb: ClassVar[float] = 0.4
@@ -164,27 +166,21 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         # 1) Reset blocks
         block_objs = state.get_objects(self._block_type)
-        used_block_ids = []
         for i, block_obj in enumerate(block_objs):
-            block_id = block_obj.id # self._block_ids[i]
-            used_block_ids.append(block_id)
-
             # Double-check shape correctness
             width_unnorm = p.getVisualShapeData(
-                block_id, physicsClientId=self._physics_client_id
+                block_obj.id, physicsClientId=self._physics_client_id
             )[0][3][1]
-            # Re-derive the original (cover) width
             width = width_unnorm / self._max_obj_width * max_width
-            assert np.isclose(width, state.get(block_obj, "width"), atol=1e-5), \
+            assert np.isclose(width, state.get(block_obj, "width"), atol=1e-5),\
                 "Mismatch in block width!"
 
+            # Set x, y, z and color
             # De-normalize the 'pose' feature => y coordinate
+            bx = self.workspace_x
             y_norm = state.get(block_obj, "pose")
             by = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-            bx = self.workspace_x
 
-            # If the block is initially held (grasp != -1), place near hand
-            # otherwise place on table
             grasp_val = state.get(block_obj, "grasp")
             if grasp_val != -1:
                 # If an object starts out held, it sits slightly below the EE
@@ -192,43 +188,31 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             else:
                 bz = self._table_height + self._obj_len_hgt * 0.5
 
-            p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz], self._default_orn,
-                physicsClientId=self._physics_client_id
-            )
+            color = self._obj_colors[i % len(self._obj_colors)]
+            update_object(block_obj.id, position=[bx, by, bz], color=color,
+                          physics_client_id=self._physics_client_id)
 
             # If initially held, set up constraint
             if grasp_val != -1:
-                # self._held_obj_id = self._detect_held_object()
-                # try:
-                #     assert self._held_obj_id == block_id, \
-                #     "Expected to detect the block as held but did not."
-                # except:
-                #     breakpoint()
-                self._held_obj_id = block_id
+                self._held_obj_id = block_obj.id
                 self._create_grasp_constraint()
 
         # Put any leftover blocks out of view
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._blocks)):
-            # block_id = self._block_ids[i]
-            block_id = self._blocks[i].id
-            p.resetBasePositionAndOrientation(
-                block_id, [oov_x, oov_y, 2.0],
-                self._default_orn,
-                physicsClientId=self._physics_client_id
-            )
+            update_object(self._blocks[i].id,
+                          position=[*self._out_of_view_xy, 2.0],
+                          physics_client_id=self._physics_client_id)
 
         # 2) Reset targets
         target_objs = state.get_objects(self._target_type)
         for i, target_obj in enumerate(target_objs):
-            # target_id = self._target_ids[i]
-            target_id = self._targets[i].id
             width_unnorm = p.getVisualShapeData(
-                target_id, physicsClientId=self._physics_client_id
+                target_obj.id, physicsClientId=self._physics_client_id
             )[0][3][1]
             width = width_unnorm / self._max_obj_width * max_width
-            assert np.isclose(width, state.get(target_obj, "width"), atol=1e-5)
+            assert np.isclose(width, state.get(target_obj, "width"),
+                              atol=1e-5)
 
             # De-normalize the 'pose' feature => y coordinate
             y_norm = state.get(target_obj, "pose")
@@ -236,12 +220,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             tx = self.workspace_x
             tz = self._table_height + self._obj_len_hgt * 0.5
 
-            p.resetBasePositionAndOrientation(
-                target_id,
-                [tx, ty, tz],
-                self._default_orn,
-                physicsClientId=self._physics_client_id
-            )
+            update_object(target_obj.id, position=[tx, ty, tz],
+                          physics_client_id=self._physics_client_id)
 
         # 3) Optionally draw hand regions as debug lines
         if CFG.pybullet_draw_debug:  # pragma: no cover
@@ -404,7 +384,22 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         # Otherwise, proceed with normal PyBullet step
         next_state = super().step(action, render_obs=render_obs)
+
+        if CFG.cover_blocks_change_color_when_cover:
+            self._change_block_color_when_cover(next_state)
         return next_state
+    
+    def _change_block_color_when_cover(self, state: State) -> None:
+        """If a block is now covering a target, change it's color to 
+        self.block_cover_color.
+        """
+        for block_obj in state.get_objects(self._block_type):
+            # Check if the block is covering any target
+            for target_obj in state.get_objects(self._target_type):
+                if self._Covers_holds(state, [block_obj, target_obj]):
+                    update_object(block_obj.id, color=self._block_cover_color,
+                                   physics_client_id=self._physics_client_id)
+                    break
     
     def _satisfies_hand_contraints(self, action: Action) -> bool:
         joint_positions = action.arr.tolist()

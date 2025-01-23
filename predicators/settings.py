@@ -65,6 +65,7 @@ class GlobalSettings:
     cover_multistep_bhr_percent = 0.4  # block hand region percent of width
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
+    cover_blocks_change_color_when_cover = False
 
     # bumpy cover env parameters
     bumpy_cover_num_bumps = 2

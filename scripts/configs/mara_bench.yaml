@@ -7,11 +7,12 @@ APPROACHES:
     # ARGS:
 
 ENVS:
-  cover:
+  cf_cover:
     NAME: "pybullet_cover"
-  # cf_cover:
+    FLAGS:
+      cover_blocks_change_color_when_cover: True
+  # cover:
   #   NAME: "pybullet_cover"
-  #   FLAGS:
 
 ARGS:
   - "debug"
