@@ -91,15 +91,41 @@ class PyBulletEnv(BaseEnv):
     def initialize_pybullet(
             cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        """Returns physics client ID, robot, and dictionary containing other
-        object IDs and any other info from pybullet that needs to be tracked.
+        """
+        Initialize the PyBullet environment.
 
-        This is a public class method because the oracle options use it
-        too.
+        This method initializes the PyBullet physics simulation, loads the robot
+        and shared object models, and returns the physics client ID, the robot
+        instance, and a dictionary containing other object IDs and any additional
+        information that needs to be tracked.
 
-        Subclasses may override to load additional assets.
-        In the subclass, register all the obj ids here and move them out of view
-        in reset_custom_env_state.
+        Args:
+            using_gui (bool): If True, the PyBullet GUI will be used. Otherwise,
+                            the simulation will run in headless mode.
+
+        Returns:
+            Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+                - int: The physics client ID.
+                - SingleArmPyBulletRobot: The robot instance.
+                - Dict[str, Any]: A dictionary containing object IDs and other
+                                information from PyBullet that needs to be 
+                                tracked.
+
+        Notes:
+            - This is a public class method because it is also used by the 
+            oracle options.
+            - This method loads object models that are shared across tasks. 
+            These objects can have different poses or colors, and the number of
+            objects can vary across tasks (e.g., the number of blocks in the
+            blocks domain). However, an object's size cannot be changed after
+            loading.
+            - Task-specific objects that need to be loaded with different sizes
+            or other properties should be handled in the 
+            `_create_task_specific_objects` method, which is called during each
+            task's reset.
+            - Subclasses may override this method to load additional assets. In
+            the subclass, register all object IDs here and move them out of view
+            in the `reset_custom_env_state` method.
         """
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
