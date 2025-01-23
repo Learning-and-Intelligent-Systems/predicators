@@ -595,6 +595,26 @@ class PyBulletEnv(BaseEnv):
         return state_copy
 
     def step(self, action: Action, render_obs: bool = False) -> Observation:
+        """Execute one environment step with the given action.
+        
+        This method handles:
+        1. Robot joint control by converting action to target positions
+        2. Management of held objects and grasping constraints
+        3. Physics simulation stepping
+        4. Object grasp detection and constraint creation/removal
+        5. `self._current_observation` update
+        
+        Args:
+            action (Action): The action to execute, containing target joint
+            positions
+            render_obs (bool, optional): Whether to include RGB observation. 
+                Defaults to False.
+                
+        Returns:
+            Observation: Updated environment observation after executing the
+            action. May include an image if render_obs=True or
+            CFG.rgb_observation=True.
+        """
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()
         self._pybullet_robot.set_motors(target_joint_positions)
