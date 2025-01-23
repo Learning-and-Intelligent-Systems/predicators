@@ -9,6 +9,7 @@ python predicators/main.py --approach oracle --env pybullet_cover --seed 0 \
 from typing import Any, ClassVar, Dict, List
 
 import numpy as np
+import random
 import pybullet as p
 
 from predicators import utils
@@ -126,7 +127,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             width = (CFG.cover_target_widths[i]
                      / max_width * cls._max_obj_width)
             half_extents = (
-                cls._obj_len_hgt / 2.0,
+                cls._obj_len_hgt * 2,
                 width / 2.0,
                 cls._target_height / 2.0
             )
@@ -188,7 +189,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             else:
                 bz = self._table_height + self._obj_len_hgt * 0.5
 
-            color = self._obj_colors[i % len(self._obj_colors)]
+            # color = self._obj_colors[i % len(self._obj_colors)]
+            # Sample a color from self._obj_colors
+            color = self._obj_colors[self._train_rng.choice(len(self._obj_colors))]
             update_object(block_obj.id, position=[bx, by, bz], color=color,
                           physics_client_id=self._physics_client_id)
 
@@ -220,7 +223,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             tx = self.workspace_x
             tz = self._table_height + self._obj_len_hgt * 0.5
 
-            update_object(target_obj.id, position=[tx, ty, tz],
+            color = self._obj_colors[self._train_rng.choice(len(self._obj_colors))]
+            color = (color[0], color[1], color[2], 0.5)  # semi-transparent
+            update_object(target_obj.id, position=[tx, ty, tz], color=color,
                           physics_client_id=self._physics_client_id)
 
         # 3) Optionally draw hand regions as debug lines
