@@ -192,7 +192,8 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                         utils.OptionExecutionFailure,
                         utils.HumanDemonstrationFailure,
                     },
-                    monitor=video_monitor)
+                    monitor=video_monitor,
+                    terminate_on_goal_reached=CFG.terminate_on_goal_reached)
             else:  # pragma: no cover
                 # Otherwise, we get human input demos.
                 caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
@@ -216,6 +217,12 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
+            # When generating mara counterfactual videos, we want it to save the
+            # video even with ApproachFailure, which could happen if we set
+            # terminate_on_goal_reached to False. Because we will encounter
+            # ApproachFailure('Option plan exhausted!')
+            if CFG.keep_failed_demos:
+                make_demo_videos(video_monitor, idx)
             continue
         # Check that the goal holds at the end. Print a warning if not.
         if not task.goal_holds(traj.states[-1]):  # pragma: no cover
@@ -246,14 +253,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
             annotations.append(list(last_nsrt_plan))
         if CFG.make_demo_videos:
-            assert video_monitor is not None
-            video = video_monitor.get_video()
-            if CFG.use_counterfactual_dataset_path_name:
-                outfile = f"{CFG.env}__{CFG.seed}__{CFG.experiment_id}"+\
-                                f"__support__task{idx+1}.mp4"
-            else:
-                outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
-            utils.save_video(outfile, video)
+            make_demo_videos(video_monitor, idx)
         if CFG.make_demo_images:
             assert video_monitor is not None
             video = video_monitor.get_video()
@@ -266,6 +266,16 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
     else:
         dataset = Dataset(trajectories)
     return dataset
+
+def make_demo_videos(video_monitor: utils.VideoMonitor, idx: int) -> None:
+    assert video_monitor is not None
+    video = video_monitor.get_video()
+    if CFG.use_counterfactual_dataset_path_name:
+        outfile = f"{CFG.env}__{CFG.seed}__{CFG.experiment_id}"+\
+                        f"__support__task{idx+1}.mp4"
+    else:
+        outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
+    utils.save_video(outfile, video)
 
 
 def human_demonstrator_policy(env: BaseEnv, caption: str,
