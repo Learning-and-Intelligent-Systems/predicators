@@ -184,7 +184,7 @@ def main() -> None:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, approach_train_tasks)
-    if approach.is_learning_based:
+    if approach.is_learning_based or CFG.make_demo_videos:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
