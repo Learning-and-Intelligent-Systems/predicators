@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple
+from typing import Any, ClassVar, Dict, List, Tuple, Optional
 
 import numpy as np
 import pybullet as p
@@ -13,7 +13,7 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Array, EnvironmentTask, Object, State
+from predicators.structs import EnvironmentTask, Object, State, Action
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
@@ -32,6 +32,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # self._block_ids: List[int] = []
         # Maps PyBullet IDs -> BlocksEnv block objects
         self._block_id_to_block: Dict[int, Object] = {}
+        self._prev_held_obj_id: Optional[int] = None
 
     # -----------------------------------------------------------------------
     # Required Hooks
@@ -214,7 +215,21 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             raise ValueError(f"Unknown block feature: {feature}")
 
         else:
-            raise ValueError(f"Unknown object type {obj.type} or feature {feature}")
+            raise ValueError(f"Unknown object type {obj.type} or feature "
+                             f"{feature}")
+    
+    def step(self, action: Action, render_obs: bool = False) -> State:
+
+        self._prev_held_obj_id = self._held_obj_id
+        # Otherwise, proceed with normal PyBullet step
+        next_state = super().step(action, render_obs=render_obs)
+        
+        if CFG.blocks_high_towers_are_unstable:
+            self._apply_force_to_high_towers(next_state)
+            next_state = self._get_state()
+            self._current_observation = next_state
+
+        return next_state
 
     def _extract_robot_state(self, state: State) -> np.ndarray:
         """As needed, parse from the robot's `pose_x`, `pose_y`, `pose_z`,
@@ -262,6 +277,39 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # If you want a custom step() for PyBullet blocks, you can override it here.
     # However, if there's no domain-specific constraint, you might not need to.
+    def _apply_force_to_high_towers(self, state: State) -> None:
+        """Apply downward force to blocks that form towers of height 3."""
+        # Only apply force if we just released a block
+        just_released_obj = self._just_released_object(state)
+        # logging.debug(f"just_released_obj: {just_released_obj}")
+        if just_released_obj is None:
+            return
+        else:
+            if self._count_block_height(state, just_released_obj) >= 2:
+                # logging.info("Applying force to high tower!")
+                # Apply downward force
+                force = [0, -100, 0]  # Adjust force magnitude as needed
+                pos = p.getBasePositionAndOrientation(
+                    just_released_obj.id, 
+                    physicsClientId=self._physics_client_id)[0]
+                p.applyExternalForce(
+                    just_released_obj.id,
+                    -1,  # -1 for base link
+                    force,
+                    pos,
+                    p.WORLD_FRAME,
+                    physicsClientId=self._physics_client_id)
+        return
+
+    def _just_released_object(self, state: State) -> bool:
+        """Check if we just released an object in this step."""
+        # return the block Object that just released
+        if self._held_obj_id is None and self._prev_held_obj_id is not None:
+            for block_obj in state.get_objects(self._block_type):
+                if block_obj.id == self._prev_held_obj_id:
+                    return block_obj
+        else:
+            return None
 
     # -----------------------------------------------------------------------
     # Task Generation
