@@ -1,7 +1,7 @@
 # Config file for generating the mara_bench videos
 ---
 APPROACHES:
-  oracle_model:
+  oracle:
     NAME: "oracle"
     # FLAGS:
     # ARGS:
@@ -11,8 +11,8 @@ ENVS:
     NAME: "pybullet_cover"
     FLAGS:
       cover_blocks_change_color_when_cover: True
-  # cover:
-  #   NAME: "pybullet_cover"
+  cover:
+    NAME: "pybullet_cover"
 
 ARGS:
   - "debug"
@@ -26,6 +26,7 @@ FLAGS:
   video_fps: 20
   pybullet_camera_height: 900
   pybullet_camera_width: 900
+  use_counterfactual_dataset_path_name: True
 START_SEED: 0
 NUM_SEEDS: 1
 # 

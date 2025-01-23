@@ -12,15 +12,22 @@ def _main() -> None:
     parser.add_argument("-c", "--config", required=True, type=str)
     args = parser.parse_args()
 
-    # generate configs--will only take the first one
-    cfg = next(generate_run_configs(args.config))
-    cmd_str = config_to_cmd_flags(cfg)
-    # cmd_flags = shlex.split(cmd_str)
+    # # generate configs--will only take the first one
+    # cfg = next(generate_run_configs(args.config))
+    # cmd_str = config_to_cmd_flags(cfg)
+
+    cmds = []
+    # Loop through all experiments
+    for cfg in generate_run_configs(args.config):
+        cmd_str = config_to_cmd_flags(cfg)
+        cmd = f"python predicators/main.py {cmd_str}"
+        cmds.append(cmd)
 
     # run the command
-    subprocess.run(f"python predicators/main.py {cmd_str}",
-                   shell=True,
-                   check=False)
+    num_cmds = len(cmds)
+    for i, cmd in enumerate(cmds):
+        print(f"********* RUNNING COMMAND {i+1} of {num_cmds} *********")
+        subprocess.run(cmd, shell=True, check=False)
 
 
 if __name__ == "__main__":

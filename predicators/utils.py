@@ -3991,8 +3991,11 @@ def get_config_path_str(experiment_id: Optional[str] = None) -> str:
     """
     if experiment_id is None:
         experiment_id = CFG.experiment_id
-    return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{CFG.included_options}__{experiment_id}")
+    if CFG.use_counterfactual_dataset_path_name:
+        return (f"{CFG.env}__{CFG.seed}__{CFG.experiment_id}__query")
+    else:
+        return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__"
+        f"{CFG.excluded_predicates}__{CFG.included_options}__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:

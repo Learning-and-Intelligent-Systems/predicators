@@ -743,6 +743,7 @@ class GlobalSettings:
     save_eval_trajs = True
     rgb_observation = False
     render_init_state = False
+    use_counterfactual_dataset_path_name = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

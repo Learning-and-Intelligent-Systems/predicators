@@ -248,7 +248,11 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         if CFG.make_demo_videos:
             assert video_monitor is not None
             video = video_monitor.get_video()
-            outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
+            if CFG.use_counterfactual_dataset_path_name:
+                outfile = f"{CFG.env}__{CFG.seed}__{CFG.experiment_id}"+\
+                                f"__support__task{idx+1}.mp4"
+            else:
+                outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
         if CFG.make_demo_images:
             assert video_monitor is not None
