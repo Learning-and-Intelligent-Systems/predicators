@@ -416,6 +416,22 @@ class BlocksEnv(BaseEnv):
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
+    def _count_block_height(self, state: State, block: Object) -> int:
+        """Count the height of the block (number of blocks it's on)."""
+        height = 0
+        current_block = block
+        blocks = state.get_objects(self._block_type)
+        
+        while True:
+            below_blocks = [b for b in blocks if self._On_holds(state, 
+                                                        [current_block, b])]
+            if not below_blocks:
+                break
+            current_block = below_blocks[0]
+            height += 1
+        
+        return height
+
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
