@@ -306,9 +306,8 @@ class PyBulletEnv(BaseEnv):
         self._reset_state(state)
         # Converts the State into a PyBulletState.
         self._current_observation = self._get_state()
-        observation_copy = self.get_observation(render=render)
-        return observation_copy
-        # return self._current_observation.copy()
+        observation = self.get_observation(render=render)
+        return observation
 
     def _reset_state(self, state: State) -> None:
         """Reset the PyBullet state to match the given state.
@@ -581,11 +580,18 @@ class PyBulletEnv(BaseEnv):
         return state_img, mask_dict
 
     def get_observation(self, render: bool = False) -> Observation:
-        """Get the current observation of this environment."""
+        """Get the current observation of this environment.
+
+        Currently, this just return a copy of the state and optionally a
+        rendered image.
+        """
+        self._current_observation = self._get_state()
         assert isinstance(self._current_observation, PyBulletState)
         state_copy = self._current_observation.copy()
+
         if render:
             state_copy.add_images_and_masks(*self.render_segmented_obj())
+
         return state_copy
 
     def step(self, action: Action, render_obs: bool = False) -> Observation:
@@ -641,16 +647,14 @@ class PyBulletEnv(BaseEnv):
             logging.debug("Finger opening")
             self._held_obj_id = None
 
-        self._current_observation = self._get_state()
+        # self._current_observation = self._get_state()
 
         # Depending on the observation mode, either return object-centric state
         # or object_centric + rgb observation
-        observation_copy = self.get_observation(
-            render=CFG.rgb_observation or render_obs)
+        observation = self.get_observation(render=CFG.rgb_observation or\
+                                                render_obs)
 
-        return observation_copy
-        # state_copy = self._current_observation.copy()
-        # return state_copy
+        return observation
 
     def _detect_held_object(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists.

@@ -397,32 +397,31 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         """Override to handle the Cover domain's 'hand region' constraint
         before calling the parent's step().
         """
-        # Use the extra "fk" robot to see where we WOULD go
-        joint_positions = action.arr.tolist()
-        # forward kinematics with the separate 'fk' robot
-        _, ry, rz = self._pybullet_robot_fk.forward_kinematics(
-            joint_positions
-        ).position
-
-        # The cover domain says: if the z < some threshold, we must be
-        # inside a valid hand region [hand_lb, hand_rb], else we do a no-op.
-        z_thresh = (self.pickplace_z + self.workspace_z) / 2
-        if rz < z_thresh:
-            # Check if we are in any valid region:
-            hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
-            hand_regions = self._get_hand_regions(self._current_state)
-            if not any(lb <= hand <= rb for lb, rb in hand_regions):
-                # Constraint violated => no-op
-                return self._current_state.copy()
+        # Check if the pick/place position satisfies the hand constraints
+        if not self._satisfies_hand_contraints(action):
+            # Constraint violated => no-op
+            return self._current_state.copy()
 
         # Otherwise, proceed with normal PyBullet step
-        return super().step(action, render_obs=render_obs)
+        next_state = super().step(action, render_obs=render_obs)
+        return next_state
+    
+    def _satisfies_hand_contraints(self, action: Action) -> bool:
+        joint_positions = action.arr.tolist()
+        _, ry, rz = self._pybullet_robot_fk.forward_kinematics(joint_positions
+                                                               ).position
 
-    def simulate(self, state: State, action: Action) -> State:
-        """Not implemented for PyBulletCover."""
-        raise NotImplementedError("Simulate not implemented for PyBulletCover")
+        if self._is_below_z_threshold(rz):
+              return self._is_in_valid_hand_region(ry)
+        return True
 
-    # ------------------------------------------------------------------------
-    # Standard "task" generation still uses the parent's _add_pybullet_state_to_tasks,
-    # unless you need further domain customizations.
-    # ------------------------------------------------------------------------
+    def _is_below_z_threshold(self, rz: float) -> bool:
+        """Check if the z position is below the threshold."""
+        z_thresh = (self.pickplace_z + self.workspace_z) / 2
+        return rz < z_thresh
+
+    def _is_in_valid_hand_region(self, ry: float) -> bool:
+        """Check if the hand position is within any valid hand region."""
+        hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
+        hand_regions = self._get_hand_regions(self._current_state)
+        return any(lb <= hand <= rb for lb, rb in hand_regions)
