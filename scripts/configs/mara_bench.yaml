@@ -1,0 +1,30 @@
+# Config file for generating the mara_bench videos
+---
+APPROACHES:
+  oracle_model:
+    NAME: "oracle"
+    # FLAGS:
+    # ARGS:
+
+ENVS:
+  cover:
+    NAME: "pybullet_cover"
+  # cf_cover:
+  #   NAME: "pybullet_cover"
+  #   FLAGS:
+
+ARGS:
+  - "debug"
+  - "use_gui"
+  - "make_demo_videos"
+  - "make_failure_videos"
+  - "make_test_videos"
+FLAGS:
+  num_train_tasks: 1
+  num_test_tasks: 1
+  video_fps: 20
+  pybullet_camera_height: 900
+  pybullet_camera_width: 900
+START_SEED: 0
+NUM_SEEDS: 1
+# 
