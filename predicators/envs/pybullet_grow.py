@@ -80,9 +80,6 @@ class PyBulletGrowEnv(PyBulletEnv):
     growth_height: ClassVar[float] = 0.3
     growth_color: ClassVar[Tuple[float]] = (0.35, 1, 0.3, 1.0)
 
-    # Hard-coded finger states for open/close
-    open_fingers: ClassVar[float] = 0.4
-    closed_fingers: ClassVar[float] = 0.1
     # Tolerance for "close enough" to pick up or hold
     grasp_tol: ClassVar[float] = 1e-2
     place_jug_tol: ClassVar[float] = 1e-3

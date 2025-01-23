@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
+from pprint import pformat
 
 import dill as pkl
 import imageio
@@ -42,6 +43,7 @@ from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
+
 
 from predicators.args import create_arg_parser
 from predicators.image_patch_wrapper import ImagePatch
@@ -3821,7 +3823,8 @@ def create_video_from_partial_refinements(
         video: Video = []
         logging.debug("reset env for create video")
         state = env.reset(train_or_test, task_idx)
-        for _ in range(max_num_steps):
+        # logging.debug(f"{pformat(state.pretty_str())}")
+        for i in range(max_num_steps):
             # logging.debug(f"state: {state.pretty_str()}")
             try:
                 act = policy(state)

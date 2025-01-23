@@ -6,6 +6,7 @@ Contains useful common code.
 import abc
 import logging
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
+from pprint import pformat
 
 import matplotlib
 import numpy as np
@@ -33,8 +34,8 @@ class PyBulletEnv(BaseEnv):
     # General robot parameters.
     grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
-    open_fingers: ClassVar[float] = 1.0
-    closed_fingers: ClassVar[float] = 0.0
+    open_fingers: ClassVar[float] = 0.04
+    closed_fingers: ClassVar[float] = 0.01
     robot_base_pos: Optional[Tuple[float, float, float]] = None
     robot_base_orn: Optional[Tuple[float, float, float, float]] = None
 
@@ -318,6 +319,7 @@ class PyBulletEnv(BaseEnv):
         self._reset_state(state)
         # Converts the State into a PyBulletState.
         self._current_observation = self._get_state()
+        # logging.debug(f"Reset state:\n{pformat(state.pretty_str())}")
         observation = self.get_observation(render=render)
         return observation
 

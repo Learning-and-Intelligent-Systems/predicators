@@ -9,18 +9,51 @@ APPROACHES:
     # ARGS:
 
 ENVS:
-  blocks:
-    NAME: "pybullet_blocks"
-  blocks_cf:
-    NAME: "pybullet_blocks"
-    FLAGS:
-      blocks_high_towers_are_unstable: True
+  # blocks:
+  #   NAME: "pybullet_blocks"
+  # blocks_cf:
+  #   NAME: "pybullet_blocks"
+  #   FLAGS:
+  #     blocks_high_towers_are_unstable: True
   # cover_cf:
   #   NAME: "pybullet_cover"
   #   FLAGS:
   #     cover_blocks_change_color_when_cover: True
   # cover:
   #   NAME: "pybullet_cover"
+  # coffee:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     coffee_rotated_jug_ratio: 0
+  #     sesame_check_expected_atoms: False
+  #     coffee_machine_have_light_bar: False
+  #     coffee_move_back_after_place_and_push: True
+  #     coffee_machine_has_plug: True
+  #     option_model_terminate_on_repeat: False
+  #     coffee_use_pixelated_jug: True
+  #     pybullet_ik_validate: False
+  #     sesame_max_skeletons_optimized: 1
+  # coffee_cf:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     coffee_plug_break_after_plugged_in: True
+  #     coffee_rotated_jug_ratio: 0
+  #     sesame_check_expected_atoms: False
+  #     coffee_machine_have_light_bar: False
+  #     coffee_move_back_after_place_and_push: True
+  #     coffee_machine_has_plug: True
+  #     option_model_terminate_on_repeat: False
+  #     coffee_use_pixelated_jug: True
+  #     pybullet_ik_validate: False
+  #     sesame_max_skeletons_optimized: 1
+  balance:
+    NAME: "pybullet_balance"
+    FLAGS:
+      excluded_predicates: "Balanced,OnPlate"
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      pybullet_ik_validate: False
+
 
 ARGS:
   - "debug"
