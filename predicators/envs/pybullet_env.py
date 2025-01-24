@@ -21,6 +21,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.objects import update_object
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
     Observation, State, Video
@@ -371,6 +372,7 @@ class PyBulletEnv(BaseEnv):
 
         # 1) Position/orientation if those features exist
         # try:
+        features = obj.type.feature_names
         cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(
             obj.id, physicsClientId=self._physics_client_id)[0]
         # except:
@@ -379,7 +381,7 @@ class PyBulletEnv(BaseEnv):
         py = state.get(obj, "y") if "y" in obj.type.feature_names else cur_y
         pz = state.get(obj, "z") if "z" in obj.type.feature_names else cur_z
 
-        if "rot" in obj.type.feature_names:
+        if "rot" in features:
             angle = state.get(obj, "rot")
             # Convert from 2D angle to a 3D quaternion (assuming rotation around z)
             orn = p.getQuaternionFromEuler([0.0, 0.0, angle])
@@ -387,11 +389,11 @@ class PyBulletEnv(BaseEnv):
             orn = self._default_orn  # e.g. (0,0,0,1)
 
         # 2) Update the object’s position/orientation in PyBullet
-        p.resetBasePositionAndOrientation(
-            obj.id, [px, py, pz], orn, physicsClientId=self._physics_client_id)
+        update_object(obj.id, [px, py, pz], orn, 
+                      physics_client_id=self._physics_client_id)
 
         # 3) If there's an is_held feature, reattach constraints if needed
-        if "is_held" in obj.type.feature_names:
+        if "is_held" in features:
             if state.get(obj, "is_held") > 0.5:
                 # attach constraint
                 self._held_obj_id = obj.id

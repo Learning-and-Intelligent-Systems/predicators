@@ -202,6 +202,9 @@ class PyBulletGrowEnv(PyBulletEnv):
         assert self._red_jug.id is not None and self._blue_jug.id is not None
         return [self._red_jug.id, self._blue_jug.id]
 
+    def _create_task_specific_objects(self, state: State) -> None:
+        pass
+
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object."""
         if obj.type == self._cup_type:
