@@ -33,7 +33,11 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    grasp_tol: ClassVar[float] = 0.05
+    # grasp_tol: value for which the objects with distance below to are 
+    # considered to be grasped, and also the value change finger option can be
+    # terminated.
+    grasp_tol: ClassVar[float] = 5e-2 # for large objects
+    grasp_tol_small: ClassVar[float] = 5e-4 # for small objects
     _finger_action_tol: ClassVar[float] = 1e-4
     open_fingers: ClassVar[float] = 0.04
     closed_fingers: ClassVar[float] = 0.01
@@ -374,7 +378,7 @@ class PyBulletEnv(BaseEnv):
 
     @abc.abstractmethod
     def _create_task_specific_objects(self, state: State) -> None:
-        pass
+        raise NotImplementedError("Override me!")
 
     def _reset_single_object(self, obj: Object, state: State) -> None:
         """Shared logic for setting position/orientation and constraints."""
@@ -690,10 +694,10 @@ class PyBulletEnv(BaseEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and self._fingers_closing(action):
-            # logging.debug("Finger closing")
+            logging.debug("Finger closing")
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
-            logging.debug(f"Detected held object: {self._held_obj_id}")
+            # logging.debug(f"Detected held object: {self._held_obj_id}")
             # breakpoint()
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
@@ -736,7 +740,7 @@ class PyBulletEnv(BaseEnv):
                 closest_points = p.getClosestPoints(
                     bodyA=self._pybullet_robot.robot_id,
                     bodyB=obj_id,
-                    distance=self.grasp_tol,
+                    distance=self.grasp_tol_small,
                     linkIndexA=finger_id,
                     physicsClientId=self._physics_client_id)
                 for point in closest_points:

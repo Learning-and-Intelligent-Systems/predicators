@@ -83,7 +83,6 @@ class PyBulletGrowEnv(PyBulletEnv):
     pour_rate: ClassVar[float] = 0.1
 
     # Tolerance
-    grasp_tol: ClassVar[float] = 1e-2
     place_jug_tol: ClassVar[float] = 1e-3
 
     # Camera
