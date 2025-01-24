@@ -1549,7 +1549,8 @@ def run_policy_with_simulator(
     exception_raised_in_step = False
     if not termination_function(state):
         for i in range(max_num_steps):
-            logging.debug(f"Step {i}")
+            if i % 15 == 0:
+                logging.debug(f"Step {i}")
             # logging.debug(f"State: {state.pretty_str()}")
             monitor_observed = False
             exception_raised_in_step = False
@@ -1686,7 +1687,9 @@ def option_plan_to_policy(
         del state  # not used
         if not queue:
             raise OptionExecutionFailure("Option plan exhausted!")
-        return queue.pop(0)
+        option = queue.pop(0)
+        logging.debug(f"Executing option {option.simple_str()}")
+        return option
 
     return option_policy_to_policy(
         _option_policy,

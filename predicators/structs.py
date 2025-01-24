@@ -833,6 +833,21 @@ class _Option:
         action.set_option(self)
         return action
 
+    def __str__(self) -> str:
+        """Full spec including objects and parameters."""
+        objects = ", ".join(o.name for o in self.objects)
+        params = ", ".join(str(round(p, 2)) for p in self.params)
+        return f"{self.name}({objects}, {params})"
+
+    def simple_str(self, use_object_id: bool = False) -> str:
+        """Simple spec without parameters."""
+        if use_object_id:
+            objects = ", ".join(
+                [o.id_name + ":" + o.type.name for o in self.objects])
+        else:
+            objects = ", ".join(o.name for o in self.objects)
+        return f"{self.name}({objects})"
+
 
 DummyParameterizedOption: ParameterizedOption = ParameterizedOption(
     "DummyParameterizedOption", [], Box(0, 1, (0, )),

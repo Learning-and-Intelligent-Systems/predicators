@@ -170,7 +170,7 @@ def _sesame_plan_with_astar(
                            key=lambda s: estimator.get_cost(task, *s)))
             refinement_start_time = time.perf_counter()
             for skeleton, atoms_sequence in gen:
-                logging.debug(f"Found skeleton: {[n.name for n in skeleton]}")
+                logging.debug(f"Found skeleton: {[n.short_str for n in skeleton]}")
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
                         skeleton, atoms_sequence, task.goal)
