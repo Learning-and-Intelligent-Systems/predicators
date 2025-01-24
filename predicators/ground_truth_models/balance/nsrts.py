@@ -56,13 +56,13 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [robot, block]
         option = Pick
         preconditions = {
-            LiftedAtom(OnPlate, [block, plate]),
+            # LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
         add_effects = {LiftedAtom(Holding, [block])}
         delete_effects = {
-            LiftedAtom(OnPlate, [block, plate]),
+            # LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }

@@ -183,7 +183,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
         return {
             self._DirectlyOn, self._DirectlyOnPlate, self._GripperOpen,
             self._Holding, self._Clear, self._MachineOn, self._ClearPlate,
-            self._Balanced_abs, self._OnPlate_abs
+            self._Balanced_abs, 
+            # self._OnPlate_abs
         }
 
     @property
@@ -310,6 +311,9 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
     # -------------------------------------------------------------------------
     # State Management: Get, (Re)Set, Step
+    def _create_task_specific_objects(self, state: State) -> None:
+        pass
+
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object."""
         if obj.type == self._block_type:
@@ -408,14 +412,17 @@ class PyBulletBalanceEnv(PyBulletEnv):
         left_count = self.count_num_blocks(state, self._plate1)
         right_count = self.count_num_blocks(state, self._plate3)
         diff = left_count - right_count
+        if CFG.balance_wierd_balance:
+            # Randomly plus or minus 1 to diff
+            diff *= -1
         if diff == self._prev_diff:
             return
+
 
         shift_per_block = 0.007
         shift_amount = abs(diff) * shift_per_block
         block_objs = state.get_objects(self._block_type)
         left_dropping = diff > 0
-        right_dropping = diff < 0
 
         def shift_blocks(is_left: bool, dropping: bool):
             """Shift blocks for one side, dropping or rising."""
@@ -472,17 +479,22 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # Left side update
         if left_dropping:
             # Drop left plate
-            shift_plate(True, True)
+            shift_plate(is_left=True, dropping=True)
             # Drop left blocks
+            shift_blocks(is_left=True, dropping=True)
             # Rise right blocks
-            shift_blocks(False, False)
+            shift_blocks(is_left=False, dropping=False)
             # Rise right plate
-            shift_plate(False, False)
+            shift_plate(is_left=False, dropping=False)
         else:
-            shift_blocks(True, False)
-            shift_plate(True, False)
-            shift_plate(False, True)
-            shift_blocks(False, True)
+            # Rise left blocks
+            shift_blocks(is_left=True, dropping=False)
+            # Rise left plate
+            shift_plate(is_left=True, dropping=False)
+            # Drop right plate
+            shift_plate(is_left=False, dropping=True)
+            # Drop right blocks
+            shift_blocks(is_left=False, dropping=True)
 
         self._prev_diff = diff
 
@@ -587,6 +599,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         plate1, table2 = objects
         if plate1 == table2:
             return False
+        return True
         # Function to count the number of blocks in the tower
         def count_num_blocks(table):
 
@@ -642,12 +655,11 @@ class PyBulletBalanceEnv(PyBulletEnv):
         else:
             return False
 
-    @staticmethod
-    def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _GripperOpen_holds(self, state: State, objects: Sequence[Object]
+                           ) -> bool:
         robot, = objects
         rf = state.get(robot, "fingers")
-        assert rf in (0.0, 1.0)
-        return rf == 1.0
+        return rf > 0.03
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
@@ -800,11 +812,17 @@ class PyBulletBalanceEnv(PyBulletEnv):
             num_blocks = rng.choice(possible_num_blocks, p=[0.3, 0.7])
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
-            goal = {
-                GroundAtom(self._MachineOn, [self._machine, self._robot]),
-                GroundAtom(self._DirectlyOn, [piles[1][4], piles[0][0]]),
-                GroundAtom(self._DirectlyOn, [piles[1][3], piles[1][4]]),
-            }
+            if max(possible_num_blocks) == 4:
+                goal = {
+                    GroundAtom(self._MachineOn, [self._machine, self._robot]),
+                    GroundAtom(self._DirectlyOn, [piles[1][2], piles[0][0]]),
+                }
+            else:   
+                goal = {
+                    GroundAtom(self._MachineOn, [self._machine, self._robot]),
+                    GroundAtom(self._DirectlyOn, [piles[1][4], piles[0][0]]),
+                    GroundAtom(self._DirectlyOn, [piles[1][3], piles[1][4]])
+                }
             tasks.append(EnvironmentTask(init_state, goal))
         return self._add_pybullet_state_to_tasks(tasks)
 
@@ -812,7 +830,9 @@ class PyBulletBalanceEnv(PyBulletEnv):
                               rng: np.random.Generator) -> List[List[Object]]:
         n_piles = 0
         piles: List[List[Object]] = []
-        for block_num, block in enumerate(self._blocks):
+        # for block_num, block in enumerate(self._blocks):
+        for block_num in range(num_blocks):
+            block = self._blocks[block_num]
             # If coin flip, start new pile
             # if (block_num == 0 or rng.uniform() < 0.2) and n_piles < 2:
             # increase the chance of starting a new pile
@@ -866,7 +886,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
-        rf = 1.0  # fingers start out open
+        rf = self.open_fingers  # fingers start out open
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
         data[self._plate1] = np.array([self._plate1_pose[2]], dtype=np.float32)
         # data[self._table2] = np.array([], dtype=np.float32)
