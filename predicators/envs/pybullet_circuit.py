@@ -6,7 +6,7 @@ battery. The lightbulb and the battery are fixed, the wire is moveable.
 
 python predicators/main.py --approach oracle --env pybullet_circuit \
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
---sesame_max_skeletons_optimized 3  --make_failure_videos --video_fps 20 \
+--sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --debug \
 --terminate_on_goal_reached False --sesame_check_expected_atoms False
 """
@@ -76,6 +76,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     # Connector dimensions
     snap_width: ClassVar[float] = 0.05
     snap_height: ClassVar[float] = 0.05
+    switch_width: ClassVar[float] = 0.06
+    switch_height: ClassVar[float] = 0.08
     wire_snap_length: ClassVar[float] = 0.4
     battery_snap_length: ClassVar[float] = 0.2
     bulb_snap_length: ClassVar[float] = 0.2
@@ -89,7 +91,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _wire_type = Type("wire", ["x", "y", "z", "rot", "is_held"])
-    _battery_type = Type("battery", ["x", "y", "z", "rot"],
+    _battery_type = Type("battery", ["x", "y", "z", "rot", "is_on"],
                          sim_features=["id", "joint_id", "joint_scale"])
     _light_type = Type("light", ["x", "y", "z", "rot", "is_on"])
 
@@ -131,6 +133,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
         #                             self._CircuitClosed_CP_holds)
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
+        self._SwitchedOn = Predicate("SwitchedOn", [self._battery_type],
+                                  self._SwitchedOn_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -146,6 +150,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             self._ConnectedToBattery,
             self._CircuitClosed,
             # self._CircuitClosed_abs,
+            self._SwitchedOn,
         }
 
     @property
@@ -205,6 +210,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         for _ in range(2):
             wire_id = create_object(asset_path="urdf/snap_connector4.urdf",
                                     physics_client_id=physics_client_id,
+                                    mass=0.1,
                                     scale=1)
             wire_ids.append(wire_id)
         bodies["wire_ids"] = wire_ids
@@ -240,15 +246,23 @@ class PyBulletCircuitEnv(PyBulletEnv):
         """Extract features for creating the State object."""
         if obj.type == self._light_type and feature == "is_on":
             return int(self._is_bulb_on(obj.id))
+        elif obj.type == self._battery_type and feature == "is_on":
+            return int(self._is_switch_on())
         raise ValueError(f"Unknown feature {feature} for object {obj}")
+    
+    def _create_task_specific_objects(self, state):
+        pass
 
     def _reset_custom_env_state(self, state: State) -> None:
 
-        is_on = state.get(self._light, "is_on")
-        if is_on:
+        is_light_on = state.get(self._light, "is_on")
+        if is_light_on:
             self._turn_bulb_on()
         else:
             self._turn_bulb_off()
+
+        is_switch_on = state.get(self._battery, "is_on")
+        self._set_switch_on(self._battery, is_switch_on)
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         """Process a single action step.
@@ -257,10 +271,11 @@ class PyBulletCircuitEnv(PyBulletEnv):
         """
         next_state = super().step(action, render_obs=render_obs)
 
-        _ = self._SwitchOn_holds(next_state, [self._battery])
         # Check if the CircuitClosed predicate is satisfied => turn the light on
-        if self._CircuitClosed_holds(next_state, [self._light, self._battery])\
-            and self._SwitchOn_holds(next_state, [self._battery]):
+        if self._SwitchedOn_holds(next_state, [self._battery]) and\
+            (CFG.circuit_light_doesnt_need_battery or
+            self._CircuitClosed_holds(next_state, [self._light, 
+                                                    self._battery])):
             self._turn_bulb_on()
         else:
             self._turn_bulb_off()
@@ -279,7 +294,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
     @staticmethod
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "fingers") > 0.2
+        return state.get(robot, "fingers") > 0.02
 
     @staticmethod
     def _ConnectedToLight_holds(state: State,
@@ -319,6 +334,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         y_diff = abs(wy - ly)
 
         # Check whether the differences are out of the allowed tolerance
+        # logging.debug(f"Wire {wire} connected to light {light}: ")
         if (x_diff < min_x_diff or x_diff > max_x_diff or y_diff < min_y_diff
                 or y_diff > max_y_diff):
             return False
@@ -349,22 +365,42 @@ class PyBulletCircuitEnv(PyBulletEnv):
                 return False
         return True
 
-    def _SwitchOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        """Check if the battery is switched on."""
-        del state  # unused
-        battery, = objects
-        joint_state = p.getJointState(battery.id, battery.joint_id,
+    def _is_switch_on(self) -> bool:
+        joint_state = p.getJointState(self._battery.id, self._battery.joint_id,
                                 physicsClientId=self._physics_client_id)[0] /\
                                     self._battery.joint_scale
-        joint_min = p.getJointInfo(battery.id,
-                                   battery.joint_id,
+        joint_min = p.getJointInfo(self._battery.id,
+                                   self._battery.joint_id,
                                    physicsClientId=self._physics_client_id)[8]
-        joint_max = p.getJointInfo(battery.id,
-                                   battery.joint_id,
+        joint_max = p.getJointInfo(self._battery.id,
+                                   self._battery.joint_id,
                                    physicsClientId=self._physics_client_id)[9]
         joint_state = np.clip(
             (joint_state - joint_min) / (joint_max - joint_min), 0, 1)
         return bool(joint_state > 0.5)
+
+    def _set_switch_on(self, battery: Object, power_on: bool) -> None:
+        """Programmatically toggle a switch on/off."""
+        switch_id = battery.id
+        joint_id = battery.joint_id
+        if joint_id < 0:
+            return
+        info = p.getJointInfo(switch_id,
+                              joint_id,
+                              physicsClientId=self._physics_client_id)
+        j_min, j_max = info[8], info[9]
+        target_val = j_max if power_on else j_min
+        p.resetJointState(
+            switch_id,
+            joint_id,
+            target_val * battery.joint_scale,
+            physicsClientId=self._physics_client_id,
+        )
+
+    def _SwitchedOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        """Check if the battery is switched on."""
+        battery, = objects
+        return state.get(battery, "is_on") > 0.5
 
     @staticmethod
     def _CircuitClosed_CP_holds(atoms: Set[GroundAtom],
@@ -442,25 +478,32 @@ class PyBulletCircuitEnv(PyBulletEnv):
             }
 
             # Battery near the lower region
-            battery_x = self.x_lb + 2 * self.init_padding
+            # The origin of the battery is at the center of the wire.
+            battery_x = rng.uniform(self.x_lb + 2 * self.init_padding,
+                                    self.x_lb + 6 * self.init_padding)
             # For randomization, tweak or keep rot=0.0 as needed
             battery_dict = {
                 "x": battery_x,
                 "y": 1.3,
                 "z": self.z_lb + self.snap_height / 2,
                 "rot": np.pi / 2,
+                "is_on": 0.0,
             }
 
             # Wires
+            wire1_x = rng.uniform(battery_x + self.wire_snap_length/2,
+                                  battery_x + self.wire_snap_length)
             wire1_dict = {
-                "x": 0.75,
+                "x": wire1_x,
                 "y": 1.15,  # lower region
                 "z": self.z_lb + self.snap_height / 2,
                 "rot": 0.0,
                 "is_held": 0.0,
             }
+            wire2_x = rng.uniform(battery_x + self.wire_snap_length/2,
+                                  battery_x + self.wire_snap_length)
             wire2_dict = {
-                "x": 0.75,
+                "x": wire2_x,
                 "y": self.y_ub - self.init_padding * 3,  # upper region
                 "z": self.z_lb + self.snap_height / 2,
                 "rot": 0.0,
@@ -490,11 +533,12 @@ class PyBulletCircuitEnv(PyBulletEnv):
             # The goal can be that the light is on.
             goal_atoms = {
                 # GroundAtom(self._LightOn, [self._light]),
-                GroundAtom(self._CircuitClosed, [self._light, self._battery]),
-                # GroundAtom(self._ConnectedToBattery, [self._wire1,
-                #   self._battery]),
-                # GroundAtom(self._ConnectedToBattery, [self._wire2,
-                #   self._battery]),
+                # GroundAtom(self._CircuitClosed, [self._light, self._battery]),
+                GroundAtom(self._SwitchedOn, [self._battery]),
+                GroundAtom(self._ConnectedToBattery, [self._wire1,
+                  self._battery]),
+                GroundAtom(self._ConnectedToBattery, [self._wire2,
+                  self._battery]),
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 

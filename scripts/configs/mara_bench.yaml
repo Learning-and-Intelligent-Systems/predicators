@@ -59,21 +59,35 @@ ENVS:
   #     sesame_task_planning_heuristic: "goal_count"
   #     sesame_check_expected_atoms: False
   #     pybullet_ik_validate: False
-    grow:
-      NAME: "pybullet_grow"
-      FLAGS:
-        # sesame_check_expected_atoms: False
-        pybullet_ik_validate: False
-        coffee_use_pixelated_jug: True
-        max_num_steps_option_rollout: 50
-    grow_cf:
-      NAME: "pybullet_grow"
-      FLAGS:
-        grow_plant_same_color_as_cup: True
-        # sesame_check_expected_atoms: False
-        pybullet_ik_validate: False
-        coffee_use_pixelated_jug: True
-        max_num_steps_option_rollout: 50
+  # grow:
+  #   NAME: "pybullet_grow"
+  #   FLAGS:
+  #     # sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     coffee_use_pixelated_jug: True
+  #     max_num_steps_option_rollout: 50
+  # grow_cf:
+  #   NAME: "pybullet_grow"
+  #   FLAGS:
+  #     grow_plant_same_color_as_cup: True
+  #     # sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     coffee_use_pixelated_jug: True
+  #     max_num_steps_option_rollout: 50
+  # circuit:
+  #   NAME: "pybullet_circuit"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     terminate_on_goal_reached: False
+  #     pybullet_ik_validate: False
+  circuit_cf:
+    NAME: "pybullet_circuit"
+    FLAGS:
+      circuit_light_doesnt_need_battery: True
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      terminate_on_goal_reached: False
 
 
 

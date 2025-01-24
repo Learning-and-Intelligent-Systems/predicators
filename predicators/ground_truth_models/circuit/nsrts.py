@@ -32,10 +32,12 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         ConnectedToBattery = predicates["ConnectedToBattery"]
         LightOn = predicates["LightOn"]
         CircuitClosed = predicates["CircuitClosed"]
+        SwitchedOn = predicates["SwitchedOn"]
 
         # Options
         Pick = options["PickWire"]
         Connect = options["Connect"]
+        SwitchOn = options["SwitchOn"]
 
         nsrts = set()
 
@@ -111,13 +113,22 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                         option_vars, null_sampler)
         nsrts.add(connect_second_wire_nsrt)
 
-        # # Done.
-        # parameters = [Variable("?light", light_type)]
-        # light = Variable("?light", light_type)
-        # preconditions = {LiftedAtom(CircuitClosed, [])}
-        # add_effects = {LiftedAtom(LightOn, [light])}
-        # done_nsrt = NSRT("Done", [light], preconditions, add_effects, set(),
-        #                  set(), DummyParameterizedOption, [], null_sampler)
-        # nsrts.add(done_nsrt)
+        # SwitchOn
+        robot = Variable("?robot", robot_type)
+        battery = Variable("?battery", battery_type)
+        parameters = [robot, battery]
+        option_vars = [robot, battery]
+        option = SwitchOn
+        preconditions = {
+            LiftedAtom(HandEmpty, [robot]),
+        }
+        add_effects = {
+            LiftedAtom(SwitchedOn, [battery]),
+        }
+        delete_effects = set()
+        switch_on_nsrt = NSRT("SwitchOn", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+        nsrts.add(switch_on_nsrt)
 
         return nsrts

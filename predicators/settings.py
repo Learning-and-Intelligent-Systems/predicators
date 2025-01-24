@@ -395,6 +395,8 @@ class GlobalSettings:
     # Number of test tasks where you start out holding a patty.
     burger_num_test_start_holding = 5
 
+    circuit_light_doesnt_need_battery = False
+
     # parameters for random options approach
     random_options_max_tries = 100
 
