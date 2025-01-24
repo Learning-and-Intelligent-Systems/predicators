@@ -90,6 +90,7 @@ class GlobalSettings:
     # balance_num_blocks_test = [2]
     balance_holding_goals = False
     balance_block_size = 0.045  # use 0.0505 for real with panda
+    balance_wierd_balance = False
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
