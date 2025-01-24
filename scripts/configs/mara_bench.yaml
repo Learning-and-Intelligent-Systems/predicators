@@ -46,13 +46,35 @@ ENVS:
   #     coffee_use_pixelated_jug: True
   #     pybullet_ik_validate: False
   #     sesame_max_skeletons_optimized: 1
-  balance:
-    NAME: "pybullet_balance"
-    FLAGS:
-      excluded_predicates: "Balanced,OnPlate"
-      sesame_max_skeletons_optimized: 1
-      sesame_check_expected_atoms: False
-      pybullet_ik_validate: False
+  # balance:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     sesame_task_planning_heuristic: "goal_count"
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  # balance_cf:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     balance_wierd_balance: True
+  #     sesame_task_planning_heuristic: "goal_count"
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+    grow:
+      NAME: "pybullet_grow"
+      FLAGS:
+        # sesame_check_expected_atoms: False
+        pybullet_ik_validate: False
+        coffee_use_pixelated_jug: True
+        max_num_steps_option_rollout: 50
+    grow_cf:
+      NAME: "pybullet_grow"
+      FLAGS:
+        grow_plant_same_color_as_cup: True
+        # sesame_check_expected_atoms: False
+        pybullet_ik_validate: False
+        coffee_use_pixelated_jug: True
+        max_num_steps_option_rollout: 50
+
 
 
 ARGS:

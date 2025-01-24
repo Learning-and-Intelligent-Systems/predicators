@@ -1,10 +1,12 @@
 """Ground-truth NSRTs for the coffee environment."""
 
-from typing import Dict, Set
+from typing import Dict, Set, Sequence
+
+import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
-    Predicate, Type, Variable
+    Predicate, Type, Variable, State, Object, Array, GroundAtom
 from predicators.utils import null_sampler
 
 
@@ -27,7 +29,7 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
         Grown = predicates["Grown"]
-        OnTable = predicates["OnTable"]
+        JugOnTable = predicates["JugOnTable"]
         SameColor = predicates["SameColor"]
         # Options
         PickJug = options["PickJug"]
@@ -50,7 +52,7 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         delete_effects = {
             LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(OnTable, [jug])
+            LiftedAtom(JugOnTable, [jug])
         }
         pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
                                         preconditions, add_effects,
@@ -86,14 +88,25 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Holding, [robot, jug]),
         }
         add_effects = {
-            LiftedAtom(OnTable, [jug]),
+            LiftedAtom(JugOnTable, [jug]),
             LiftedAtom(HandEmpty, [robot]),
         }
         delete_effects = {
             LiftedAtom(Holding, [robot, jug]),
         }
+
+        def putontable_sampler(state: State, goal: Set[GroundAtom],
+                               rng: np.random.Generator,
+                               objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # Note: normalized coordinates w.r.t. workspace.
+            x = rng.uniform()
+            y = rng.uniform()
+            return np.array([x, y], dtype=np.float32)
+
         place = NSRT("PlaceJug", parameters, preconditions, add_effects,
-                     delete_effects, set(), option, option_vars, null_sampler)
+                     delete_effects, set(), option, option_vars, 
+                     putontable_sampler)
         nsrts.add(place)
 
         return nsrts

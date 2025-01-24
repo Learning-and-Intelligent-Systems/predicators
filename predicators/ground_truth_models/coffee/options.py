@@ -406,7 +406,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             tilt = state.get(robot, "tilt")
             jug_x = state.get(jug, "x")
             jug_y = state.get(jug, "y")
-            jug_z = cls._get_jug_z(state, robot, jug)
+            jug_z = cls.env_cls._get_jug_z(state, robot, jug)
             jug_pos = (jug_x, jug_y, jug_z)
             pour_x, pour_y, _ = pour_pos = cls._get_pour_position(state, cup)
             # If we're close enough to the pour position, pour.

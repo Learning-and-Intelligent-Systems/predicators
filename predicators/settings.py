@@ -92,6 +92,9 @@ class GlobalSettings:
     balance_block_size = 0.045  # use 0.0505 for real with panda
     balance_wierd_balance = False
 
+    # grow env parameters
+    grow_plant_same_color_as_cup = False
+
     # playroom env parameters
     playroom_num_blocks_train = [3]
     playroom_num_blocks_test = [3]

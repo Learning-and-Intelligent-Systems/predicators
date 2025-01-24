@@ -767,7 +767,7 @@ class CoffeeEnv(BaseEnv):
     def _get_jug_handle_grasp(cls, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
-        rot = state.get(jug, "rot") - np.pi / 2
+        rot = state.get(jug, "rot")
         target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
         target_y = state.get(jug,
                              "y") + np.sin(rot) * cls.jug_handle_offset - 0.02

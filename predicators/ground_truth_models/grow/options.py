@@ -91,7 +91,7 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
             return not Holding.holds(state, [robot, jug])
 
         Place = ParameterizedOption("Place", [robot_type, jug_type],
-                                    params_space=Box(0, 1, (0, )),
+                                    params_space=Box(0, 1, (2, )),
                                     policy=cls._crete_place_policy(),
                                     initiable=lambda s, m, o, p: True,
                                     terminal=_Place_terminal)
@@ -103,7 +103,7 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            del memory, params
+            del memory
             robot, jug = objects
 
             # Get the current robot position.
@@ -111,6 +111,7 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
             y = state.get(robot, "y")
             z = state.get(robot, "z")
             tilt = state.get(robot, "tilt")
+            wrist = state.get(robot, "wrist")
             robot_pos = (x, y, z)
 
             # Get the difference between the jug location and the target.
@@ -120,14 +121,14 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
             jz = state.get(jug, "z")
             # jz = cls.env_cls.z_lb + cls.env_cls.jug_height()
             current_jug_pos = (jx, jy, jz)
-            jug_init_x = cls.env_cls.red_jug_x if "red" in jug.name else \
-                cls.env_cls.blue_jug_x
-            jug_init_y = cls.env_cls.red_jug_y if "red" in jug.name else \
-                cls.env_cls.blue_jug_y
-            target_jug_pos = (jug_init_x, jug_init_y,
-                              cls.env_cls.z_lb + cls.env_cls.jug_height / 2)
+            x_norm, y_norm = params
+            target_jug_pos = (
+            cls.env_cls.x_lb + (cls.env_cls.x_ub - cls.env_cls.x_lb) * x_norm,
+            cls.env_cls.y_lb + (cls.env_cls.y_ub - cls.env_cls.y_lb) * y_norm,
+            cls.env_cls.z_lb + cls.env_cls.jug_height / 2)
 
             dtilt = cls.env_cls.robot_init_tilt - tilt
+            dwrist = cls.env_cls.robot_init_wrist - wrist
             dx, dy, dz = np.subtract(target_jug_pos, current_jug_pos)
 
             # Get the target robot position.
@@ -146,7 +147,9 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
                     target_robot_pos,
                     robot_pos,
                     finger_status="closed",
-                    dtilt=dtilt)
+                    dtilt=dtilt,
+                    dwrist=dwrist,
+                    )
 
             target_robot_pos = (x + dx, y + dy, z)
             return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(  # pylint: disable=protected-access
@@ -154,6 +157,8 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
                 target_robot_pos,
                 robot_pos,
                 finger_status="closed",
-                dtilt=dtilt)
+                dtilt=dtilt,
+                    dwrist=dwrist,
+                )
 
         return policy
