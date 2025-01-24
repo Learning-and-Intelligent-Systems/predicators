@@ -1438,6 +1438,7 @@ class MapleQFunction(MLPRegressor):
                    train_or_test: str = "test") -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
+        
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
@@ -1455,6 +1456,7 @@ class MapleQFunction(MLPRegressor):
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
+        print("our current state", state, self._vectorize_state(state) )
         
         option_scores=list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
@@ -1506,7 +1508,7 @@ class MapleQFunction(MLPRegressor):
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
-            vectorized_action = self._vectorize_option(option)
+            vectorized_action = self._vectorize_option(option, state)
             try:   
                 X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_action])
@@ -1525,13 +1527,13 @@ class MapleQFunction(MLPRegressor):
                         self._sample_applicable_options_from_state(
                             next_state):
                         next_option_vecs.append(
-                            self._vectorize_option(next_option))
-                        actions_to_vectors[next_option] = self._vectorize_option(next_option)
+                            self._vectorize_option(next_option, next_state))
+                        actions_to_vectors[next_option] = self._vectorize_option(next_option, next_state)
                 for next_option in \
                         self._sample_applicable_options_from_state(
                             next_state):
                     x_hat = np.concatenate([
-                        vectorized_next_state, self._vectorize_option(next_option)
+                        vectorized_next_state, self._vectorize_option(next_option, next_state)
                     ])
                     q_x_hat = self.predict(x_hat)[0]
                     if best_next_value<q_x_hat:
@@ -1659,7 +1661,7 @@ class MapleQFunction(MLPRegressor):
                 x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
 
                 vectorized_state = object_to_features[closest_object][:6] + [x,y]
-
+                # print("our vectorized state", vectorized_state)
                 return vectorized_state
             
             elif CFG.env == "grid_row_door":
@@ -1671,6 +1673,7 @@ class MapleQFunction(MLPRegressor):
                         robot = o
                     if o.is_instance(GridRowDoorEnv._door_type):
                         door_list.append(o)
+                
 
                 has_middle_door = 0
                 door_move_key, door_move_target, \
@@ -1683,8 +1686,8 @@ class MapleQFunction(MLPRegressor):
                         door_move_target = state.get(door, "move_target")
                         door_turn_key = state.get(door, "turn_key")
                         door_turn_target = state.get(door, "turn_target")
-                
-                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
+
+                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first" or CFG.approach == "rapid_learn":
                     last_x = self._last_planner_state.get(robot, "x")
                 else:
                     last_x = 0
@@ -1776,17 +1779,20 @@ class MapleQFunction(MLPRegressor):
     #     vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
     #     return vec
 
-    def _vectorize_option(self, option: _Option) -> Array:    
+    def _vectorize_option(self, option: _Option, state: State) -> Array:    
         matches = [
         i for (i,n) in enumerate(self._options)
         if n == option.parent
         ]
+
+
 
         assert len(matches) == 1
         # Create discrete part.
         discrete_vec = np.zeros(len(self._options))
         discrete_vec[matches[0]] = 1.0
         # Create continuous part.
+
         continuous_vec = np.zeros(self._max_num_params)
         continuous_vec[:len(option.params)] = option.params
         # Concatenate.
@@ -1802,7 +1808,7 @@ class MapleQFunction(MLPRegressor):
         x = np.concatenate([
             self._vectorize_state(state),
             # self._vectorize_goal(goal),
-            self._vectorize_option(option)
+            self._vectorize_option(option, state)
         ])
         y = self.predict(x)[0]
         return y
@@ -2049,21 +2055,27 @@ class MPDQNFunction(MapleQFunction):
     #         return vectorized_state
    
    
-    def _vectorize_option(self, option: _Option) -> Array:    
+    def _vectorize_option(self, option: _Option, state: State) -> Array:    
         matches = [
         i for (i,n) in enumerate(self._options)
         if n == option.parent
         ]
-
+                
         assert len(matches) == 1
         # Create discrete part.
         discrete_vec = np.zeros(len(self._options))
         discrete_vec[matches[0]] = 1.0
         # Create continuous part.
+
+        if option.parent.name == "MoveRobot":
+            if state.get(option.objects[1], "x") > state.get(option.objects[2], "x"):
+                #if we are moving left
+                discrete_vec[matches[0]] = -1.0
         continuous_vec = np.zeros(self._max_num_params)
         continuous_vec[:len(option.params)] = option.params
         # Concatenate.
         vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+        # print("our current option", option, vec)
         return vec
     
     def train_q_function(self) -> None:
@@ -2113,7 +2125,7 @@ class MPDQNFunction(MapleQFunction):
                 terminal) in enumerate(self._replay_buffer):
             if reward >= 1:
                 num_rwd+=1
-                # import ipdb;ipdb.set_trace()
+                # import ipdb; ipdb.set_trace()
                 # print(next_state)
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
@@ -2122,7 +2134,7 @@ class MPDQNFunction(MapleQFunction):
             except:
                 import ipdb;ipdb.set_trace()
             # vectorized_goal = self._vectorize_goal(goal)
-            vectorized_action = self._vectorize_option(option)
+            vectorized_action = self._vectorize_option(option, state)
             try:
                 X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_action])
@@ -2145,13 +2157,13 @@ class MPDQNFunction(MapleQFunction):
                         self._sample_applicable_options_from_state(
                             next_state):
                         next_option_vecs.append(
-                            self._vectorize_option(next_option))
-                        actions_to_vectors[next_option] = self._vectorize_option(next_option)
+                            self._vectorize_option(next_option, next_state))
+                        actions_to_vectors[next_option] = self._vectorize_option(next_option, next_state)
                 for next_option in \
                         self._sample_applicable_options_from_state(
                             next_state):
                     x_hat = np.concatenate([
-                        vectorized_next_state, self._vectorize_option(next_option)
+                        vectorized_next_state, self._vectorize_option(next_option, next_state)
                     ])
                     q_x_hat = self.qnet.predict(x_hat)[0]
                     
@@ -2164,7 +2176,7 @@ class MPDQNFunction(MapleQFunction):
             if best_next_value == 0.0:
                 Y_arr[i] = reward
             else:
-                vectorized_next_action = self._vectorize_option(next_best_action)
+                vectorized_next_action = self._vectorize_option(next_best_action, next_state)
                 x = np.concatenate(
                     [vectorized_next_state, vectorized_next_action])
                 
@@ -2250,13 +2262,14 @@ class MPDQNFunction(MapleQFunction):
         # MODIFICATIONS: update target network at each time step
         # Return a random option.
         # print("vectorized state", self._vectorize_state(state))
-
+        # print("WE ARE IN BRIDGE GETTING AN OPTION")
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
         if CFG.random_bridge:
             epsilon = 1.0
-        # print("STATE", self._vectorize_state(state))
+        # print("STATE", state, self._vectorize_state(state))
+        # print("our current state", self._vectorize_state(state) )
         
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
@@ -2282,10 +2295,12 @@ class MPDQNFunction(MapleQFunction):
             self.decay_epsilon()
         if train_or_test=="train":
             self.update_target_network()
+
         # if train_or_test == "test":
         #     logging.info("option scores" + str(option_scores[:10]))
-
+        
         # import ipdb;ipdb.set_trace()
+        # print("option we chose", options[idx])
         return options[idx]
     
     def update_target_network(self):
@@ -2313,7 +2328,7 @@ class MPDQNFunction(MapleQFunction):
             return 0.0
         x = np.concatenate([
             self._vectorize_state(state),
-            self._vectorize_option(option)
+            self._vectorize_option(option, state)
         ])
         y = self.qnet.predict(x)[0]
         

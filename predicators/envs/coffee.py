@@ -826,8 +826,8 @@ class CoffeeLidEnv(CoffeeEnv):
         # Check if the jug should be grasped for the first time.        
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
             sq_dist_to_handle < self.grasp_position_tol and \
-            abs(jug_rot) < self.pick_jug_rot_tol and norm_dwrist!=-1:
-            # print("ig we r grasping")
+            abs(jug_rot) < self.pick_jug_rot_tol and norm_dwrist!=-1 and norm_dfingers!=0:
+            print("ig we r grasping")
             # print("sq_dist_to_handle < self.grasp_position_tol", sq_dist_to_handle < self.grasp_position_tol)
             # print("abs(jug_rot) < self.pick_jug_rot_tol", abs(jug_rot) < self.pick_jug_rot_tol)
             # print("abs(fingers - self.closed_fingers) < self.grasp_finger_tol")

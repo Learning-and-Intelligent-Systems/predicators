@@ -427,6 +427,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
         )
+        print("current plan", self._current_plan)
         if CFG.env == "grid_row_door":
             return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
         elif CFG.env == "doorknobs":
@@ -980,18 +981,20 @@ class RapidLearnApproach(RLBridgePolicyApproach):
         last_bridge_policy_state = DefaultState
         self.num_bridge_steps=0
         self.num_planner_steps = 0
-
+        curr_option = None
 
         def _policy(s: State) -> Action:
-            nonlocal last_bridge_policy_state
+            nonlocal last_bridge_policy_state, curr_option
 
             # if we are in bridge policy mode, check if our current state has the atoms of a later state in the plan
             # if so then self.bridge_done = True
         
-            
+
+            # print("current policy", self._current_policy)
             # print("num bridge steps", self.num_bridge_steps)
+            # print("NUM PLANNER STEPS", self.num_planner_steps)
+            # import ipdb; ipdb.set_trace()
             if self._current_control == "bridge":
-                print(self._current_control)
                 if self.num_bridge_steps > CFG.max_num_bridge_steps:
                     self.bridge_done = True
                     self._current_control = "planner"
@@ -1000,28 +1003,33 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                     print("bridge done")
                 else:
                     current_atoms = utils.abstract(s, self._get_current_predicates())
-                    # print("NUM PLANNER STEPS", self.num_planner_steps)
+                    
+                    # print(self._current_plan)
+                    # print("current atoms", current_atoms)
+                    # import ipdb; ipdb.set_trace()
                     for state in self._current_plan[self.num_planner_steps:]:
                         if state.issubset(current_atoms):
                             self.bridge_done = True
                             self._current_control = "planner"
                             self._current_policy = self.planning_policy
                             # import ipdb;ipdb.set_trace()
-                            # print("bridge done")
+                            print("bridge done")
                             # print(self._current_plan)
                             break
                 if self.bridge_done:
+                    print("bridge done")
                     current_task = Task(s, self._current_task.goal)
                     task_list, option_policy = self._get_option_policy_by_planning(
                     current_task, CFG.timeout)
-                    self._current_plan = task_list
+                    # self._current_plan = task_list
                     self._current_policy = utils.option_policy_to_policy(
                     option_policy,
                     max_option_steps=CFG.max_num_steps_option_rollout,
                     raise_error_on_repeated_state=True,
                     )           
+                    self.bridge_done = False
 
-                self.bridge_done = False
+                # self.bridge_done = False
                 
             # # Normal execution. Either keep executing the current option, or
             # # switch to the next option if it has terminated.
@@ -1045,9 +1053,13 @@ class RapidLearnApproach(RLBridgePolicyApproach):
 
             try:
                 action = self._current_policy(s)
+                if action.has_option() and action.get_option() != curr_option:
+                    curr_option = action.get_option()
+                    if self._current_control == "planner":
+                        self.num_planner_steps += 1
+
                 # print(f"Current control: {self._current_control}, Action: {action}")
-                if self._current_control == "planner":
-                    self.num_planner_steps += 1
+
                 if train_or_test == "train":
                     self._policy_logs.append(self._current_control)
                     self._plan_logs.append(self._current_plan)
@@ -1177,10 +1189,10 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                         # by checking if it contains atoms from any future state in the plan
                         for future_state in safe_states:
                             if future_state.issubset(current_atoms):
-                                # print("FOUND MATCH")
-                                # print(future_state)
-                                # print(current_atoms)
-                                # print(safe_states)
+                                print("FOUND MATCH")
+                                print(future_state)
+                                print(current_atoms)
+                                print(safe_states)
                                 # import ipdb;ipdb.set_trace()
                                 rwd = 1000  # We found a match, this is a safe state
                                 num_rewards += 1
@@ -1196,8 +1208,9 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                         mapleq_states[count].append(result.states[j])
                         new_traj = LowLevelTrajectory(mapleq_states[count], mapleq_actions[count])
                         self._trajs.append(new_traj)
+                        # import ipdb; ipdb.set_trace()
             
-    
+            
             # print("num rewards", num_rewards)
             # if num_rewards >= 1:
             #     import ipdb;ipdb.set_trace()
@@ -1205,6 +1218,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
             all_actions.extend(mapleq_actions)
             policy_logs = policy_logs[len(result.states) - 1:]
             plan_logs = plan_logs[len(result.states) - 1:]
+        # import ipdb; ipdb.set_trace()
         self.mapleq.get_interaction_requests()
         self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs), reward_bonuses)  # pylint: disable=protected-access
         self._policy_logs = []

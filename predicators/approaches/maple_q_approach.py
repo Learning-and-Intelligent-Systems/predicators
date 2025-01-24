@@ -258,9 +258,11 @@ class MPDQNApproach(MapleQApproach):
             for traj_i, segmented_traj in enumerate(new_trajs):
                 self._last_seen_segment_traj_idx += 1
                 reward_bonus = reward_bonuses[traj_i]
+                # assert len(reward_bonus) == len(segmented_traj)
                 # if sum(reward_bonus) > 0:
                 #     import ipdb;ipdb.set_trace()
                 for seg_i, segment in enumerate(segmented_traj):
+                    import ipdb; ipdb.set_trace()
                     s = segment.states[0]
                     goal = None
                     o = segment.get_option()
@@ -270,11 +272,11 @@ class MPDQNApproach(MapleQApproach):
                     # if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
                     #     reward += 0.5
 
-
                     reward += reward_bonus[0]
                     reward_bonus.pop(0)
     
-                        
+                    # if reward > 0:
+                    #     import ipdb; ipdb.set_trace()
 
                     
                     # if reward > 0:

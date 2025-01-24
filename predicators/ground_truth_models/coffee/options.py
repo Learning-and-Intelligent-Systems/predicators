@@ -71,7 +71,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # print("hand empty?", HandEmpty.holds(state, [robot]))
             # import ipdb; ipdb.set_trace()
             print("did we even twist the jug: abs(state.get(jug, rot)) < np.pi / 3", abs(state.get(jug, "rot")) < np.pi / 3)
-            return HandEmpty.holds(state, [robot]) and abs(state.get(jug, "rot")) < np.pi / 3 or cls.repeat_state
+            # return HandEmpty.holds(state, [robot]) and abs(state.get(jug, "rot")) < np.pi / 3 or cls.repeat_state
+            return HandEmpty.holds(state, [robot]) or cls.repeat_state
 
         # TwistJug = ParameterizedOption(
         #     "TwistJug",
