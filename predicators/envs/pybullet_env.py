@@ -242,6 +242,14 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("Override me!")
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        # Get the current state of the robot, including the orientation quaternion
+        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
+
+        # Convert the quaternion to a rotation matrix
+        rotation_matrix = p.getMatrixFromQuaternion([qx, qy, qz, qw])
+        rotation_matrix = np.array(rotation_matrix).reshape(3, 3)
+
+        # Define the initial normal vectors for the fingers
         if CFG.pybullet_robot == "panda":
             # gripper rotated 90deg so parallel to x-axis
             normal = np.array([1., 0., 0.], dtype=np.float32)
@@ -252,9 +260,13 @@ class PyBulletEnv(BaseEnv):
             # Shouldn't happen unless we introduce a new robot.
             raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
 
+        # Transform the normal vectors using the rotation matrix
+        transformed_normal = rotation_matrix.dot(normal)
+        transformed_normal_neg = rotation_matrix.dot(-1 * normal)
+
         return {
-            self._pybullet_robot.left_finger_id: normal,
-            self._pybullet_robot.right_finger_id: -1 * normal,
+            self._pybullet_robot.left_finger_id: transformed_normal,
+            self._pybullet_robot.right_finger_id: transformed_normal_neg,
         }
 
     @classmethod
@@ -454,9 +466,21 @@ class PyBulletEnv(BaseEnv):
                 obj_dict["is_held"] = 1.0 if obj.id == self._held_obj_id \
                                             else 0.0
 
+            if "r" in obj_features or "b" in obj_features or \
+                "g" in obj_features:
+                # TODO: also handle color_r, color_b, ...
+                visual_data = p.getVisualShapeData(
+                    obj.id, physicsClientId=self._physics_client_id
+                )[0]
+                (r, g, b, a) = visual_data[7]
+                obj_dict["r"] = r
+                obj_dict["g"] = g
+                obj_dict["b"] = b
+
             # Additional features
             for feature in obj_features:
-                if feature not in ["x", "y", "z", "rot", "is_held"]:
+                if feature not in ["x", "y", "z", "rot", "is_held",
+                                   "r", "g", "b"]:
                     obj_dict[feature] = self._extract_feature(obj, feature)
 
             state_dict[obj] = obj_dict
@@ -669,7 +693,7 @@ class PyBulletEnv(BaseEnv):
             # logging.debug("Finger closing")
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
-            # logging.debug(f"Detected held object: {self._held_obj_id}")
+            logging.debug(f"Detected held object: {self._held_obj_id}")
             # breakpoint()
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
