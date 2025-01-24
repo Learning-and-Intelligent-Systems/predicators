@@ -332,6 +332,7 @@ class GridRowDoorEnv(GridRowEnv):
         door_list: List[List[Object]] = []
         new_doors = 2*CFG.num_doors+1
         num_doors = rng.integers(CFG.num_doors, new_doors)
+        # num_doors = 1
         print("NUM DOORS", num_doors)
         # num_doors = CFG.test_num_doors
         for door_num in range(num_doors):
