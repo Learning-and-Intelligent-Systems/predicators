@@ -459,6 +459,11 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "rot": 0,
                 }
             else:
+                def _in_bounds(nx: float, ny: float) -> Tuple[float, float]:
+                    """Clamp the proposed (nx, ny) within the table boundary."""
+                    nx = max(min(nx, self.x_ub), self.x_lb)
+                    ny = max(min(ny, self.y_ub), self.y_lb)
+                    return nx, ny
                 # -------------------------------------------------
                 # 1) Randomly sample how many dominos, targets, pivots
                 #    Adjust these ranges as appropriate for your setup.
@@ -514,7 +519,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                         if choice == "straight":
                             dy = gap * np.cos(rot)
                             dx = gap * np.sin(rot)
-                            nx, ny = self._in_bounds(x + dx, y + dy)
+                            nx, ny = _in_bounds(x + dx, y + dy)
 
                             # Update x, y and place one domino
                             x, y = nx, ny
@@ -530,7 +535,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                 # Not enough dominos left for a full 90 turn => fallback
                                 dy = gap * np.cos(rot)
                                 dx = gap * np.sin(rot)
-                                nx, ny = self._in_bounds(x + dx, y + dy)
+                                nx, ny = _in_bounds(x + dx, y + dy)
                                 x, y = nx, ny
                                 init_dict[self.dominos[domino_count]] = self._place_domino(
                                     domino_count, x, y, rot, start_block=0.0
@@ -546,7 +551,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                 rot += half_turn
                                 dy = gap * np.cos(rot)
                                 dx = gap * np.sin(rot)
-                                nx, ny = self._in_bounds(x + dx, y + dy)
+                                nx, ny = _in_bounds(x + dx, y + dy)
                                 x, y = nx, ny
                                 init_dict[self.dominos[domino_count]] = self._place_domino(
                                     domino_count, x, y, rot+np.pi/2, start_block=0.0
@@ -557,7 +562,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                 rot += half_turn
                                 dy = gap * np.cos(rot)
                                 dx = gap * np.sin(rot)
-                                nx, ny = self._in_bounds(x + dx, y + dy)
+                                nx, ny = _in_bounds(x + dx, y + dy)
                                 x, y = nx, ny
                                 init_dict[self.dominos[domino_count]] = self._place_domino(
                                     domino_count, x, y, rot, start_block=0.0
@@ -568,7 +573,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                             # Existing pivot logic...
                             pivot_y = y + (gap/3)*np.cos(rot)
                             pivot_x = x + (gap/3)*np.sin(rot)
-                            pivot_x, pivot_y = self._in_bounds(pivot_x, pivot_y)
+                            pivot_x, pivot_y = _in_bounds(pivot_x, pivot_y)
 
                             init_dict[self.pivots[pivot_count]] = self._place_pivot_or_target(
                                 pivot_x, pivot_y, rot
@@ -578,7 +583,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                             # Flip orientation
                             back_y = y - gap * np.cos(rot)
                             back_x = x - gap * np.sin(rot)
-                            back_x, back_y = self._in_bounds(back_x, back_y)
+                            back_x, back_y = _in_bounds(back_x, back_y)
                             x, y = back_x, back_y
                             rot += np.pi  # 180° flip
 
@@ -592,7 +597,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                             # If pivot180 chosen but no pivots remain, or fallback
                             dy = gap * np.cos(rot)
                             dx = gap * np.sin(rot)
-                            nx, ny = self._in_bounds(x + dx, y + dy)
+                            nx, ny = _in_bounds(x + dx, y + dy)
                             x, y = nx, ny
                             init_dict[self.dominos[domino_count]] = self._place_domino(
                                 domino_count, x, y, rot, start_block=0.0
@@ -604,7 +609,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                         # Place a target
                         dy = gap * np.cos(rot)
                         dx = gap * np.sin(rot)
-                        nx, ny = self._in_bounds(x + dx, y + dy)
+                        nx, ny = _in_bounds(x + dx, y + dy)
                         x, y = nx, ny
 
                         init_dict[self.targets[target_count]] = self._place_pivot_or_target(x, y, rot)
@@ -622,6 +627,7 @@ class PyBulletDominoEnv(PyBulletEnv):
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
+
 
     # A small helper to set up dictionary entries:
     def _place_domino(self, d_idx: int, x: float, y: float, rot: float,
@@ -645,11 +651,6 @@ class PyBulletDominoEnv(PyBulletEnv):
             "rot": rot,
         }
 
-    def _in_bounds(self, nx: float, ny: float) -> Tuple[float, float]:
-        """Clamp the proposed (nx, ny) within the table boundary."""
-        nx = max(min(nx, self.x_ub), self.x_lb)
-        ny = max(min(ny, self.y_ub), self.y_lb)
-        return nx, ny
 
 
 if __name__ == "__main__":
