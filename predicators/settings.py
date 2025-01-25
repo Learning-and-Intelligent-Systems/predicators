@@ -384,6 +384,9 @@ class GlobalSettings:
     # grid row env parameters
     grid_row_num_cells = 100
 
+    # float
+    float_water_level_doesnt_raise = False
+
     # burger env parameters
     burger_render_set_of_marks = True
     # Which type of train/test tasks to generate. Options are "more_stacks",

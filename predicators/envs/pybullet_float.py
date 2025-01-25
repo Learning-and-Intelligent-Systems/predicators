@@ -97,7 +97,7 @@ class PyBulletFloatEnv(PyBulletEnv):
 
     # Vessel placement
     VESSEL_BASE_X: ClassVar[float] = 0.55
-    VESSEL_BASE_Y: ClassVar[float] = 1.3
+    VESSEL_BASE_Y: ClassVar[float] = 1.35
 
     # Water
     initial_water_height: ClassVar[float] = 0.13
@@ -219,6 +219,9 @@ class PyBulletFloatEnv(PyBulletEnv):
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         return [block_obj.id for block_obj in self._blocks]
+    
+    def _create_task_specific_objects(self, state: State) -> None:
+        pass
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object."""
@@ -243,6 +246,7 @@ class PyBulletFloatEnv(PyBulletEnv):
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_custom_env_state(self, state: State) -> None:
+
         # Initialize water level
         self._current_water_height = state.get(self._vessel, "water_height")
         # Clear old water
@@ -253,11 +257,16 @@ class PyBulletFloatEnv(PyBulletEnv):
 
         # Reset blocks
         for blk in self._blocks:
-            update_object(blk.id,
-                          color=PyBulletFloatEnv.block_color_light \
-                            if state.get(blk, "is_light") > 0.5
-                            else PyBulletFloatEnv.block_color_heavy,
-                          physics_client_id=self._physics_client_id)
+            # Set block's color based on is_light
+            # update_object(blk.id,
+            #               color=PyBulletFloatEnv.block_color_light \
+            #                 if state.get(blk, "is_light") > 0.5
+            #                 else PyBulletFloatEnv.block_color_heavy,
+            #               physics_client_id=self._physics_client_id)
+            # Set block's color randomly
+            # update_object(blk.id, 
+            #               color=self._train_rng.choice(self._obj_colors),
+            #               physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
             self._block_is_displacing[blk] = False
 
@@ -331,6 +340,8 @@ class PyBulletFloatEnv(PyBulletEnv):
         If so, update water displacement and recalc water level. Returns
         True if the water level changed, else False.
         """
+        if CFG.float_water_level_doesnt_raise:
+            return False
         old_height = self._current_water_height
         # Start from total volume = 2 compartments * old_height * area
         old_volume = 2.0 * self.CONTAINER_AREA * old_height
@@ -499,7 +510,7 @@ class PyBulletFloatEnv(PyBulletEnv):
     @staticmethod
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "fingers") > 0.2
+        return state.get(robot, "fingers") > 0.02
 
     def _is_block_light(self, block_obj: int) -> bool:
         """Check if pybullet block is light or heavy based its color."""
@@ -543,18 +554,10 @@ class PyBulletFloatEnv(PyBulletEnv):
             }
             # Blocks
             block_dicts = []
-            # for _block in self._blocks:
-            #     bx = rng.uniform(self.x_lb, self.x_ub)
-            #     by = rng.uniform(self.y_lb + 0.05,
-            #                     self.VESSEL_BASE_Y - self.CONTAINER_OPENING_LEN)
-            #     bz = self.z_lb + self.block_size/2
-            #     block_dicts.append({"x": bx, "y": by, "z": bz,
-            #                         "in_water": 0.0,
-            #                         "is_held": 0.0})
             block_dicts = [
                 {
                     "x": 0.7,
-                    "y": 1.16,
+                    "y": 1.2,
                     "z": self.z_lb + self.block_size / 2,
                     "in_water": 0.0,
                     "is_held": 0.0,
@@ -562,7 +565,7 @@ class PyBulletFloatEnv(PyBulletEnv):
                 },
                 {
                     "x": 0.8,
-                    "y": 1.2,
+                    "y": 1.23,
                     "z": self.z_lb + self.block_size / 2,
                     "in_water": 0.0,
                     "is_held": 0.0,

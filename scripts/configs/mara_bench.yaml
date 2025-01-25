@@ -81,13 +81,26 @@ ENVS:
   #     sesame_check_expected_atoms: False
   #     terminate_on_goal_reached: False
   #     pybullet_ik_validate: False
-  circuit_cf:
-    NAME: "pybullet_circuit"
+  # circuit_cf:
+  #   NAME: "pybullet_circuit"
+  #   FLAGS:
+  #     circuit_light_doesnt_need_battery: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     terminate_on_goal_reached: False
+  float:
+    NAME: "pybullet_float"
     FLAGS:
-      circuit_light_doesnt_need_battery: True
       sesame_max_skeletons_optimized: 1
       sesame_check_expected_atoms: False
-      terminate_on_goal_reached: False
+      pybullet_ik_validate: False
+  # float_cf:
+  #   NAME: "pybullet_float"
+  #   FLAGS:
+  #     float_water_level_doesnt_raise: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
 
 
 

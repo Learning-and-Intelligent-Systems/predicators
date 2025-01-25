@@ -27,7 +27,17 @@ class Type:
 
     sim_feature_names are features stored in an object, and usually
     won't change throughout and across tasks. An example is the object's
-    pybullet id.
+    pybullet id. 
+    This is convenient for variables that are not easily extractable from the
+    sim state -- whether a food block attracts ants, or the joint id for a
+    switch -- but are nonetheless for running the simulation.
+
+    Why not store all features here instead of storing in the State object? 
+    They can only store one value per feature, so if we generate 10 tasks where
+    the blocks are at different locations, it won't be able to store all 10
+    locations. One might think they could reset any feature at when reset is
+    called. But this would require the information is first stored in the State
+    object.
     """
     name: str
     feature_names: Sequence[str] = field(repr=False)
