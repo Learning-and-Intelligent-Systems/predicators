@@ -85,7 +85,8 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _domino_type = Type("domino",
-                        ["x", "y", "z", "rot", "start_block", "is_held"])
+                        ["x", "y", "z", "rot", "start_block", "is_held"],
+                        )
     _target_type = Type("target", ["x", "y", "z", "rot"])
     _pivot_type = Type("pivot", ["x", "y", "z", "rot"])
 
@@ -226,6 +227,9 @@ class PyBulletDominoEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return []
 
+    def _create_task_specific_objects(self, state):
+        pass
+
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object."""
         if obj.type == self._domino_type:
@@ -284,7 +288,7 @@ class PyBulletDominoEnv(PyBulletEnv):
     @classmethod
     def _HandEmpty_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "fingers") > 0.2
+        return state.get(robot, "fingers") > 0.02
 
     @classmethod
     def _Holding_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -320,162 +324,119 @@ class PyBulletDominoEnv(PyBulletEnv):
 
             # 2) Dominoes
             init_dict = {self._robot: robot_dict}
-            if self._debug_layout:
-                # Place dominoes (D) and targets (T) in order: D D T D T
-                # at fixed positions along the x-axis
-                rot = np.pi / 2
-                gap = self.domino_width * 1.3
-                x = self.start_domino_x
-                init_dict[self.dominos[0]] = {
-                    "x": x,
-                    "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 1.0,
-                    "is_held": 0.0,
-                }
-                x += gap
-                init_dict[self.dominos[1]] = {
-                    "x": x,
-                    "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                x += gap
-                init_dict[self.dominos[2]] = {
-                    "x": x,
-                    "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                x += gap
-                init_dict[self.targets[0]] = {
-                    "x": x,
-                    "y": self.start_domino_y,
-                    "z": self.z_lb,
-                    "rot": rot,
-                }
-                x += gap
-                init_dict[self.dominos[3]] = {
-                    "x": x,
-                    "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                x += gap
-                init_dict[self.dominos[4]] = {
-                    "x": x,
-                    "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                # U Turn pivot
-                x += gap / 3
-                y = self.start_domino_y + self.pivot_width / 2
-                init_dict[self.pivots[0]] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb,
-                    "rot": rot,
-                }
-                x -= gap / 3
-                y += self.pivot_width / 2
-                init_dict[self.dominos[5]] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                x -= gap
-                init_dict[self.dominos[6]] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                # Turn
-                x -= gap * 1 / 4
-                y += gap / 2
-                init_dict[self.dominos[7]] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": rot - np.pi / 4,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                x -= gap / 3
-                y += gap * 3 / 4
-                init_dict[self.dominos[8]] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb + self.domino_height / 2,
-                    "rot": 0,
-                    "start_block": 0.0,
-                    "is_held": 0.0,
-                }
-                y += gap
-                init_dict[self.targets[1]] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb,
-                    "rot": 0,
-                }
-            else:
-                for i in range(self.num_dominos):
-                    yaw = rng.uniform(-np.pi, np.pi)
-                    x = rng.uniform(self.x_lb, self.x_ub)
-                    y = rng.uniform(self.y_lb, self.y_ub)
-                    init_dict[self.dominos[i]] = {
-                        "x": x,
-                        "y": y,
-                        "z": self.z_lb + self.domino_height / 2,
-                        "rot": yaw,
-                        "start_block": 1.0 if i == 0 else 0.0,
-                        "is_held": 0.0,
-                    }
+            # Place dominoes (D) and targets (T) in order: D D T D T
+            # at fixed positions along the x-axis
+            rot = np.pi / 2
+            gap = self.domino_width * 1.3
+            x = self.start_domino_x
+            init_dict[self.dominos[0]] = {
+                "x": x,
+                "y": self.start_domino_y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 1.0,
+                "is_held": 0.0,
+            }
+            x += gap
+            init_dict[self.dominos[1]] = {
+                "x": x,
+                "y": self.start_domino_y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            x += gap
+            init_dict[self.dominos[2]] = {
+                "x": x,
+                "y": self.start_domino_y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            x += gap
+            init_dict[self.targets[0]] = {
+                "x": x,
+                "y": self.start_domino_y,
+                "z": self.z_lb,
+                "rot": rot,
+            }
+            x += gap
+            init_dict[self.dominos[3]] = {
+                "x": x,
+                "y": self.start_domino_y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            x += gap
+            init_dict[self.dominos[4]] = {
+                "x": x,
+                "y": self.start_domino_y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
 
-                # 3) Targets
-                target_dicts = [
-                    {
-                        "x": self.x_lb + self.domino_width * 2,
-                        "y": self.y_lb + 0.1,
-                        "z": self.z_lb,
-                        "rot": 0.0
-                    },
-                    {
-                        "x": self.x_lb + self.domino_width * 2,
-                        "y": self.y_lb + 0.3,
-                        "z": self.z_lb,
-                        "rot": 0.0
-                    },
-                ]
-                for t_obj, t_dict in zip(self.targets, target_dicts):
-                    init_dict[t_obj] = t_dict
-
-                # 4) Pivots
-                for i in range(self.num_pivots):
-                    yaw = rng.uniform(-np.pi, np.pi)
-                    x = rng.uniform(self.x_lb, self.x_ub)
-                    y = rng.uniform(self.y_lb, self.y_ub)
-                    init_dict[self.pivots[i]] = {
-                        "x": x,
-                        "y": y,
-                        "z": self.z_lb,
-                        "rot": yaw,
-                    }
+            # U Turn pivot
+            x += gap / 3
+            y = self.start_domino_y + self.pivot_width / 2
+            init_dict[self.pivots[0]] = {
+                "x": x,
+                "y": y,
+                "z": self.z_lb,
+                "rot": rot,
+            }
+            x -= gap / 3
+            y += self.pivot_width / 2
+            init_dict[self.dominos[5]] = {
+                "x": x,
+                "y": y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            x -= gap
+            init_dict[self.dominos[6]] = {
+                "x": x,
+                "y": y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            # Turn
+            x -= gap * 1 / 4
+            y += gap / 2
+            init_dict[self.dominos[7]] = {
+                "x": x,
+                "y": y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": rot - np.pi / 4,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            x -= gap / 3
+            y += gap * 3 / 4
+            init_dict[self.dominos[8]] = {
+                "x": x,
+                "y": y,
+                "z": self.z_lb + self.domino_height / 2,
+                "rot": 0,
+                "start_block": 0.0,
+                "is_held": 0.0,
+            }
+            y += gap
+            init_dict[self.targets[1]] = {
+                "x": x,
+                "y": y,
+                "z": self.z_lb,
+                "rot": 0,
+            }
 
             init_state = utils.create_state_from_dict(init_dict)
 

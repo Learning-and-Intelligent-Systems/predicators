@@ -35,7 +35,7 @@ class PyBulletDominoGroundTruthOptionFactory(GroundTruthOptionFactory):
     env_cls: ClassVar[TypingType[PyBulletDominoEnv]] = PyBulletDominoEnv
     _move_to_pose_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _transport_z: ClassVar[float] = env_cls.z_ub - 0.1
+    _transport_z: ClassVar[float] = env_cls.z_ub - 0.2
     _offset_x: ClassVar[float] = 0.03
     _offset_z: ClassVar[float] = 0.1
 
@@ -83,10 +83,10 @@ class PyBulletDominoGroundTruthOptionFactory(GroundTruthOptionFactory):
         Push = utils.LinearChainParameterizedOption(
             "Push",
             [
-                create_change_fingers_option(
-                    pybullet_robot, "CloseFingers", option_type, params_space,
-                    close_fingers_func, CFG.pybullet_max_vel_norm,
-                    PyBulletEnv.grasp_tol),
+                # create_change_fingers_option(
+                #     pybullet_robot, "CloseFingers", option_type, params_space,
+                #     close_fingers_func, CFG.pybullet_max_vel_norm,
+                #     PyBulletEnv.grasp_tol),
                 cls._create_domino_move_to_push_domino_option(
                     "MoveToAboveDomino", lambda x: x - cls._offset_x,
                     lambda _: cls._transport_z, "closed", option_type,
