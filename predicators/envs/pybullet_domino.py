@@ -464,21 +464,26 @@ class PyBulletDominoEnv(PyBulletEnv):
                 #    Adjust these ranges as appropriate for your setup.
                 # -------------------------------------------------
                 n_dominos = rng.integers(low=5, high=len(self.dominos)+1)
-                n_dominos = 4
+                n_dominos = 3
                 n_targets = rng.integers(low=1, high=min(3, 
                                                          len(self.targets))+1)
                 # "n_pivots" means how many times we *attempt* a 180° pivot
                 n_pivots = rng.integers(low=0, high=min(2, len(self.pivots))+1)
 
                 # TODO: Sample start positions/orientation
-                x = self.start_domino_x
-                y = self.start_domino_y + 0.2
+                # x = self.start_domino_x
+                # y = self.start_domino_y + 0.2
+                x = rng.uniform(self.x_lb, self.x_ub)
+                y = rng.uniform(self.y_lb + self.domino_width/2, 
+                                self.y_lb + self.domino_width*2)
+                # rot = rng.uniform(-np.pi / 2, np.pi / 2)
                 rot = np.pi / 2  # e.g. initial orientation
                 gap = self.domino_width * 1.3
 
                 domino_count = 0
                 target_count = 0
                 pivot_count = 0
+                just_placed_target = False
 
                 # Place the first domino with start_block = 1.0
                 init_dict[self.dominos[domino_count]] = self._place_domino(
@@ -499,7 +504,11 @@ class PyBulletDominoEnv(PyBulletEnv):
                     )
 
                     if must_place_domino:
-                        choice = rng.choice(turn_choices)
+                        # If just_placed_target, must choose "straight"
+                        if just_placed_target:
+                            choice = "straight"
+                        else:
+                            choice = rng.choice(turn_choices)
                         print(f"Choice: {choice}")
 
                         if choice == "straight":
@@ -589,6 +598,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                 domino_count, x, y, rot, start_block=0.0
                             )
                             domino_count += 1
+                        just_placed_target = False
 
                     else:
                         # Place a target
@@ -599,6 +609,7 @@ class PyBulletDominoEnv(PyBulletEnv):
 
                         init_dict[self.targets[target_count]] = self._place_pivot_or_target(x, y, rot)
                         target_count += 1
+                        just_placed_target = True
                     init_state = utils.create_state_from_dict(init_dict)
 
             # The goal: topple all targets
@@ -644,10 +655,10 @@ class PyBulletDominoEnv(PyBulletEnv):
 if __name__ == "__main__":
     import time
 
-    CFG.seed = 1
+    CFG.seed = 2
     CFG.env = "pybullet_domino"
     env = PyBulletDominoEnv(use_gui=True)
-    task = env._make_tasks(1, np.random.default_rng(0))[0]
+    task = env._make_tasks(1, np.random.default_rng(CFG.seed))[0]
     env._reset_state(task.init)
 
     while True:
