@@ -465,14 +465,14 @@ class PyBulletDominoEnv(PyBulletEnv):
                     return self.x_lb < nx < self.x_ub and self.y_lb < ny < self.y_ub
 
                 n_dominos = rng.integers(low=5, high=len(self.dominos) + 1)
-                n_dominos = 2
+                n_dominos = 5
                 n_targets = rng.integers(low=1,
                                          high=min(3, len(self.targets)) + 1)
                 n_targets = 1
                 # "n_pivots" means how many times we *attempt* a 180° pivot
                 n_pivots = rng.integers(low=0,
                                         high=min(2, len(self.pivots)) + 1)
-                n_pivots = 1
+                n_pivots = 0
 
                 while True:
                     print("\nSample again:")
@@ -499,8 +499,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                     turn_choices = [
                         "straight",
                         "straight",
-                        # "turn90",
-                        "pivot180"
+                        "turn90",
+                        # "pivot180"
                     ]
 
                     # Try placing dominos/targets
@@ -597,31 +597,24 @@ class PyBulletDominoEnv(PyBulletEnv):
                                     domino_count += 1
 
                             elif choice == "pivot180" and pivot_count < n_pivots:
-                                # pivot logic...
-                                # If failing, set success=False and break
-                                # Existing pivot logic...
-                                # pivot_dir = rng.choice([-1, 1])
-                                # pivot_y = y + (gap / 3) * np.cos(rot)
-                                # pivot_x = x + (gap / 3) * np.sin(rot)
-
-                                pivot_dir = rng.choice([-1, 1])  # pick left or right offset
+                                pivot_dir = rng.choice(
+                                    [-1, 1])  # pick left or right offset
                                 side_offset = (self.pivot_width / 2)
 
                                 # Parallel movement along orientation rot:
                                 #   (cos(rot), sin(rot)) is the unit vector in direction 'rot'
-                                pivot_x = x + gap / 3 * np.cos(rot)
-                                pivot_y = y + gap / 3 * np.sin(rot)
+                                pivot_y = y + gap / 3 * np.cos(rot)
+                                pivot_x = x + gap / 3 * np.sin(rot)  # 0.03
 
                                 # Optional sideways shift:
-                                #   a direction perpendicular to 'rot' is given by 
+                                #   a direction perpendicular to 'rot' is given by
                                 #   (-sin(rot),  cos(rot)) or (sin(rot), -cos(rot))
                                 #   pick one sign via pivot_dir
-                                pivot_x += pivot_dir * side_offset * -np.sin(rot)
-                                pivot_y += pivot_dir * side_offset *  np.cos(rot)
+                                pivot_y += pivot_dir * side_offset * -np.sin(
+                                    rot)  # -0.1
+                                pivot_x += pivot_dir * side_offset * np.cos(
+                                    rot)  # 0
 
-                                print(
-                                    f"block_x: {x}, block_y: {y}, pivot_x: {pivot_x}, pivot_y: {pivot_y}"
-                                )
                                 if not _in_bounds(pivot_x, pivot_y):
                                     success = False
                                     break
@@ -632,8 +625,14 @@ class PyBulletDominoEnv(PyBulletEnv):
                                 pivot_count += 1
 
                                 # Flip orientation
-                                back_x = pivot_x - gap * np.sin(rot)
-                                back_y = pivot_y - gap * np.cos(rot)
+                                # big +y, small -x
+                                back_y = pivot_y + (gap / 3) * np.cos(rot)
+                                back_x = pivot_x - (gap / 3) * np.sin(rot)
+
+                                # Optionally keep the same sideways offset so
+                                # it's "same side"
+                                back_y += pivot_dir * side_offset * -np.sin(rot)
+                                back_x -= pivot_dir * side_offset * np.cos(rot)
                                 if not _in_bounds(back_x, back_y):
                                     success = False
                                     break
@@ -739,10 +738,10 @@ class PyBulletDominoEnv(PyBulletEnv):
 if __name__ == "__main__":
     import time
 
-    CFG.seed = 1
+    CFG.seed = 3
     CFG.env = "pybullet_domino"
     env = PyBulletDominoEnv(use_gui=True)
-    task = env._make_tasks(1, np.random.default_rng(CFG.seed))[0]
+    task = env._make_tasks(1, env._train_rng)[0]
     env._reset_state(task.init)
 
     while True:
