@@ -116,7 +116,8 @@ class PyBulletFloatEnv(PyBulletEnv):
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _vessel_type = Type("vessel", ["x", "y", "z", "water_height"])
     _block_type = Type("block",
-                       ["x", "y", "z", "in_water", "is_held", "is_light"])
+                       ["x", "y", "z", "in_water", "is_held"],
+                       sim_features=["id", "is_light"])
 
     def __init__(self, use_gui: bool = True) -> None:
         self._robot = Object("robot", self._robot_type)
@@ -211,8 +212,15 @@ class PyBulletFloatEnv(PyBulletEnv):
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         self._vessel.id = pybullet_bodies["vessel_id"]
-        for blk, id in zip(self._blocks, pybullet_bodies["block_ids"]):
+        num_blocks = len(pybullet_bodies["block_ids"])
+        for i, (blk, id) in enumerate(zip(self._blocks, 
+                                          pybullet_bodies["block_ids"])):
+            if i == num_blocks - 1:
+                blk.is_light = 1.0
+            else:
+                blk.is_light = 0.0
             blk.id = id
+        
 
     # -------------------------------------------------------------------------
     # State Management
@@ -226,9 +234,9 @@ class PyBulletFloatEnv(PyBulletEnv):
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object."""
         if obj.type == self._block_type:
-            if feature == "is_light":
-                return self._is_block_light(obj.id)
-            elif feature == "in_water":
+            # if feature == "is_light":
+            #     return self._is_block_light(obj.id)
+            if feature == "in_water":
                 (bx, by, bz), _ = p.getBasePositionAndOrientation(
                     obj.id, physicsClientId=self._physics_client_id)
                 in_water_val = 0.0
@@ -264,9 +272,9 @@ class PyBulletFloatEnv(PyBulletEnv):
             #                 else PyBulletFloatEnv.block_color_heavy,
             #               physics_client_id=self._physics_client_id)
             # Set block's color randomly
-            # update_object(blk.id, 
-            #               color=self._train_rng.choice(self._obj_colors),
-            #               physics_client_id=self._physics_client_id)
+            update_object(blk.id, 
+                          color=self._train_rng.choice(self._obj_colors),
+                          physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
             self._block_is_displacing[blk] = False
 
@@ -305,7 +313,7 @@ class PyBulletFloatEnv(PyBulletEnv):
 
         for blk in self._blocks:
             # Skip blocks that are heavy or being held
-            if state.get(blk, "is_light") < 0.5:
+            if blk.is_light < 0.5:
                 continue
             if state.get(blk, "is_held") > 0.5:
                 continue
@@ -355,7 +363,7 @@ class PyBulletFloatEnv(PyBulletEnv):
 
         for blk in self._blocks:
             # Get block's top (we approximate block top as its center + half)
-            is_light = state.get(blk, "is_light") > 0.5
+            is_light = blk.is_light > 0.5
             bx = state.get(blk, "x")
             by = state.get(blk, "y")
             bz = state.get(blk, "z")
@@ -512,16 +520,6 @@ class PyBulletFloatEnv(PyBulletEnv):
         robot, = objects
         return state.get(robot, "fingers") > 0.02
 
-    def _is_block_light(self, block_obj: int) -> bool:
-        """Check if pybullet block is light or heavy based its color."""
-        color = p.getVisualShapeData(
-            block_obj, physicsClientId=self._physics_client_id)[0][-1]
-        block_color_light_dist = sum(
-            np.subtract(color, self.block_color_light)**2)
-        block_color_heavy_dist = sum(
-            np.subtract(color, self.block_color_heavy)**2)
-        return block_color_light_dist < block_color_heavy_dist
-
     # -------------------------------------------------------------------------
     # Helpers for tasks
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -561,7 +559,6 @@ class PyBulletFloatEnv(PyBulletEnv):
                     "z": self.z_lb + self.block_size / 2,
                     "in_water": 0.0,
                     "is_held": 0.0,
-                    "is_light": 0.0
                 },
                 {
                     "x": 0.8,
@@ -569,7 +566,6 @@ class PyBulletFloatEnv(PyBulletEnv):
                     "z": self.z_lb + self.block_size / 2,
                     "in_water": 0.0,
                     "is_held": 0.0,
-                    "is_light": 0.0
                 },
                 # {"x": 1, "y": 1.16, "z": self.z_lb + self.block_size/2,
                 {
@@ -584,8 +580,6 @@ class PyBulletFloatEnv(PyBulletEnv):
                     0.0,
                     "is_held":
                     0.0,
-                    "is_light":
-                    1.0
                 },
             ]
 
