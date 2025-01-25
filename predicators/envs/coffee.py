@@ -13,6 +13,8 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
+from predicators.pybullet_helpers.objects import \
+    sample_collision_free_2d_positions
 
 
 class CoffeeEnv(BaseEnv):
@@ -549,49 +551,29 @@ class CoffeeEnv(BaseEnv):
             # Sample initial positions for cups, making sure to keep them
             # far enough apart from one another.
             radius = self.cup_radius + self.init_padding
-            # Assuming that the dimensions are forgiving enough that
+
+            # Start rewrite
+            # Get a list of positions for the cups
+            cup_state_dict: Dict[Object, Dict[str, float]] = {}
             # infinite loops are impossible.
-            while True:
-                collision_geoms: Set[utils.Circle] = set()
-                cup_state_dict: Dict[Object, Dict[str, float]] = {}
-                for cup in cups:
-                    # Try to sample a position for the cup. If sampling does
-                    # not quickly succeed, throw out the whole set of cup
-                    # positions and start over.
-                    for _ in range(10):
-                        x = rng.uniform(self.cup_init_x_lb, self.cup_init_x_ub)
-                        y = rng.uniform(self.cup_init_y_lb, self.cup_init_y_ub)
-                        gm = utils.Circle(x, y, radius)
-                        # Keep only if no intersections with existing objects.
-                        if not any(gm.intersects(g) for g in collision_geoms):
-                            break
-                    else:
-                        # Failed to sample a position for the cup.
-                        break
-                    collision_geoms.add(gm)
-                    # Sample a cup capacity, which also defines its height.
-                    cap = rng.uniform(self.cup_capacity_lb,
-                                      self.cup_capacity_ub)
-                    # Target liquid amount for filling the cup.
-                    target = cap * self.cup_target_frac
-                    # The initial liquid amount is always 0.
-                    current = 0.0
-                    cup_state_dict[cup] = {
-                        "x": x,
-                        "y": y,
-                        "z": self.z_lb + cap / 2,
-                        "capacity_liquid": cap,
-                        "target_liquid": target,
-                        "current_liquid": current,
-                    }
-                else:
-                    # We made it through without breaking, so we're done.
-                    assert len(cup_state_dict) == len(cups)
-                    # It is very rare that this while True loop fails on the
-                    # first try, but it can happen. It doesn't happen during
-                    # normal testing, so coverage complains (because the case
-                    # where this else block is not hit is not covered).
-                    break  # pragma: no cover
+            # Assuming that the dimensions are forgiving enough that
+            cup_positions = sample_collision_free_2d_positions(
+                    num_cups,
+                    (self.cup_init_x_lb, self.cup_init_x_ub),
+                    (self.cup_init_y_lb, self.cup_init_y_ub),
+                    "circle",
+                    (radius,),
+                    rng=self._train_rng)
+            for cup, (x, y) in zip(cup, cup_positions):
+                cap = rng.uniform(self.cup_capacity_lb, self.cup_capacity_ub)
+                cup_state_dict[cup] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + cap / 2,
+                    "capacity_liquid": cap,
+                    "target_liquid": cap * self.cup_target_frac,
+                    "current_liquid": 0.0
+                }
             state_dict.update(cup_state_dict)
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)

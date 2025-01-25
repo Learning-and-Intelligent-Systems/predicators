@@ -88,19 +88,25 @@ ENVS:
   #     sesame_max_skeletons_optimized: 1
   #     sesame_check_expected_atoms: False
   #     terminate_on_goal_reached: False
-  float:
-    NAME: "pybullet_float"
-    FLAGS:
-      sesame_max_skeletons_optimized: 1
-      sesame_check_expected_atoms: False
-      pybullet_ik_validate: False
-  # float_cf:
+  # float:
   #   NAME: "pybullet_float"
   #   FLAGS:
-  #     float_water_level_doesnt_raise: True
   #     sesame_max_skeletons_optimized: 1
   #     sesame_check_expected_atoms: False
   #     pybullet_ik_validate: False
+  #     option_model_terminate_on_repeat: False
+  #     num_train_tasks: 0
+  #     num_test_tasks: 2
+  float_cf:
+    NAME: "pybullet_float"
+    FLAGS:
+      float_water_level_doesnt_raise: True
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      pybullet_ik_validate: False
+      option_model_terminate_on_repeat: False
+      num_train_tasks: 0
+      num_test_tasks: 2
 
 
 
@@ -115,7 +121,7 @@ FLAGS:
   # unstable, this is useful to capture the unstability and to avoid force from
   # the prev. episode to affect the current episode.
   terminate_on_goal_reached: False
-  num_train_tasks: 1
+  num_train_tasks: 0
   num_test_tasks: 1
   video_fps: 20
   pybullet_camera_height: 900

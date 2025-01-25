@@ -16,7 +16,8 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
-from predicators.pybullet_helpers.objects import create_object, update_object
+from predicators.pybullet_helpers.objects import (create_object, update_object,
+                                            sample_collision_free_2d_positions)
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
@@ -551,40 +552,39 @@ class PyBulletFloatEnv(PyBulletEnv):
                 "water_height": self.initial_water_height,
             }
             # Blocks
-            block_dicts = []
-            block_dicts = [
-                {
-                    "x": 0.7,
-                    "y": 1.2,
-                    "z": self.z_lb + self.block_size / 2,
-                    "in_water": 0.0,
-                    "is_held": 0.0,
-                },
-                {
-                    "x": 0.8,
-                    "y": 1.23,
-                    "z": self.z_lb + self.block_size / 2,
-                    "in_water": 0.0,
-                    "is_held": 0.0,
-                },
-                # {"x": 1, "y": 1.16, "z": self.z_lb + self.block_size/2,
-                {
-                    "x":
-                    self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN +
+            num_free_blocks = len(self._blocks) - 1
+            block_xy_positions = sample_collision_free_2d_positions(
+                num_samples=num_free_blocks,
+                x_range=(self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN + \
+                            self.block_size,
+                         self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN +
+                            self.CONTAINER_GAP - self.block_size),
+                y_range=(self.y_lb + self.block_size * 2.5, 
+                         self.VESSEL_BASE_Y + self.CONTAINER_OPENING_LEN / 2),
+                shape_type="rectangle",
+                shape_params=[self.block_size, self.block_size, 0],
+                rng=self._train_rng,
+            )
+            # Adding z values
+            block_positions = [(pos[0], pos[1], self.z_lb + self.block_size / 2)
+                               for pos in block_xy_positions]
+            # Add the block inside the vessel
+            block_positions.append((
+                self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN +
                     self.CONTAINER_GAP + self.CONTAINER_OPENING_LEN / 2,
-                    "y":
-                    self.VESSEL_BASE_Y,
-                    "z":
-                    self.initial_water_height + self.block_size / 2,
-                    "in_water":
-                    0.0,
-                    "is_held":
-                    0.0,
-                },
-            ]
+                self.VESSEL_BASE_Y,
+                self.initial_water_height + self.block_size / 2,
+            ))
 
             init_dict = {self._robot: robot_dict, self._vessel: vessel_dict}
-            for b_obj, b_vals in zip(self._blocks, block_dicts):
+            for b_obj, b_pos in zip(self._blocks, block_positions):
+                b_vals = {
+                    "x": b_pos[0],
+                    "y": b_pos[1],
+                    "z": b_pos[2],
+                    "in_water": 0.0,
+                    "is_held": 0.0,
+                }
                 init_dict[b_obj] = b_vals
 
             init_state = utils.create_state_from_dict(init_dict)
