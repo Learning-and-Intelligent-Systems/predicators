@@ -392,7 +392,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 self._machine_plugged_in_id = None
             # Rebuild the cord chain
             self._cord_ids, self._cord_constraints = self._add_pybullet_cord(
-                    self._physics_client_id)
+                self._physics_client_id)
             self._plug.id = self._cord_ids[-1]
 
     def _reset_custom_env_state(self, state: State) -> None:

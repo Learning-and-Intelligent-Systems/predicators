@@ -95,8 +95,7 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
                     option_type, params_space),
                 # Move down to grasp.
                 cls._create_circuit_move_to_above_wire_option(
-                    "MoveToGraspWire", lambda snap_z: snap_z + 0.01,
-                    "open",
+                    "MoveToGraspWire", lambda snap_z: snap_z + 0.01, "open",
                     option_type, params_space),
                 # Close fingers
                 create_change_fingers_option(
@@ -122,9 +121,7 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
                     "closed", option_type, params_space),
                 # Move down to connect.
                 cls._create_circuit_move_to_above_two_snaps_option(
-                    "MoveToConnect", 
-                    lambda snap_z: snap_z + 0.01,
-                    "closed",
+                    "MoveToConnect", lambda snap_z: snap_z + 0.01, "closed",
                     option_type, params_space),
                 # Open fingers
                 create_change_fingers_option(
@@ -133,9 +130,8 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
                     PyBulletCircuitEnv.grasp_tol),
                 # Move back up
                 cls._create_circuit_move_to_above_two_snaps_option(
-                    "MoveEndEffectorBackUp",
-                    lambda _: cls._hand_empty_move_z, "open",
-                    option_type, params_space),
+                    "MoveEndEffectorBackUp", lambda _: cls._hand_empty_move_z,
+                    "open", option_type, params_space),
             ])
         options.add(Connect)
 
@@ -144,39 +140,33 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
         params_space = Box(0, 1, (0, ))
         SwitchOn = utils.LinearChainParameterizedOption(
             "SwitchOn", [
-            cls._create_circuit_move_to_push_switch_option(
-                "MoveToAboveAndBehindSwitch", 
-                lambda y: y - cls._y_offset*5,
-                lambda _: cls._hand_empty_move_z, 
-                "open", option_type,
-                params_space),
-            cls._create_circuit_move_to_push_switch_option(
-                "MoveToBehindSwitch",
-                lambda y: y - cls._y_offset*5,
-                lambda z: z + cls.env_cls.switch_height, 
-                "open", option_type,
-                params_space),
-            cls._create_circuit_move_to_push_switch_option(
-                "PushSwitch",
-                lambda y: y - cls._y_offset*1.8,
-                lambda z: z + cls.env_cls.switch_height, 
-                "open", option_type,
-                params_space),
-            cls._create_circuit_move_to_push_switch_option(
-                "MoveBack", 
-                lambda y: y - cls._y_offset*3,
-                lambda _: cls._hand_empty_move_z, 
-                "open", option_type,
-                params_space),
+                cls._create_circuit_move_to_push_switch_option(
+                    "MoveToAboveAndBehindSwitch",
+                    lambda y: y - cls._y_offset * 5,
+                    lambda _: cls._hand_empty_move_z, "open", option_type,
+                    params_space),
+                cls._create_circuit_move_to_push_switch_option(
+                    "MoveToBehindSwitch", lambda y: y - cls._y_offset * 5,
+                    lambda z: z + cls.env_cls.switch_height, "open",
+                    option_type, params_space),
+                cls._create_circuit_move_to_push_switch_option(
+                    "PushSwitch", lambda y: y - cls._y_offset * 1.8,
+                    lambda z: z + cls.env_cls.switch_height, "open",
+                    option_type, params_space),
+                cls._create_circuit_move_to_push_switch_option(
+                    "MoveBack", lambda y: y - cls._y_offset * 3,
+                    lambda _: cls._hand_empty_move_z, "open", option_type,
+                    params_space),
             ])
         options.add(SwitchOn)
 
         return options
 
     @classmethod
-    def _create_circuit_move_to_push_switch_option(cls, name: str, 
-            y_func: Callable[[float], float], 
-            z_func: Callable[[float], float],
+    def _create_circuit_move_to_push_switch_option(
+            cls, name: str, y_func: Callable[[float],
+                                             float], z_func: Callable[[float],
+                                                                      float],
             finger_status: str, option_types: List[Type],
             params_space: Box) -> ParameterizedOption:
         """Create a move-to-pose option for the switch environment."""
@@ -193,7 +183,7 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
                  state.get(robot, "wrist")])
             current_pose = Pose(current_position, ee_orn)
             target_position = (state.get(switch, "x") + \
-                        cls.env_cls.snap_width/2 + cls.env_cls.switch_width/2, 
+                        cls.env_cls.snap_width/2 + cls.env_cls.switch_width/2,
                                y_func(state.get(switch, "y")),
                                z_func(state.get(switch, "z")))
             target_orn = p.getQuaternionFromEuler(
@@ -212,12 +202,11 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude,
             validate=CFG.pybullet_ik_validate)
 
-
     @classmethod
     def _create_circuit_move_to_above_wire_option(
-            cls, name: str, z_func: Callable[[float], float],
-            finger_status: str, option_type: List[Type],
-            params_space: Box) -> ParameterizedOption:
+            cls, name: str, z_func: Callable[[float],
+                                             float], finger_status: str,
+            option_type: List[Type], params_space: Box) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         wire argument.
 
@@ -252,9 +241,9 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_circuit_move_to_above_two_snaps_option(
-            cls, name: str, z_func: Callable[[float], float],
-            finger_status: str, option_type: List[Type],
-            params_space: Box) -> ParameterizedOption:
+            cls, name: str, z_func: Callable[[float],
+                                             float], finger_status: str,
+            option_type: List[Type], params_space: Box) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         wire argument.
 

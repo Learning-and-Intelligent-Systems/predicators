@@ -1,8 +1,9 @@
-"""A PyBullet version of Blocks, refactored to use the new PyBulletEnv hooks."""
+"""A PyBullet version of Blocks, refactored to use the new PyBulletEnv
+hooks."""
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 import numpy as np
 import pybullet as p
@@ -13,7 +14,8 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import EnvironmentTask, Object, State, Action
+from predicators.structs import Action, EnvironmentTask, Object, State
+
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
@@ -43,23 +45,21 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     @classmethod
     def initialize_pybullet(
-        cls, using_gui: bool
+            cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        """Create the plane, table, debug lines, and maximum number of blocks."""
-        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(using_gui)
+        """Create the plane, table, debug lines, and maximum number of
+        blocks."""
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
         # Load the table
-        table_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/table.urdf"),
-            useFixedBase=True,
-            physicsClientId=physics_client_id
-        )
-        p.resetBasePositionAndOrientation(
-            table_id,
-            cls._table_pose,
-            cls._table_orientation,
-            physicsClientId=physics_client_id
-        )
+        table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                              useFixedBase=True,
+                              physicsClientId=physics_client_id)
+        p.resetBasePositionAndOrientation(table_id,
+                                          cls._table_pose,
+                                          cls._table_orientation,
+                                          physicsClientId=physics_client_id)
         bodies["table_id"] = table_id
 
         # Optional debug lines
@@ -67,15 +67,14 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             cls._draw_table_workspace_debug_lines(physics_client_id)
 
         # Create the maximum number of blocks
-        num_blocks = max(
-            max(CFG.blocks_num_blocks_train),
-            max(CFG.blocks_num_blocks_test)
-        )
+        num_blocks = max(max(CFG.blocks_num_blocks_train),
+                         max(CFG.blocks_num_blocks_test))
         block_ids = []
         block_size = CFG.blocks_block_size
         for i in range(num_blocks):
             color = cls._obj_colors[i % len(cls._obj_colors)]
-            half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
+            half_extents = (block_size / 2.0, block_size / 2.0,
+                            block_size / 2.0)
             block_id = create_pybullet_block(
                 color=color,
                 half_extents=half_extents,
@@ -119,22 +118,18 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             by = state.get(block_obj, "pose_y")
             bz = state.get(block_obj, "pose_z")
             p.resetBasePositionAndOrientation(
-                block_id,
-                [bx, by, bz],
+                block_id, [bx, by, bz],
                 self._default_orn,
-                physicsClientId=self._physics_client_id
-            )
+                physicsClientId=self._physics_client_id)
 
             # Update color
             r = state.get(block_obj, "color_r")
             g = state.get(block_obj, "color_g")
             b = state.get(block_obj, "color_b")
-            p.changeVisualShape(
-                block_id,
-                linkIndex=-1,
-                rgbaColor=(r, g, b, 1.0),
-                physicsClientId=self._physics_client_id
-            )
+            p.changeVisualShape(block_id,
+                                linkIndex=-1,
+                                rgbaColor=(r, g, b, 1.0),
+                                physicsClientId=self._physics_client_id)
 
         # If there is a held block, create the constraint
         held_block = self._get_held_block(state)
@@ -148,15 +143,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
             p.resetBasePositionAndOrientation(
-                block_id,
-                [oov_x, oov_y, i * block_size],
+                block_id, [oov_x, oov_y, i * block_size],
                 self._default_orn,
-                physicsClientId=self._physics_client_id
-            )
+                physicsClientId=self._physics_client_id)
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Called by the parent class when constructing the `PyBulletState`.
-        We read off the relevant block or robot features from PyBullet."""
+
+        We read off the relevant block or robot features from PyBullet.
+        """
 
         if obj.type == self._block_type:
             # Find the PyBullet ID for this block
@@ -167,12 +162,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     block_id = bid
                     break
             if block_id is None:
-                raise ValueError(f"Object {obj} not found in _block_id_to_block")
+                raise ValueError(
+                    f"Object {obj} not found in _block_id_to_block")
 
             # Pose from PyBullet
             (bx, by, bz), _ = p.getBasePositionAndOrientation(
-                block_id, physicsClientId=self._physics_client_id
-            )
+                block_id, physicsClientId=self._physics_client_id)
 
             if feature == "pose_x":
                 return bx
@@ -186,20 +181,17 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             elif feature == "color_r":
                 # read from PyBullet
                 visual_data = p.getVisualShapeData(
-                    block_id, physicsClientId=self._physics_client_id
-                )[0]
+                    block_id, physicsClientId=self._physics_client_id)[0]
                 (r, g, b, a) = visual_data[7]
                 return r
             elif feature == "color_g":
                 visual_data = p.getVisualShapeData(
-                    block_id, physicsClientId=self._physics_client_id
-                )[0]
+                    block_id, physicsClientId=self._physics_client_id)[0]
                 (r, g, b, a) = visual_data[7]
                 return g
             elif feature == "color_b":
                 visual_data = p.getVisualShapeData(
-                    block_id, physicsClientId=self._physics_client_id
-                )[0]
+                    block_id, physicsClientId=self._physics_client_id)[0]
                 (r, g, b, a) = visual_data[7]
                 return b
             # If you have an extra "clear" feature (BlocksEnvClear),
@@ -217,13 +209,13 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         else:
             raise ValueError(f"Unknown object type {obj.type} or feature "
                              f"{feature}")
-    
+
     def step(self, action: Action, render_obs: bool = False) -> State:
 
         self._prev_held_obj_id = self._held_obj_id
         # Otherwise, proceed with normal PyBullet step
         next_state = super().step(action, render_obs=render_obs)
-        
+
         if CFG.blocks_high_towers_are_unstable:
             self._apply_force_to_high_towers(next_state)
             next_state = self._get_state()
@@ -233,7 +225,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _extract_robot_state(self, state: State) -> np.ndarray:
         """As needed, parse from the robot's `pose_x`, `pose_y`, `pose_z`,
-        `fingers` in the `State` to the 8D array [rx,ry,rz, qx,qy,qz,qw, finger]."""
+        `fingers` in the `State` to the 8D array [rx,ry,rz, qx,qy,qz,qw,
+        finger]."""
         # Usually these features exist in your robot object:
         robot_obj = state.get_objects(self._robot_type)[0]
         rx = state.get(robot_obj, "pose_x")
@@ -248,7 +241,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return np.array([rx, ry, rz, qx, qy, qz, qw, f], dtype=np.float32)
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        """Return the IDs of blocks for which we might be checking 'held' contact."""
+        """Return the IDs of blocks for which we might be checking 'held'
+        contact."""
         return list(self._block_id_to_block.keys())
 
     # -----------------------------------------------------------------------
@@ -256,7 +250,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     # -----------------------------------------------------------------------
     def _force_grasp_object(self, block: Object) -> None:
         """Manually create a fixed constraint for a block that is marked 'held'
-        in the State. Called from _reset_custom_env_state()."""
+        in the State.
+
+        Called from _reset_custom_env_state().
+        """
         # Find block's pybullet ID
         block_id = None
         for bid, block_obj in self._block_id_to_block.items():
@@ -290,7 +287,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 # Apply downward force
                 force = [0, -100, 0]  # Adjust force magnitude as needed
                 pos = p.getBasePositionAndOrientation(
-                    just_released_obj.id, 
+                    just_released_obj.id,
                     physicsClientId=self._physics_client_id)[0]
                 p.applyExternalForce(
                     just_released_obj.id,
@@ -327,6 +324,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _draw_table_workspace_debug_lines(physics_client_id: int) -> None:
         """Optionally draws red lines marking the workspace on the table."""
         from predicators.envs.blocks import BlocksEnv
+
         # Draw the bounding lines at x_lb, x_ub, y_lb, y_ub
         x_lb = BlocksEnv.x_lb
         x_ub = BlocksEnv.x_ub
@@ -334,16 +332,16 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         y_ub = BlocksEnv.y_ub
         z = BlocksEnv.table_height
 
-        p.addUserDebugLine([x_lb, y_lb, z], [x_ub, y_lb, z],
-                           [1.0, 0.0, 0.0], lineWidth=5.0,
+        p.addUserDebugLine([x_lb, y_lb, z], [x_ub, y_lb, z], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
                            physicsClientId=physics_client_id)
-        p.addUserDebugLine([x_lb, y_ub, z], [x_ub, y_ub, z],
-                           [1.0, 0.0, 0.0], lineWidth=5.0,
+        p.addUserDebugLine([x_lb, y_ub, z], [x_ub, y_ub, z], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
                            physicsClientId=physics_client_id)
-        p.addUserDebugLine([x_lb, y_lb, z], [x_lb, y_ub, z],
-                           [1.0, 0.0, 0.0], lineWidth=5.0,
+        p.addUserDebugLine([x_lb, y_lb, z], [x_lb, y_ub, z], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
                            physicsClientId=physics_client_id)
-        p.addUserDebugLine([x_ub, y_lb, z], [x_ub, y_ub, z],
-                           [1.0, 0.0, 0.0], lineWidth=5.0,
+        p.addUserDebugLine([x_ub, y_lb, z], [x_ub, y_ub, z], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
                            physicsClientId=physics_client_id)
         # Possibly more debug text...

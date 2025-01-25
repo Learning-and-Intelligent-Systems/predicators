@@ -149,6 +149,6 @@ FLAGS:
   pybullet_camera_width: 900
   use_counterfactual_dataset_path_name: True
   keep_failed_demos: True
-START_SEED: 0
+START_SEED: 3
 NUM_SEEDS: 1
 # 

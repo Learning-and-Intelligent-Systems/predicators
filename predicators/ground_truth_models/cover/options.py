@@ -405,11 +405,12 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         # This could lead to slippage or bad grasps, but we haven't seen this
         # in practice, so we'll leave it as is instead of changing the State.
         HandEmpty = predicates["HandEmpty"]
-        def toggle_fingers_func(state: State, _: Dict, __: Sequence[Object]
-                                ) -> Tuple[float, float]:
+
+        def toggle_fingers_func(state: State, _: Dict,
+                                __: Sequence[Object]) -> Tuple[float, float]:
             # breakpoint()
             if HandEmpty.holds(state, []):
-                return (pybullet_robot.open_fingers, 
+                return (pybullet_robot.open_fingers,
                         pybullet_robot.closed_fingers)
             return (pybullet_robot.closed_fingers, pybullet_robot.open_fingers)
 

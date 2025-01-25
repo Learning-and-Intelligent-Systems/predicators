@@ -1,12 +1,12 @@
 """Ground-truth NSRTs for the coffee environment."""
 
-from typing import Dict, Set, Sequence
+from typing import Dict, Sequence, Set
 
 import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
-    Predicate, Type, Variable, State, Object, Array, GroundAtom
+from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
+    ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
 
 
@@ -104,9 +104,9 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             y = rng.uniform()
             return np.array([x, y], dtype=np.float32)
 
-        place = NSRT("PlaceJug", parameters, preconditions, add_effects,
-                     delete_effects, set(), option, option_vars, 
-                     putontable_sampler)
+        place = NSRT("PlaceJug",
+                     parameters, preconditions, add_effects, delete_effects,
+                     set(), option, option_vars, putontable_sampler)
         nsrts.add(place)
 
         return nsrts

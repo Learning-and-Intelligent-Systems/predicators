@@ -510,7 +510,7 @@ class GlobalSettings:
     video_fps = 2
     failure_video_mode = "longest_only"
     terminate_on_goal_reached = True
-    keep_failed_demos = False # For saving videos
+    keep_failed_demos = False  # For saving videos
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.

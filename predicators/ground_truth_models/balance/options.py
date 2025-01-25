@@ -55,6 +55,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
+
         # Balanced = predicates['Balanced'].untransformed_predicate
 
         def get_current_fingers(state: State) -> float:

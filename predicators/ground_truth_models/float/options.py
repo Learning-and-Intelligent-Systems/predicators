@@ -91,8 +91,7 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move down to grasp.
                 cls._create_float_move_to_above_block_option(
                     "MoveToGraspBlock",
-                    lambda block_z: block_z + cls._offset_z, 
-                    "open",
+                    lambda block_z: block_z + cls._offset_z, "open",
                     option_types, params_space),
                 # Close fingers
                 create_change_fingers_option(
@@ -114,8 +113,8 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
             [
                 # Move to above the position for connecting.
                 cls._create_float_move_to_above_vessel_option(
-                    "MoveToAboveVessel", lambda _: cls._transport_z,
-                    "closed", option_types, params_space),
+                    "MoveToAboveVessel", lambda _: cls._transport_z, "closed",
+                    option_types, params_space),
                 # Open fingers
                 create_change_fingers_option(
                     pybullet_robot, "OpenFingers", option_types, params_space,
@@ -123,8 +122,8 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
                     PyBulletEnv.grasp_tol),
                 # Move to above the position for connecting.
                 cls._create_float_move_to_above_vessel_option(
-                    "MoveHigher", lambda _: cls._hand_empty_z,
-                    "open", option_types, params_space),
+                    "MoveHigher", lambda _: cls._hand_empty_z, "open",
+                    option_types, params_space),
             ])
         options.add(Drop)
 
@@ -161,12 +160,15 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            _get_pybullet_robot(), name, option_types, params_space,
+            _get_pybullet_robot(),
+            name,
+            option_types,
+            params_space,
             _get_current_and_target_pose_and_finger_status,
-            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._move_to_pose_tol,
+            CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
-            validate=CFG.pybullet_ik_validate
-            )
+            validate=CFG.pybullet_ik_validate)
 
     @classmethod
     def _create_float_move_to_above_vessel_option(
@@ -206,9 +208,12 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            _get_pybullet_robot(), name, option_types, params_space,
+            _get_pybullet_robot(),
+            name,
+            option_types,
+            params_space,
             _get_current_and_target_pose_and_finger_status,
-            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._move_to_pose_tol,
+            CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
-            validate=CFG.pybullet_ik_validate
-            )
+            validate=CFG.pybullet_ik_validate)

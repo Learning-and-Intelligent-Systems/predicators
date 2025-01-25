@@ -134,7 +134,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
         self._SwitchedOn = Predicate("SwitchedOn", [self._battery_type],
-                                  self._SwitchedOn_holds)
+                                     self._SwitchedOn_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -249,7 +249,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         elif obj.type == self._battery_type and feature == "is_on":
             return int(self._is_switch_on())
         raise ValueError(f"Unknown feature {feature} for object {obj}")
-    
+
     def _create_task_specific_objects(self, state):
         pass
 
@@ -274,7 +274,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # Check if the CircuitClosed predicate is satisfied => turn the light on
         if self._SwitchedOn_holds(next_state, [self._battery]) and\
             (CFG.circuit_light_doesnt_need_battery or
-            self._CircuitClosed_holds(next_state, [self._light, 
+            self._CircuitClosed_holds(next_state, [self._light,
                                                     self._battery])):
             self._turn_bulb_on()
         else:
@@ -397,7 +397,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
             physicsClientId=self._physics_client_id,
         )
 
-    def _SwitchedOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _SwitchedOn_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         """Check if the battery is switched on."""
         battery, = objects
         return state.get(battery, "is_on") > 0.5
@@ -491,7 +492,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             }
 
             # Wires
-            wire1_x = rng.uniform(battery_x + self.wire_snap_length/2,
+            wire1_x = rng.uniform(battery_x + self.wire_snap_length / 2,
                                   battery_x + self.wire_snap_length)
             wire1_dict = {
                 "x": wire1_x,
@@ -500,7 +501,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
                 "rot": 0.0,
                 "is_held": 0.0,
             }
-            wire2_x = rng.uniform(battery_x + self.wire_snap_length/2,
+            wire2_x = rng.uniform(battery_x + self.wire_snap_length / 2,
                                   battery_x + self.wire_snap_length)
             wire2_dict = {
                 "x": wire2_x,
@@ -535,10 +536,10 @@ class PyBulletCircuitEnv(PyBulletEnv):
                 # GroundAtom(self._LightOn, [self._light]),
                 # GroundAtom(self._CircuitClosed, [self._light, self._battery]),
                 GroundAtom(self._SwitchedOn, [self._battery]),
-                GroundAtom(self._ConnectedToBattery, [self._wire1,
-                  self._battery]),
-                GroundAtom(self._ConnectedToBattery, [self._wire2,
-                  self._battery]),
+                GroundAtom(self._ConnectedToBattery,
+                           [self._wire1, self._battery]),
+                GroundAtom(self._ConnectedToBattery,
+                           [self._wire2, self._battery]),
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 

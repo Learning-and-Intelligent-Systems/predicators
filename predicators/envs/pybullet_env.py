@@ -5,8 +5,8 @@ Contains useful common code.
 
 import abc
 import logging
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 from pprint import pformat
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import matplotlib
 import numpy as np
@@ -19,9 +19,9 @@ from predicators.envs import BaseEnv
 from predicators.pybullet_helpers.camera import create_gui_connection
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
+from predicators.pybullet_helpers.objects import update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
-from predicators.pybullet_helpers.objects import update_object
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
     Observation, State, Video
@@ -33,11 +33,11 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    # grasp_tol: value for which the objects with distance below to are 
+    # grasp_tol: value for which the objects with distance below to are
     # considered to be grasped, and also the value change finger option can be
     # terminated.
-    grasp_tol: ClassVar[float] = 5e-2 # for large objects
-    grasp_tol_small: ClassVar[float] = 5e-4 # for small objects
+    grasp_tol: ClassVar[float] = 5e-2  # for large objects
+    grasp_tol_small: ClassVar[float] = 5e-4  # for small objects
     _finger_action_tol: ClassVar[float] = 1e-4
     open_fingers: ClassVar[float] = 0.04
     closed_fingers: ClassVar[float] = 0.01
@@ -109,8 +109,7 @@ class PyBulletEnv(BaseEnv):
     def initialize_pybullet(
             cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        """
-        Initialize the PyBullet environment.
+        """Initialize the PyBullet environment.
 
         This method initializes the PyBullet physics simulation, loads the robot
         and shared object models, and returns the physics client ID, the robot
@@ -126,19 +125,19 @@ class PyBulletEnv(BaseEnv):
                 - int: The physics client ID.
                 - SingleArmPyBulletRobot: The robot instance.
                 - Dict[str, Any]: A dictionary containing object IDs and other
-                                information from PyBullet that needs to be 
+                                information from PyBullet that needs to be
                                 tracked.
 
         Notes:
-            - This is a public class method because it is also used by the 
+            - This is a public class method because it is also used by the
             oracle options.
-            - This method loads object models that are shared across tasks. 
+            - This method loads object models that are shared across tasks.
             These objects can have different poses or colors, and the number of
             objects can vary across tasks (e.g., the number of blocks in the
             blocks domain). However, an object's size cannot be changed after
             loading.
             - Task-specific objects that need to be loaded with different sizes
-            or other properties should be handled in the 
+            or other properties should be handled in the
             `_create_task_specific_objects` method, which is called during each
             task's reset.
             - Subclasses may override this method to load additional assets. In
@@ -405,7 +404,8 @@ class PyBulletEnv(BaseEnv):
             orn = self._default_orn  # e.g. (0,0,0,1)
 
         # 2) Update the object’s position/orientation in PyBullet
-        update_object(obj.id, [px, py, pz], orn, 
+        update_object(obj.id, [px, py, pz],
+                      orn,
                       physics_client_id=self._physics_client_id)
 
         # 3) If there's an is_held feature, reattach constraints if needed
@@ -474,8 +474,7 @@ class PyBulletEnv(BaseEnv):
                 "g" in obj_features:
                 # TODO: also handle color_r, color_b, ...
                 visual_data = p.getVisualShapeData(
-                    obj.id, physicsClientId=self._physics_client_id
-                )[0]
+                    obj.id, physicsClientId=self._physics_client_id)[0]
                 (r, g, b, a) = visual_data[7]
                 obj_dict["r"] = r
                 obj_dict["g"] = g
@@ -483,8 +482,9 @@ class PyBulletEnv(BaseEnv):
 
             # Additional features
             for feature in obj_features:
-                if feature not in ["x", "y", "z", "rot", "is_held",
-                                   "r", "g", "b"]:
+                if feature not in [
+                        "x", "y", "z", "rot", "is_held", "r", "g", "b"
+                ]:
                     obj_dict[feature] = self._extract_feature(obj, feature)
 
             state_dict[obj] = obj_dict
@@ -514,8 +514,12 @@ class PyBulletEnv(BaseEnv):
         elif CFG.env == "pybullet_blocks":
             rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
             fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
-            r_dict.update({"pose_x": rx, "pose_y": ry, "pose_z": rz, 
-                           "fingers": fingers})
+            r_dict.update({
+                "pose_x": rx,
+                "pose_y": ry,
+                "pose_z": rz,
+                "fingers": fingers
+            })
         else:
             rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
             r_dict.update({"x": rx, "y": ry, "z": rz, "fingers": rf})
@@ -640,20 +644,20 @@ class PyBulletEnv(BaseEnv):
 
     def step(self, action: Action, render_obs: bool = False) -> Observation:
         """Execute one environment step with the given action.
-        
+
         This method handles:
         1. Robot joint control by converting action to target positions
         2. Management of held objects and grasping constraints
         3. Physics simulation stepping
         4. Object grasp detection and constraint creation/removal
         5. `self._current_observation` update
-        
+
         Args:
             action (Action): The action to execute, containing target joint
             positions
-            render_obs (bool, optional): Whether to include RGB observation. 
+            render_obs (bool, optional): Whether to include RGB observation.
                 Defaults to False.
-                
+
         Returns:
             Observation: Updated environment observation after executing the
             action. May include an image if render_obs=True or

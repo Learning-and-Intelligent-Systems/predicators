@@ -124,9 +124,9 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
         self._JugOnTable = Predicate("JugOnTable", [self._jug_type],
-                                    self._JugOnTable_holds)
+                                     self._JugOnTable_holds)
         self._CupOnTable = Predicate("CupOnTable", [self._cup_type],
-                                    self._CupOnTable_holds)
+                                     self._CupOnTable_holds)
         self._SameColor = Predicate("SameColor",
                                     [self._cup_type, self._jug_type],
                                     self._SameColor_holds)
@@ -176,7 +176,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         cup_ids = []
         for _ in range(cls.num_cups):
             # For now, just give a placeholder color; we'll update color below
-            cup_id = create_object(asset_path="urdf/pot-pixel.urdf", mass=50,
+            cup_id = create_object(asset_path="urdf/pot-pixel.urdf",
+                                   mass=50,
                                    physics_client_id=physics_client_id)
             cup_ids.append(cup_id)
         bodies["cup_ids"] = cup_ids
@@ -192,7 +193,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
-        """Store references (IDs) to cups and jugs inside self._cups, self._jugs."""
+        """Store references (IDs) to cups and jugs inside self._cups,
+        self._jugs."""
         for i, cup in enumerate(self._cups):
             cup.id = pybullet_bodies["cup_ids"][i]
         for i, jug in enumerate(self._jugs):
@@ -231,7 +233,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         # Remove existing "liquid bodies"
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
-                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+                p.removeBody(liquid_id,
+                             physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
         # Recreate the liquid bodies as needed
@@ -261,7 +264,8 @@ class PyBulletGrowEnv(PyBulletEnv):
     # Pouring logic
 
     def step(self, action: Action, render_obs: bool = False) -> State:
-        """Let parent handle the robot stepping, then apply custom pouring logic."""
+        """Let parent handle the robot stepping, then apply custom pouring
+        logic."""
         next_state = super().step(action, render_obs=render_obs)
 
         # If a jug is in the robot's hand, and tilt is large, check if over a color-matching cup
@@ -290,18 +294,21 @@ class PyBulletGrowEnv(PyBulletEnv):
                             cup_b = next_state.get(cup_obj, "b")
 
                             # If colors match (within small tolerance)
-                            if (abs(jug_r - cup_r) < 1e-3 and
-                                abs(jug_g - cup_g) < 1e-3 and
-                                abs(jug_b - cup_b) < 1e-3):
+                            if (abs(jug_r - cup_r) < 1e-3
+                                    and abs(jug_g - cup_g) < 1e-3
+                                    and abs(jug_b - cup_b) < 1e-3):
                                 # Increase growth
-                                current_growth = next_state.get(cup_obj, "growth")
-                                new_growth = min(1.0, current_growth + self.pour_rate)
+                                current_growth = next_state.get(
+                                    cup_obj, "growth")
+                                new_growth = min(
+                                    1.0, current_growth + self.pour_rate)
 
                                 # Remove old liquid body, set new growth
                                 old_liquid_id = self._cup_to_liquid_id[cup_obj]
                                 if old_liquid_id is not None:
                                     p.removeBody(old_liquid_id,
-                                                 physicsClientId=self._physics_client_id)
+                                                 physicsClientId=self.
+                                                 _physics_client_id)
 
                                 next_state.set(cup_obj, "growth", new_growth)
                                 self._cup_to_liquid_id[cup_obj] = \
@@ -317,7 +324,7 @@ class PyBulletGrowEnv(PyBulletEnv):
     @staticmethod
     def _Grown_holds(state: State, objects: Sequence[Object]) -> bool:
         """A cup is "grown" if growth > growth_height."""
-        (cup,) = objects
+        (cup, ) = objects
         return state.get(cup, "growth") > PyBulletGrowEnv.growth_height
 
     @staticmethod
@@ -327,7 +334,7 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     @staticmethod
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
-        (robot,) = objects
+        (robot, ) = objects
         return state.get(robot, "fingers") > 0.02
 
     def _InTableBoundry(self, state: State, objects: Sequence[Object]) -> bool:
@@ -338,14 +345,16 @@ class PyBulletGrowEnv(PyBulletEnv):
             return False
         return True
 
-    def _JugOnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        (jug,) = objects
+    def _JugOnTable_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        (jug, ) = objects
         # If being held, it's not "on the table"
         if self._Holding_holds(state, [self._robot, jug]):
             return False
         return self._InTableBoundry(state, [jug])
-    
-    def _CupOnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+
+    def _CupOnTable_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         return self._InTableBoundry(state, objects)
 
     @staticmethod
@@ -434,7 +443,6 @@ class PyBulletGrowEnv(PyBulletEnv):
                 }
                 init_dict[cup_obj] = cup_dict
 
-
             # Build the initial State
             init_state = utils.create_state_from_dict(init_dict)
 
@@ -467,29 +475,32 @@ class PyBulletGrowEnv(PyBulletEnv):
                 return False
         return True
 
-    def _sample_table_xy(self, rng: np.random.Generator,
-                         existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
+    def _sample_table_xy(
+            self, rng: np.random.Generator,
+            existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
         max_tries = 1000
         for _ in range(max_tries):
-            x = rng.uniform(self.x_lb + self.small_padding, 
+            x = rng.uniform(self.x_lb + self.small_padding,
                             self.x_ub - self.small_padding)
-            y = rng.uniform(self.y_lb + 2*self.small_padding, 
-                            self.y_ub - 2*self.small_padding)
+            y = rng.uniform(self.y_lb + 2 * self.small_padding,
+                            self.y_ub - 2 * self.small_padding)
             if self._table_xy_is_clear(x, y, existing_xys):
                 existing_xys.add((x, y))
                 return (x, y)
-        raise RuntimeError("Could not sample a valid table (x, y) without crowding.")
+        raise RuntimeError(
+            "Could not sample a valid table (x, y) without crowding.")
 
     # -------------------------------------------------------------------------
     # Liquid creation
 
-    def _create_pybullet_liquid_for_cup(self, cup: Object,
-                state: State,
-                growth_color: Tuple[float, float, float, float] = growth_color
-                                        ) -> Optional[int]:
+    def _create_pybullet_liquid_for_cup(
+        self,
+        cup: Object,
+        state: State,
+        growth_color: Tuple[float, float, float, float] = growth_color
+    ) -> Optional[int]:
         """Given a cup's 'growth' feature, create (or None) a small PyBullet
-        body.
-        """
+        body."""
         current_liquid = state.get(cup, "growth")
         if current_liquid <= 0:
             return None
@@ -502,17 +513,17 @@ class PyBulletGrowEnv(PyBulletEnv):
         cz = self.z_lb + liquid_height / 2  # sits on table
 
         if CFG.grow_plant_same_color_as_cup:
-            color = (state.get(cup, "r"), state.get(cup, "g"), 
-                     state.get(cup, "b"), 0.8)
+            color = (state.get(cup, "r"), state.get(cup,
+                                                    "g"), state.get(cup,
+                                                                    "b"), 0.8)
         else:
             color = growth_color
         return create_pybullet_block(color=color,
-                                   half_extents=half_extents,
-                                   mass=10.0,
-                                   friction=0.5,
-                                   position=(cx, cy, cz),
-                                   physics_client_id=self._physics_client_id)
-
+                                     half_extents=half_extents,
+                                     mass=10.0,
+                                     friction=0.5,
+                                     position=(cx, cy, cz),
+                                     physics_client_id=self._physics_client_id)
 
 
 if __name__ == "__main__":

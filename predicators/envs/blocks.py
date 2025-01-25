@@ -298,8 +298,9 @@ class BlocksEnv(BaseEnv):
         return tasks
 
     def _create_blocks(self) -> None:
-        for i in range(max(max(CFG.blocks_num_blocks_train), 
-                           max(CFG.blocks_num_blocks_test))):
+        for i in range(
+                max(max(CFG.blocks_num_blocks_train),
+                    max(CFG.blocks_num_blocks_test))):
             block = Object(f"block{i}", self._block_type)
             self._blocks.append(block)
 
@@ -421,15 +422,16 @@ class BlocksEnv(BaseEnv):
         height = 0
         current_block = block
         blocks = state.get_objects(self._block_type)
-        
+
         while True:
-            below_blocks = [b for b in blocks if self._On_holds(state, 
-                                                        [current_block, b])]
+            below_blocks = [
+                b for b in blocks if self._On_holds(state, [current_block, b])
+            ]
             if not below_blocks:
                 break
             current_block = below_blocks[0]
             height += 1
-        
+
         return height
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:

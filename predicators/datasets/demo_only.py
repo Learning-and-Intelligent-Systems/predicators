@@ -267,6 +267,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         dataset = Dataset(trajectories)
     return dataset
 
+
 def make_demo_videos(video_monitor: utils.VideoMonitor, idx: int) -> None:
     assert video_monitor is not None
     video = video_monitor.get_video()

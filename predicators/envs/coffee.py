@@ -10,11 +10,11 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
+from predicators.pybullet_helpers.objects import \
+    sample_collision_free_2d_positions
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
-from predicators.pybullet_helpers.objects import \
-    sample_collision_free_2d_positions
 
 
 class CoffeeEnv(BaseEnv):
@@ -558,12 +558,10 @@ class CoffeeEnv(BaseEnv):
             # infinite loops are impossible.
             # Assuming that the dimensions are forgiving enough that
             cup_positions = sample_collision_free_2d_positions(
-                    num_cups,
-                    (self.cup_init_x_lb, self.cup_init_x_ub),
-                    (self.cup_init_y_lb, self.cup_init_y_ub),
-                    "circle",
-                    (radius,),
-                    rng=self._train_rng)
+                num_cups, (self.cup_init_x_lb, self.cup_init_x_ub),
+                (self.cup_init_y_lb, self.cup_init_y_ub),
+                "circle", (radius, ),
+                rng=self._train_rng)
             for cup, (x, y) in zip(cup, cup_positions):
                 cap = rng.uniform(self.cup_capacity_lb, self.cup_capacity_ub)
                 cup_state_dict[cup] = {

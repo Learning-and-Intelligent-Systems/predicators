@@ -181,9 +181,14 @@ class PyBulletBalanceEnv(PyBulletEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._DirectlyOn, self._DirectlyOnPlate, self._GripperOpen,
-            self._Holding, self._Clear, self._MachineOn, self._ClearPlate,
-            self._Balanced_abs, 
+            self._DirectlyOn,
+            self._DirectlyOnPlate,
+            self._GripperOpen,
+            self._Holding,
+            self._Clear,
+            self._MachineOn,
+            self._ClearPlate,
+            self._Balanced_abs,
             # self._OnPlate_abs
         }
 
@@ -418,7 +423,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
         if diff == self._prev_diff:
             return
 
-
         shift_per_block = 0.007
         shift_amount = abs(diff) * shift_per_block
         block_objs = state.get_objects(self._block_type)
@@ -600,6 +604,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         if plate1 == table2:
             return False
         return True
+
         # Function to count the number of blocks in the tower
         def count_num_blocks(table):
 
@@ -655,8 +660,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
         else:
             return False
 
-    def _GripperOpen_holds(self, state: State, objects: Sequence[Object]
-                           ) -> bool:
+    def _GripperOpen_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
         rf = state.get(robot, "fingers")
         return rf > 0.03
@@ -817,7 +822,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
                     GroundAtom(self._MachineOn, [self._machine, self._robot]),
                     GroundAtom(self._DirectlyOn, [piles[1][2], piles[0][0]]),
                 }
-            else:   
+            else:
                 goal = {
                     GroundAtom(self._MachineOn, [self._machine, self._robot]),
                     GroundAtom(self._DirectlyOn, [piles[1][4], piles[0][0]]),

@@ -16,8 +16,8 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
-from predicators.pybullet_helpers.objects import (create_object, update_object,
-                                            sample_collision_free_2d_positions)
+from predicators.pybullet_helpers.objects import create_object, \
+    sample_collision_free_2d_positions, update_object
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
@@ -116,8 +116,7 @@ class PyBulletFloatEnv(PyBulletEnv):
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _vessel_type = Type("vessel", ["x", "y", "z", "water_height"])
-    _block_type = Type("block",
-                       ["x", "y", "z", "in_water", "is_held"],
+    _block_type = Type("block", ["x", "y", "z", "in_water", "is_held"],
                        sim_features=["id", "is_light"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -214,21 +213,20 @@ class PyBulletFloatEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         self._vessel.id = pybullet_bodies["vessel_id"]
         num_blocks = len(pybullet_bodies["block_ids"])
-        for i, (blk, id) in enumerate(zip(self._blocks, 
-                                          pybullet_bodies["block_ids"])):
+        for i, (blk, id) in enumerate(
+                zip(self._blocks, pybullet_bodies["block_ids"])):
             if i == num_blocks - 1:
                 blk.is_light = 1.0
             else:
                 blk.is_light = 0.0
             blk.id = id
-        
 
     # -------------------------------------------------------------------------
     # State Management
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         return [block_obj.id for block_obj in self._blocks]
-    
+
     def _create_task_specific_objects(self, state: State) -> None:
         pass
 
@@ -273,7 +271,7 @@ class PyBulletFloatEnv(PyBulletEnv):
             #                 else PyBulletFloatEnv.block_color_heavy,
             #               physics_client_id=self._physics_client_id)
             # Set block's color randomly
-            update_object(blk.id, 
+            update_object(blk.id,
                           color=self._train_rng.choice(self._obj_colors),
                           physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
@@ -559,19 +557,20 @@ class PyBulletFloatEnv(PyBulletEnv):
                             self.block_size,
                          self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN +
                             self.CONTAINER_GAP - self.block_size),
-                y_range=(self.y_lb + self.block_size * 2.5, 
+                y_range=(self.y_lb + self.block_size * 2.5,
                          self.VESSEL_BASE_Y + self.CONTAINER_OPENING_LEN / 2),
                 shape_type="rectangle",
                 shape_params=[self.block_size, self.block_size, 0],
                 rng=self._train_rng,
             )
             # Adding z values
-            block_positions = [(pos[0], pos[1], self.z_lb + self.block_size / 2)
+            block_positions = [(pos[0], pos[1],
+                                self.z_lb + self.block_size / 2)
                                for pos in block_xy_positions]
             # Add the block inside the vessel
             block_positions.append((
                 self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN +
-                    self.CONTAINER_GAP + self.CONTAINER_OPENING_LEN / 2,
+                self.CONTAINER_GAP + self.CONTAINER_OPENING_LEN / 2,
                 self.VESSEL_BASE_Y,
                 self.initial_water_height + self.block_size / 2,
             ))

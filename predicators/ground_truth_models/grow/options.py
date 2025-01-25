@@ -122,10 +122,11 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
             # jz = cls.env_cls.z_lb + cls.env_cls.jug_height()
             current_jug_pos = (jx, jy, jz)
             x_norm, y_norm = params
-            target_jug_pos = (
-            cls.env_cls.x_lb + (cls.env_cls.x_ub - cls.env_cls.x_lb) * x_norm,
-            cls.env_cls.y_lb + (cls.env_cls.y_ub - cls.env_cls.y_lb) * y_norm,
-            cls.env_cls.z_lb + cls.env_cls.jug_height / 2)
+            target_jug_pos = (cls.env_cls.x_lb +
+                              (cls.env_cls.x_ub - cls.env_cls.x_lb) * x_norm,
+                              cls.env_cls.y_lb +
+                              (cls.env_cls.y_ub - cls.env_cls.y_lb) * y_norm,
+                              cls.env_cls.z_lb + cls.env_cls.jug_height / 2)
 
             dtilt = cls.env_cls.robot_init_tilt - tilt
             dwrist = cls.env_cls.robot_init_wrist - wrist
@@ -149,7 +150,7 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
                     finger_status="closed",
                     dtilt=dtilt,
                     dwrist=dwrist,
-                    )
+                )
 
             target_robot_pos = (x + dx, y + dy, z)
             return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(  # pylint: disable=protected-access
@@ -158,7 +159,7 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
                 robot_pos,
                 finger_status="closed",
                 dtilt=dtilt,
-                    dwrist=dwrist,
-                )
+                dwrist=dwrist,
+            )
 
         return policy

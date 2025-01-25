@@ -1,15 +1,16 @@
 import logging
-from typing import Optional, Sequence, Tuple, List
+from typing import List, Optional, Sequence, Tuple
 
-import pybullet as p
 import numpy as np
+import pybullet as p
 
 from predicators import utils
-from predicators.utils import _Geom2D
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.utils import _Geom2D
 
 # import numpy as np
 default_orn: Sequence[float] = [0.0, 0.0, 0.0, 1.0]
+
 
 def create_object(asset_path: str,
                   position: Pose3D = (0, 0, 0),
@@ -34,9 +35,11 @@ def create_object(asset_path: str,
         # Change color of all links
         for link_id in range(p.getNumJoints(obj_id)):
             p.changeVisualShape(obj_id, link_id, rgbaColor=color)
-    
+
     if mass is not None:
-        p.changeDynamics(obj_id, -1, mass=mass, 
+        p.changeDynamics(obj_id,
+                         -1,
+                         mass=mass,
                          physicsClientId=physics_client_id)
 
     return obj_id
@@ -58,16 +61,16 @@ def update_object(obj_id: int,
         for link_id in range(-1, p.getNumJoints(obj_id)):
             p.changeVisualShape(obj_id, link_id, rgbaColor=color)
 
+
 def sample_collision_free_2d_positions(
-    num_samples: int,
-    x_range: Tuple[float, float],
-    y_range: Tuple[float, float],
-    shape_type: str,
-    shape_params: Sequence[float],
-    rng: np.random.Generator,
-    max_tries_per_object: int = 10,
-    max_tries_total: int = 1000
-) -> List[Tuple[float, float]]:
+        num_samples: int,
+        x_range: Tuple[float, float],
+        y_range: Tuple[float, float],
+        shape_type: str,
+        shape_params: Sequence[float],
+        rng: np.random.Generator,
+        max_tries_per_object: int = 10,
+        max_tries_total: int = 1000) -> List[Tuple[float, float]]:
     """Sample collision-free 2D positions.
 
     This function supports two shape types:
@@ -100,7 +103,7 @@ def sample_collision_free_2d_positions(
         """Create the geometry object based on shape_type and shape_params."""
         if shape_type == "circle":
             # shape_params = [radius]
-            (radius,) = shape_params
+            (radius, ) = shape_params
             return Circle(px, py, radius)
         elif shape_type == "rectangle":
             # shape_params = [width, height, theta]

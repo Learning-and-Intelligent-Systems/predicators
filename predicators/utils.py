@@ -21,12 +21,12 @@ from argparse import ArgumentParser
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from pathlib import Path
+from pprint import pformat
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
-from pprint import pformat
 
 import dill as pkl
 import imageio
@@ -43,7 +43,6 @@ from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
-
 
 from predicators.args import create_arg_parser
 from predicators.image_patch_wrapper import ImagePatch
@@ -4000,8 +3999,10 @@ def get_config_path_str(experiment_id: Optional[str] = None) -> str:
     if CFG.use_counterfactual_dataset_path_name:
         return (f"{CFG.env}__{CFG.seed}__{CFG.experiment_id}__query")
     else:
-        return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__"
-        f"{CFG.excluded_predicates}__{CFG.included_options}__{experiment_id}")
+        return (
+            f"{CFG.env}__{CFG.approach}__{CFG.seed}__"
+            f"{CFG.excluded_predicates}__{CFG.included_options}__{experiment_id}"
+        )
 
 
 def get_approach_save_path_str() -> str:
