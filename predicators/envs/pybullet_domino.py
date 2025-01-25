@@ -91,8 +91,7 @@ class PyBulletDominoEnv(PyBulletEnv):
     _pivot_type = Type("pivot", ["x", "y", "z", "rot"])
 
     def __init__(self,
-                 use_gui: bool = True,
-                 debug_layout: bool = True) -> None:
+                 use_gui: bool = True) -> None:
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
         self._robot = Object("robot", self._robot_type)
         # We'll hold references to all domino and target objects in lists
@@ -117,7 +116,6 @@ class PyBulletDominoEnv(PyBulletEnv):
             self.pivots.append(obj)
 
         super().__init__(use_gui)
-        self._debug_layout = debug_layout
 
         # Define Predicates
         self._Toppled = Predicate("Toppled", [self._target_type],
@@ -326,117 +324,228 @@ class PyBulletDominoEnv(PyBulletEnv):
             init_dict = {self._robot: robot_dict}
             # Place dominoes (D) and targets (T) in order: D D T D T
             # at fixed positions along the x-axis
-            rot = np.pi / 2
             gap = self.domino_width * 1.3
-            x = self.start_domino_x
-            init_dict[self.dominos[0]] = {
-                "x": x,
-                "y": self.start_domino_y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 1.0,
-                "is_held": 0.0,
-            }
-            x += gap
-            init_dict[self.dominos[1]] = {
-                "x": x,
-                "y": self.start_domino_y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            x += gap
-            init_dict[self.dominos[2]] = {
-                "x": x,
-                "y": self.start_domino_y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            x += gap
-            init_dict[self.targets[0]] = {
-                "x": x,
-                "y": self.start_domino_y,
-                "z": self.z_lb,
-                "rot": rot,
-            }
-            x += gap
-            init_dict[self.dominos[3]] = {
-                "x": x,
-                "y": self.start_domino_y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            x += gap
-            init_dict[self.dominos[4]] = {
-                "x": x,
-                "y": self.start_domino_y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
+            if CFG.domino_debug_layout:
+                rot = np.pi / 2  # e.g. initial orientation
+                x = self.start_domino_x
+                y = self.start_domino_y
+                init_dict[self.dominos[0]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 1.0,
+                    "is_held": 0.0,
+                }
+                x += gap
+                init_dict[self.dominos[1]] = {
+                    "x": x,
+                    "y": self.start_domino_y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                x += gap
+                init_dict[self.dominos[2]] = {
+                    "x": x,
+                    "y": self.start_domino_y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                x += gap
+                init_dict[self.targets[0]] = {
+                    "x": x,
+                    "y": self.start_domino_y,
+                    "z": self.z_lb,
+                    "rot": rot,
+                }
+                x += gap
+                init_dict[self.dominos[3]] = {
+                    "x": x,
+                    "y": self.start_domino_y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                x += gap
+                init_dict[self.dominos[4]] = {
+                    "x": x,
+                    "y": self.start_domino_y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
 
-            # U Turn pivot
-            x += gap / 3
-            y = self.start_domino_y + self.pivot_width / 2
-            init_dict[self.pivots[0]] = {
-                "x": x,
-                "y": y,
-                "z": self.z_lb,
-                "rot": rot,
-            }
-            x -= gap / 3
-            y += self.pivot_width / 2
-            init_dict[self.dominos[5]] = {
-                "x": x,
-                "y": y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            x -= gap
-            init_dict[self.dominos[6]] = {
-                "x": x,
-                "y": y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            # Turn
-            x -= gap * 1 / 4
-            y += gap / 2
-            init_dict[self.dominos[7]] = {
-                "x": x,
-                "y": y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": rot - np.pi / 4,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            x -= gap / 3
-            y += gap * 3 / 4
-            init_dict[self.dominos[8]] = {
-                "x": x,
-                "y": y,
-                "z": self.z_lb + self.domino_height / 2,
-                "rot": 0,
-                "start_block": 0.0,
-                "is_held": 0.0,
-            }
-            y += gap
-            init_dict[self.targets[1]] = {
-                "x": x,
-                "y": y,
-                "z": self.z_lb,
-                "rot": 0,
-            }
+                # 180-degree Turn with pivot
+                x += gap / 3
+                y = self.start_domino_y + self.pivot_width / 2
+                init_dict[self.pivots[0]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb,
+                    "rot": rot,
+                }
+                x -= gap / 3
+                y += self.pivot_width / 2
+                init_dict[self.dominos[5]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                x -= gap
+                init_dict[self.dominos[6]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                # 90-degree Turn
+                x -= gap * 1 / 4
+                y += gap / 2
+                init_dict[self.dominos[7]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot - np.pi / 4,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                x -= gap / 3
+                y += gap * 3 / 4
+                init_dict[self.dominos[8]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": 0,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
+                }
+                y += gap
+                init_dict[self.targets[1]] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb,
+                    "rot": 0,
+                }
+            else:
+                # -------------------------------------------------
+                # 1) Randomly sample how many dominos, targets, pivots
+                #    Adjust these ranges as appropriate for your setup.
+                # -------------------------------------------------
+                n_dominos = rng.integers(low=5, high=len(self.dominos)+1)
+                n_targets = rng.integers(low=1, high=min(3, 
+                                                         len(self.targets))+1)
+                # "n_pivots" means how many times we *attempt* a 180° pivot
+                n_pivots = rng.integers(low=0, high=min(2, len(self.pivots))+1)
+
+                # TODO: Sample start positions/orientation
+                x = self.start_domino_x
+                y = self.start_domino_y
+                rot = np.pi / 2  # e.g. initial orientation
+                gap = self.domino_width * 1.3
+
+                domino_count = 0
+                target_count = 0
+                pivot_count = 0
+
+                # Place the first domino with start_block = 1.0
+                init_dict[self.dominos[domino_count]] = self._place_domino(
+                    domino_count, x, y, rot, start_block=1.0
+                )
+                domino_count += 1
+
+                # Running list of “turn choices” we can attempt:
+                turn_choices = ["straight", "straight", "turn90", "pivot180"]
+                # Weighted so that "straight" is more common, for instance
+                # (You can tweak these probabilities)
+
+                while domino_count < n_dominos or target_count < n_targets:
+                    # -------------------------------------------------
+                    # Decide whether to place a Domino or a Target:
+                    # * Must place all n_dominos and n_targets in total.
+                    # * But cannot place a Target unless 2 Dominos exist.
+                    #
+                    # We'll decide randomly with constraints:
+                    # -------------------------------------------------
+                    can_place_target = (domino_count >= 2 and 
+                                        target_count < n_targets)
+                    must_place_domino = (domino_count < n_dominos and
+                                        (target_count == n_targets or 
+                                         rng.random() > 0.5 or 
+                                         not can_place_target))
+
+                    if must_place_domino:
+                        # Decide how we move/turn to place the next domino.
+                        choice = rng.choice(turn_choices)
+
+                        if choice == "straight":
+                            # Move forward by 'gap' in the current orientation
+                            # (We treat rot in {0, pi/2, pi, 3*pi/2} or at least
+                            # keep track of x,y increments carefully.)
+                            dx = gap * np.cos(rot)
+                            dy = gap * np.sin(rot)
+                            x += dx
+                            y += dy
+
+                        elif choice == "turn90":
+                            # For a 90° turn, we can do a left or right turn randomly
+                            turn_dir = rng.choice([-np.pi/2, np.pi/2])
+                            rot += turn_dir
+                            # Then move forward by some fraction (tweak if desired)
+                            dx = gap * np.cos(rot)
+                            dy = gap * np.sin(rot)
+                            x += dx
+                            y += dy
+
+                        elif choice == "pivot180" and pivot_count < n_pivots:
+                            # Use a pivot to turn 180°.
+                            # We place the pivot somewhere near the last domino, then
+                            # relocate for the next domino in the opposite direction.
+                            pivot_x = x + (gap/3)*np.cos(rot)
+                            pivot_y = y + (gap/3)*np.sin(rot)
+
+                            # Place the pivot
+                            init_dict[self.pivots[pivot_count]] = self._place_pivot_or_target(pivot_x, pivot_y, rot)
+                            pivot_count += 1
+
+                            # Move “behind” that pivot to replicate 180° turn
+                            x = x - gap * np.cos(rot)
+                            y = y - gap * np.sin(rot)
+                            rot += np.pi  # Flip orientation
+
+                        else:
+                            # If pivot180 chosen but no pivots remain, treat as straight
+                            dx = gap * np.cos(rot)
+                            dy = gap * np.sin(rot)
+                            x += dx
+                            y += dy
+
+                        # Now place the next domino
+                        init_dict[self.dominos[domino_count]] = self._place_domino(
+                            domino_count, x, y, rot, start_block=0.0
+                        )
+                        domino_count += 1
+
+                    else:
+                        # Place a target here
+                        # We'll place it exactly where a domino would go in the chain
+                        dx = gap * np.cos(rot)
+                        dy = gap * np.sin(rot)
+                        x += dx
+                        y += dy
+
+                        init_dict[self.targets[target_count]] = self._place_pivot_or_target(x, y, rot)
+                        target_count += 1
 
             init_state = utils.create_state_from_dict(init_dict)
 
@@ -451,12 +560,34 @@ class PyBulletDominoEnv(PyBulletEnv):
 
         return self._add_pybullet_state_to_tasks(tasks)
 
+    # A small helper to set up dictionary entries:
+    def _place_domino(self, d_idx: int, x: float, y: float, rot: float,
+                      start_block: float = 0.0) -> Dict:
+        return {
+            "x": x,
+            "y": y,
+            "z": self.z_lb + self.domino_height / 2,
+            "rot": rot,
+            "start_block": start_block,
+            "is_held": 0.0,
+        }
+
+    # Same for pivot or target (note pivot/target is on z_lb):
+    def _place_pivot_or_target(self, x: float, y: float, rot: float = 0.0
+                               ) -> Dict:
+        return {
+            "x": x,
+            "y": y,
+            "z": self.z_lb,
+            "rot": rot,
+        }
+
 
 if __name__ == "__main__":
     import time
 
     CFG.seed = 0
-    env = PyBulletDominoEnv(use_gui=True, debug_layout=True)
+    env = PyBulletDominoEnv(use_gui=True)
     task = env._make_tasks(1, np.random.default_rng(0))[0]
     env._reset_state(task.init)
 

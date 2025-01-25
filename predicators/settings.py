@@ -387,6 +387,10 @@ class GlobalSettings:
     # float
     float_water_level_doesnt_raise = False
 
+    # domino
+    domino_debug_layout = False
+    domino_some_dominoes_are_connected = False
+
     # burger env parameters
     burger_render_set_of_marks = True
     # Which type of train/test tasks to generate. Options are "more_stacks",
