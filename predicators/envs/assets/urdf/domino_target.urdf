@@ -107,7 +107,7 @@
     <visual>
       <origin xyz="0 0 0.0" rpy="0 0 0"/>
       <geometry>
-        <box size="0.06 0.003 0.0"/>
+        <box size="0.06 0.016 0.0"/>
       </geometry>
       <material name="box_color_flap_panel">
         <color rgba="1.0 0.5 0.5 1.0"/>
@@ -116,7 +116,7 @@
     <collision>
       <origin xyz="0 0 0.0" rpy="0 0 0"/>
       <geometry>
-        <box size="0.06 0.003 0.0"/>
+        <box size="0.06 0.016 0.0"/>
       </geometry>
     </collision>
     <inertial>
@@ -144,7 +144,7 @@
     <visual>
       <origin xyz="0 0 -0.075" rpy="0 0 0"/>
       <geometry>
-        <box size="0.06 0.003 0.15"/>
+        <box size="0.06 0.016 0.15"/>
       </geometry>
       <material name="box_color_short_flap1">
         <color rgba="1.0 0.5 0.5 1.0"/>
@@ -153,7 +153,7 @@
     <collision>
       <origin xyz="0 0 -0.075" rpy="0 0 0"/>
       <geometry>
-        <box size="0.06 0.003 0.15"/>
+        <box size="0.06 0.016 0.15"/>
       </geometry>
     </collision>
     <inertial>
@@ -169,7 +169,7 @@
   <joint name="short_flap1_joint" type="fixed">
     <parent link="flap_panel"/>
     <child link="short_flap1"/>
-    <origin xyz="0 0.01 0" rpy="0.3490658503988659 0 0"/>
+    <origin xyz="0 0.02 0" rpy="0.2617993877991494 0 0"/>
     <axis xyz="1 0 0"/>
     
     
@@ -181,7 +181,7 @@
     <visual>
       <origin xyz="0 0 -0.075" rpy="0 0 0"/>
       <geometry>
-        <box size="0.06 0.003 0.15"/>
+        <box size="0.06 0.016 0.15"/>
       </geometry>
       <material name="box_color_short_flap2">
         <color rgba="1.0 0.5 0.5 1.0"/>
@@ -190,7 +190,7 @@
     <collision>
       <origin xyz="0 0 -0.075" rpy="0 0 0"/>
       <geometry>
-        <box size="0.06 0.003 0.15"/>
+        <box size="0.06 0.016 0.15"/>
       </geometry>
     </collision>
     <inertial>
@@ -206,7 +206,7 @@
   <joint name="short_flap2_joint" type="fixed">
     <parent link="flap_panel"/>
     <child link="short_flap2"/>
-    <origin xyz="0 -0.01 0" rpy="-0.3490658503988659 0 0"/>
+    <origin xyz="0 -0.02 0" rpy="-0.2617993877991494 0 0"/>
     <axis xyz="1 0 0"/>
     
     

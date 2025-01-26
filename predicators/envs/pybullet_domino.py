@@ -51,7 +51,7 @@ class PyBulletDominoEnv(PyBulletEnv):
     domino_width: ClassVar[float] = 0.07
     domino_depth: ClassVar[float] = 0.02
     domino_height: ClassVar[float] = 0.15
-    domino_mass: ClassVar[float] = 0.6
+    domino_mass: ClassVar[float] = 0.5
     light_green: ClassVar[Tuple[float, float, float,
                                 float]] = (0.56, 0.93, 0.56, 1.)
     domino_color: ClassVar[Tuple[float, float, float,
@@ -534,32 +534,30 @@ class PyBulletDominoEnv(PyBulletEnv):
 
                     turn_choices = [
                         "straight",
-                        "straight",
                         "turn90",
                         "pivot180"
                     ]
                     if pivot_count == n_pivots:
                         turn_choices.remove("pivot180")
 
+                    """
+                    
+                    """
                     # Try placing dominos/targets
                     while domino_count < n_dominos or target_count < n_targets:
                         can_place_target = (domino_count >= 2
-                                            and target_count < n_targets)
-                        must_place_domino = (domino_count < n_dominos
-                                             and (target_count == n_targets
-                                                  or rng.random() > 0.5
-                                                  or not can_place_target))
-                        if just_placed_target:
-                            must_place_domino = True
+                                            and target_count < n_targets
+                                            and not just_placed_target)
+                        must_place_domino = not can_place_target
 
-                        if must_place_domino:
+                        if must_place_domino or rng.random() > 0.5:
                             # If just placed a target, enforce a "straight" choice
                             choices = turn_choices.copy()
                             if just_turned_90:
                                 choices.remove("turn90")
-                            print(f"Just placed target: {just_placed_target}")
-                            choice = "straight" if just_placed_target else\
-                                rng.choice(choices)
+                            if just_placed_target:
+                                choices = ["straight"]
+                            choice = rng.choice(choices)
                             print(f"Choice: {choice}")
 
                             if choice == "straight":
@@ -791,13 +789,14 @@ class PyBulletDominoEnv(PyBulletEnv):
 
 if __name__ == "__main__":
 
-    CFG.seed = 1
+    CFG.seed = 0
     CFG.env = "pybullet_domino"
     env = PyBulletDominoEnv(use_gui=True)
-    task = env._make_tasks(1, env._train_rng)[0]
-    env._reset_state(task.init)
+    tasks = env._make_tasks(10, env._train_rng)
+    for task in tasks:
+        env._reset_state(task.init)
 
-    while True:
-        action = Action(np.array(env._pybullet_robot.initial_joint_positions))
-        env.step(action)
-        time.sleep(0.01)
+        for i in range(100):
+            action = Action(np.array(env._pybullet_robot.initial_joint_positions))
+            env.step(action)
+            time.sleep(0.01)

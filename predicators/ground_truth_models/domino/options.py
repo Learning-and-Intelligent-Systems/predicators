@@ -101,10 +101,21 @@ class PyBulletDominoGroundTruthOptionFactory(GroundTruthOptionFactory):
                     params_space),
                 cls._create_domino_move_to_push_domino_option(
                     "PushDomino",
-                    lambda x, _: x,
-                    lambda y, _: y,
+                    lambda x, rot: x + np.sin(rot) * cls._offset_x/4,
+                    lambda y, rot: y + np.cos(rot) * cls._offset_x/4,
                     lambda z: z + cls._offset_z, "closed", option_type,
                     params_space),
+                cls._create_domino_move_to_push_domino_option(
+                    "BackUp",
+                    lambda _1, _2: cls.env_cls.robot_init_x,
+                    lambda _1, _2: cls.env_cls.robot_init_y,
+                    lambda _: cls.env_cls.robot_init_z, 
+                    "closed", option_type,
+                    params_space),
+                create_change_fingers_option(
+                    pybullet_robot, "OpenFingers", option_type, params_space,
+                    open_fingers_func, CFG.pybullet_max_vel_norm,
+                    PyBulletEnv.grasp_tol_small),
                 # cls._create_domino_move_to_push_domino_option(
                 #     "MoveToBehindDomino",
                 #     lambda _: cls.env_cls.start_domino_x - cls._offset_x,
