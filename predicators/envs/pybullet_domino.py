@@ -118,6 +118,7 @@ class PyBulletDominoEnv(PyBulletEnv):
             obj_type = self._pivot_type
             obj = Object(name, obj_type)
             self.pivots.append(obj)
+        self.block_constraints = []
 
         super().__init__(use_gui)
 
@@ -251,9 +252,99 @@ class PyBulletDominoEnv(PyBulletEnv):
 
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
+    def _create_invisible_link_body(self) -> int:
+        """
+        Create a zero-mass, zero-collision 'rod' (link) in PyBullet.
+        We'll attach each domino to this rod with a hinge joint.
+        """
+        # A tiny sphere collision shape (or None) so it doesn't collide / add mass.
+        collision_shape_id = p.createCollisionShape(
+            shapeType=p.GEOM_SPHERE,
+            radius=0.0001,  # effectively 0
+            physicsClientId=self._physics_client_id
+        )
+
+        # Visual shape is also effectively invisible.
+        visual_shape_id = p.createVisualShape(
+            shapeType=p.GEOM_SPHERE,
+            radius=0.00001,
+            rgbaColor=[0, 0, 0, 0],  # transparent
+            physicsClientId=self._physics_client_id
+        )
+
+        # Create the multi-body with mass=0, so it never moves on its own.
+        rod_body_id = p.createMultiBody(
+            baseMass=0.0,
+            baseCollisionShapeIndex=collision_shape_id,
+            baseVisualShapeIndex=visual_shape_id,
+            basePosition=[0, 0, 10],  # spawn out of the way, reposition below
+            useMaximalCoordinates=True,  # simpler, no internal links
+            physicsClientId=self._physics_client_id
+        )
+        return rod_body_id
+    def _create_fixed_constraint(self, bodyA: int, bodyB: int) -> int:
+        """
+        Create a fixed joint in PyBullet with a pivot at the midpoint of
+        the two bodies (so they remain exactly where they are).
+        """
+        # Get the current global positions/orientations of each domino.
+        pA, oA = p.getBasePositionAndOrientation(bodyA, 
+                        physicsClientId=self._physics_client_id)
+        pB, oB = p.getBasePositionAndOrientation(bodyB, 
+                        physicsClientId=self._physics_client_id)
+
+        # Compute a midpoint in world space (so the constraint pivot is between them).
+        midpoint = [(pA[i] + pB[i]) / 2.0 for i in range(3)]
+
+        # Express this midpoint in the local frames of each body:
+        inv_pA, inv_oA = p.invertTransform(pA, oA)
+        parentPivot, parentOrn = p.multiplyTransforms(
+            inv_pA, inv_oA,
+            midpoint, [0, 0, 0, 1]
+        )
+
+        inv_pB, inv_oB = p.invertTransform(pB, oB)
+        childPivot, childOrn = p.multiplyTransforms(
+            inv_pB, inv_oB,
+            midpoint, [0, 0, 0, 1]
+        )
+
+        # Create the constraint at those local pivots, ensuring no sudden jump.
+        cid = p.createConstraint(
+            parentBodyUniqueId=bodyA,
+            parentLinkIndex=-1,
+            childBodyUniqueId=bodyB,
+            childLinkIndex=-1,
+            jointType=p.JOINT_FIXED,
+            jointAxis=[0, 0, 0],
+            parentFramePosition=parentPivot,
+            parentFrameOrientation=parentOrn,
+            childFramePosition=childPivot,
+            childFrameOrientation=childOrn,
+            physicsClientId=self._physics_client_id,
+        )
+        return cid
+        
+
     def _reset_custom_env_state(self, state: State) -> None:
         """Reset the custom environment state to match the given state."""
         domino_objs = state.get_objects(self._domino_type)
+
+        for constraint in self.block_constraints:
+            p.removeConstraint(constraint)
+        self.block_constraints = []
+
+        if CFG.domino_some_dominoes_are_connected:
+            for i in range(len(domino_objs) - 1):
+                domino1 = domino_objs[i]
+                domino2 = domino_objs[i + 1]
+                rot1 = state.get(domino1, "rot")
+                rot2 = state.get(domino2, "rot")
+                if abs(rot1 - rot2) < 1e-5:
+                    cid = self._create_fixed_constraint(domino1.id,  domino2.id)
+                    self.block_constraints.append(cid)
+                    break
+
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(domino_objs), len(self.dominos)):
             oov_x += 0.1
@@ -539,9 +630,6 @@ class PyBulletDominoEnv(PyBulletEnv):
                     if pivot_count == n_pivots:
                         turn_choices.remove("pivot180")
 
-                    """
-                    
-                    """
                     # Try placing dominos/targets
                     while domino_count < n_dominos or target_count < n_targets:
                         can_place_target = (domino_count >= 2

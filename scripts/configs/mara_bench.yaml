@@ -107,27 +107,28 @@ ENVS:
   #     option_model_terminate_on_repeat: False
   #     num_train_tasks: 0
   #     num_test_tasks: 2
-  domino:
+  # domino:
+  #   NAME: "pybullet_domino"
+  #   ARGS:
+  #     - "video_not_break_on_exception"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     horizon: 50
+  #     pybullet_ik_validate: False
+  #     num_test_tasks: 2
+  domino_cf:
     NAME: "pybullet_domino"
     ARGS:
       - "video_not_break_on_exception"
     FLAGS:
+      domino_some_dominoes_are_connected: True
       sesame_max_skeletons_optimized: 1
       sesame_check_expected_atoms: False
       horizon: 50
       pybullet_ik_validate: False
       num_test_tasks: 2
-  # domino_cf:
-  #   NAME: "pybullet_domino"
-  #   ARGS:
-  #     - "video_not_break_on_exception"
-  #   FLAGS:
-  #     domino_some_dominoes_are_connected: True
-  #     sesame_max_skeletons_optimized: 1
-  #     sesame_check_expected_atoms: False
-  #     horizon: 60
-  #     pybullet_ik_validate: False
-  #     num_train_tasks: 0
+      pybullet_max_vel_norm: 0.03
 
 
 
