@@ -114,9 +114,10 @@ ENVS:
     FLAGS:
       sesame_max_skeletons_optimized: 1
       sesame_check_expected_atoms: False
-      horizon: 60
+      horizon: 80
       pybullet_ik_validate: False
       num_train_tasks: 0
+      num_test_tasks: 1
   # domino_cf:
   #   NAME: "pybullet_domino"
   #   ARGS:
@@ -149,6 +150,6 @@ FLAGS:
   pybullet_camera_width: 900
   use_counterfactual_dataset_path_name: True
   keep_failed_demos: True
-START_SEED: 3
+START_SEED: 1
 NUM_SEEDS: 1
 # 
