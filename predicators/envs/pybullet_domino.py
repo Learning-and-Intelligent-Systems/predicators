@@ -51,7 +51,7 @@ class PyBulletDominoEnv(PyBulletEnv):
     domino_width: ClassVar[float] = 0.07
     domino_depth: ClassVar[float] = 0.02
     domino_height: ClassVar[float] = 0.15
-    domino_mass: ClassVar[float] = 0.2
+    domino_mass: ClassVar[float] = 0.6
     light_green: ClassVar[Tuple[float, float, float,
                                 float]] = (0.56, 0.93, 0.56, 1.)
     domino_color: ClassVar[Tuple[float, float, float,
@@ -90,8 +90,10 @@ class PyBulletDominoEnv(PyBulletEnv):
         "domino",
         ["x", "y", "z", "rot", "start_block", "is_held"],
     )
-    _target_type = Type("target", ["x", "y", "z", "rot"])
-    _pivot_type = Type("pivot", ["x", "y", "z", "rot"])
+    _target_type = Type("target", ["x", "y", "z", "rot"],
+                        sim_features=["id", "joint_id"])
+    _pivot_type = Type("pivot", ["x", "y", "z", "rot"],
+                       sim_features=["id", "joint_id"])
 
     def __init__(self, use_gui: bool = True) -> None:
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
@@ -211,6 +213,15 @@ class PyBulletDominoEnv(PyBulletEnv):
 
         return physics_client_id, pybullet_robot, bodies
 
+    @staticmethod
+    def _get_joint_id(obj_id: int, joint_name: str) -> int:
+        num_joints = p.getNumJoints(obj_id)
+        for j in range(num_joints):
+            info = p.getJointInfo(obj_id, j)
+            if info[1].decode("utf-8") == joint_name:
+                return j
+        return -1
+
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         # We don't have a single known ID for dominoes or targets, so we'll store
         # them all at runtime. For now, we just keep a reference to the dict.
@@ -218,8 +229,10 @@ class PyBulletDominoEnv(PyBulletEnv):
             domini.id = id
         for target, id in zip(self.targets, pybullet_bodies["target_ids"]):
             target.id = id
+            target.joint_id = self._get_joint_id(id, "flap_hinge_joint")
         for pivot, pid in zip(self.pivots, pybullet_bodies["pivot_ids"]):
             pivot.id = pid
+            pivot.joint_id = self._get_joint_id(pid, "flap_hinge_joint")
 
     # -------------------------------------------------------------------------
     # State Management
@@ -241,25 +254,41 @@ class PyBulletDominoEnv(PyBulletEnv):
     def _reset_custom_env_state(self, state: State) -> None:
         """Reset the custom environment state to match the given state."""
         domino_objs = state.get_objects(self._domino_type)
+        oov_x, oov_y = self._out_of_view_xy
         for i in range(len(domino_objs), len(self.dominos)):
+            oov_x += 0.1
+            oov_y += 0.1
             update_object(self.dominos[i].id,
-                          position=(*self._out_of_view_xy,
-                                    i * self.domino_height),
+                          position=(oov_x, oov_y, self.domino_height/2),
                           physics_client_id=self._physics_client_id)
 
         target_objs = state.get_objects(self._target_type)
+        for target_obj in target_objs:
+            self._set_flat_rotation(target_obj, 0.0)
         for i in range(len(target_objs), len(self.targets)):
+            oov_x += 0.1
+            oov_y += 0.1
             update_object(self.targets[i].id,
-                          position=(*self._out_of_view_xy,
-                                    i * self.target_height),
+                          position=(oov_x, oov_y, self.domino_height/2),
                           physics_client_id=self._physics_client_id)
 
         pivot_objs = state.get_objects(self._pivot_type)
+        for pivot_obj in pivot_objs:
+            self._set_flat_rotation(pivot_obj, 0.0)
         for i in range(len(pivot_objs), len(self.pivots)):
+            oov_x += 0.1
+            oov_y += 0.1
             update_object(self.pivots[i].id,
-                          position=(*self._out_of_view_xy,
-                                    i * self.pivot_width),
+                          position=(oov_x, oov_y, self.domino_height/2),
                           physics_client_id=self._physics_client_id)
+
+    def _get_flat_rotation(self, flap_obj: Object) -> float:
+        j_pos, _, _, _ = p.getJointState(flap_obj.id, flap_obj.joint_id)
+        return j_pos
+    
+    def _set_flat_rotation(self, flap_obj: Object, rot: float = 0.0) -> None:
+        p.resetJointState(flap_obj.id, flap_obj.joint_id, rot)
+        return
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         """In this domain, stepping might be trivial (we won't do anything
@@ -348,10 +377,11 @@ class PyBulletDominoEnv(PyBulletEnv):
             # at fixed positions along the x-axis
             gap = self.domino_width * 1.3
             if CFG.domino_debug_layout:
+                domino_dict = {}
                 rot = np.pi / 2  # e.g. initial orientation
                 x = self.start_domino_x
                 y = self.start_domino_y
-                init_dict[self.dominos[0]] = {
+                domino_dict[self.dominos[0]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -360,7 +390,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "is_held": 0.0,
                 }
                 x += gap
-                init_dict[self.dominos[1]] = {
+                domino_dict[self.dominos[1]] = {
                     "x": x,
                     "y": self.start_domino_y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -369,7 +399,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "is_held": 0.0,
                 }
                 x += gap
-                init_dict[self.dominos[2]] = {
+                domino_dict[self.dominos[2]] = {
                     "x": x,
                     "y": self.start_domino_y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -378,14 +408,14 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "is_held": 0.0,
                 }
                 x += gap
-                init_dict[self.targets[0]] = {
+                domino_dict[self.targets[0]] = {
                     "x": x,
                     "y": self.start_domino_y,
                     "z": self.z_lb,
                     "rot": rot,
                 }
                 x += gap
-                init_dict[self.dominos[3]] = {
+                domino_dict[self.dominos[3]] = {
                     "x": x,
                     "y": self.start_domino_y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -394,7 +424,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "is_held": 0.0,
                 }
                 x += gap
-                init_dict[self.dominos[4]] = {
+                domino_dict[self.dominos[4]] = {
                     "x": x,
                     "y": self.start_domino_y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -406,7 +436,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                 # 180-degree Turn with pivot
                 x += gap / 3
                 y = self.start_domino_y + self.pivot_width / 2
-                init_dict[self.pivots[0]] = {
+                domino_dict[self.pivots[0]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb,
@@ -414,7 +444,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                 }
                 x -= gap / 3
                 y += self.pivot_width / 2
-                init_dict[self.dominos[5]] = {
+                domino_dict[self.dominos[5]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -423,7 +453,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "is_held": 0.0,
                 }
                 x -= gap
-                init_dict[self.dominos[6]] = {
+                domino_dict[self.dominos[6]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -434,7 +464,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                 # 90-degree Turn
                 x -= gap * 1 / 4
                 y += gap / 2
-                init_dict[self.dominos[7]] = {
+                domino_dict[self.dominos[7]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -444,7 +474,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                 }
                 x -= gap / 3
                 y += gap * 3 / 4
-                init_dict[self.dominos[8]] = {
+                domino_dict[self.dominos[8]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb + self.domino_height / 2,
@@ -453,7 +483,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                     "is_held": 0.0,
                 }
                 y += gap
-                init_dict[self.targets[1]] = {
+                domino_dict[self.targets[1]] = {
                     "x": x,
                     "y": y,
                     "z": self.z_lb,
@@ -467,14 +497,14 @@ class PyBulletDominoEnv(PyBulletEnv):
                         self.y_lb < ny < self.y_ub
 
                 n_dominos = rng.integers(low=5, high=len(self.dominos) + 1)
-                n_dominos = len(self.dominos)
+                # n_dominos = len(self.dominos)
                 n_targets = rng.integers(low=1,
                                          high=min(3, len(self.targets)) + 1)
-                n_targets = 2
+                # n_targets = 2
                 # "n_pivots" means how many times we *attempt* a 180° pivot
                 n_pivots = rng.integers(low=0,
                                         high=min(2, len(self.pivots)) + 1)
-                n_pivots = 0
+                n_pivots = 1
 
                 while True:
                     print("\nSample again:")
@@ -483,12 +513,13 @@ class PyBulletDominoEnv(PyBulletEnv):
                     target_count = 0
                     pivot_count = 0
                     just_placed_target = False
+                    just_turned_90 = False
                     success = True  # Track whether we placed everything successfully
 
                     # Initial domino
                     x = rng.uniform(self.x_lb, self.x_ub)
                     y = rng.uniform(self.y_lb + self.domino_width / 2,
-                                    self.y_ub - self.domino_width )
+                                    self.y_ub - 3 * self.domino_width )
                                     # self.y_lb + self.domino_width * 2)
                     rot = rng.uniform(-np.pi/2, np.pi/2)
                     rot = np.pi/2
@@ -505,10 +536,10 @@ class PyBulletDominoEnv(PyBulletEnv):
                         "straight",
                         "straight",
                         "turn90",
-                        # "pivot180"
+                        "pivot180"
                     ]
-                    # if pivot_count == n_pivots:
-                    #     turn_choices.remove("pivot180")
+                    if pivot_count == n_pivots:
+                        turn_choices.remove("pivot180")
 
                     # Try placing dominos/targets
                     while domino_count < n_dominos or target_count < n_targets:
@@ -518,11 +549,17 @@ class PyBulletDominoEnv(PyBulletEnv):
                                              and (target_count == n_targets
                                                   or rng.random() > 0.5
                                                   or not can_place_target))
+                        if just_placed_target:
+                            must_place_domino = True
 
                         if must_place_domino:
                             # If just placed a target, enforce a "straight" choice
+                            choices = turn_choices.copy()
+                            if just_turned_90:
+                                choices.remove("turn90")
+                            print(f"Just placed target: {just_placed_target}")
                             choice = "straight" if just_placed_target else\
-                                rng.choice(turn_choices)
+                                rng.choice(choices)
                             print(f"Choice: {choice}")
 
                             if choice == "straight":
@@ -541,6 +578,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                         rot,
                                         start_block=0.0)
                                 domino_count += 1
+                                just_turned_90 = False
 
                             elif choice == "turn90":
                                 # Check we have enough dominos left
@@ -568,9 +606,13 @@ class PyBulletDominoEnv(PyBulletEnv):
                                     half_turn = np.pi / 4 * turn_dir
 
                                     # First 45°
+                                    side_offset = 0 #(self.domino_width / 4)
                                     rot += half_turn
-                                    dy = gap * np.cos(rot)
                                     dx = gap * np.sin(rot)
+                                    dy = gap * np.cos(rot)
+
+                                    dx -= turn_dir * side_offset * np.cos(rot)
+                                    dy += turn_dir * side_offset * np.sin(rot)
                                     nx, ny = x + dx, y + dy
                                     if not _in_bounds(nx, ny):
                                         success = False
@@ -586,11 +628,11 @@ class PyBulletDominoEnv(PyBulletEnv):
                                     domino_count += 1
 
                                     # Second 45°
-                                    rot += half_turn
-                                    dy = gap * np.cos(rot)
-                                    dx = gap * np.sin(rot)
-
                                     side_offset = (self.domino_width / 2)
+                                    rot += half_turn
+                                    dx = gap * np.sin(rot)
+                                    dy = gap * np.cos(rot)
+
                                     dx -= turn_dir * side_offset * np.cos(rot)
                                     dy += turn_dir * side_offset * np.sin(rot)
                                     nx, ny = x + dx, y + dy
@@ -606,16 +648,18 @@ class PyBulletDominoEnv(PyBulletEnv):
                                             rot,
                                             start_block=0.0)
                                     domino_count += 1
+                                just_turned_90 = True
 
                             elif choice == "pivot180" and pivot_count < n_pivots:
+
                                 pivot_dir = rng.choice(
                                     [-1, 1])  # pick left or right offset
                                 side_offset = (self.pivot_width / 2)
 
                                 # Parallel movement along orientation rot:
                                 #   (cos(rot), sin(rot)) is the unit vector in direction 'rot'
-                                pivot_x = x + gap / 3 * np.sin(rot)  # 0.03
-                                pivot_y = y + gap / 3 * np.cos(rot)
+                                pivot_x = x + gap / 2 * np.sin(rot)  # 0.03
+                                pivot_y = y + gap / 2 * np.cos(rot)
 
                                 # Optional sideways shift:
                                 pivot_x -= pivot_dir * side_offset * np.cos(rot)  # 0
@@ -632,8 +676,8 @@ class PyBulletDominoEnv(PyBulletEnv):
 
                                 # Flip orientation
                                 # big +y, small -x
-                                back_x = pivot_x - (gap / 3) * np.sin(rot)
-                                back_y = pivot_y - (gap / 3) * np.cos(rot)
+                                back_x = pivot_x - (gap / 2) * np.sin(rot)
+                                back_y = pivot_y - (gap / 2) * np.cos(rot)
 
                                 # Optionally keep the same sideways offset so
                                 # it's "same side"
@@ -654,6 +698,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                         rot,
                                         start_block=0.0)
                                 domino_count += 1
+                                just_turned_90 = False
                             else:
                                 # fallback
                                 dy = gap * np.cos(rot)
@@ -671,6 +716,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                         rot,
                                         start_block=0.0)
                                 domino_count += 1
+                                just_turned_90 = False
                             just_placed_target = False
 
                         else:
@@ -688,6 +734,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                                     x, y, rot)
                             target_count += 1
                             just_placed_target = True
+                            just_turned_90 = False
 
                         if not success:
                             break
