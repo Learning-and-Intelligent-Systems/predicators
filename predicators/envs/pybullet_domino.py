@@ -51,7 +51,7 @@ class PyBulletDominoEnv(PyBulletEnv):
     domino_width: ClassVar[float] = 0.07
     domino_depth: ClassVar[float] = 0.02
     domino_height: ClassVar[float] = 0.15
-    domino_mass: ClassVar[float] = 0.5
+    domino_mass: ClassVar[float] = 0.3
     light_green: ClassVar[Tuple[float, float, float,
                                 float]] = (0.56, 0.93, 0.56, 1.)
     domino_color: ClassVar[Tuple[float, float, float,
@@ -497,14 +497,14 @@ class PyBulletDominoEnv(PyBulletEnv):
                         self.y_lb < ny < self.y_ub
 
                 n_dominos = rng.integers(low=5, high=len(self.dominos) + 1)
-                # n_dominos = len(self.dominos)
+                n_dominos = len(self.dominos) - 1
                 n_targets = rng.integers(low=1,
                                          high=min(3, len(self.targets)) + 1)
                 # n_targets = 2
                 # "n_pivots" means how many times we *attempt* a 180° pivot
                 n_pivots = rng.integers(low=0,
                                         high=min(2, len(self.pivots)) + 1)
-                n_pivots = 1
+                # n_pivots = 1
 
                 while True:
                     print("\nSample again:")
@@ -518,11 +518,10 @@ class PyBulletDominoEnv(PyBulletEnv):
 
                     # Initial domino
                     x = rng.uniform(self.x_lb, self.x_ub)
-                    y = rng.uniform(self.y_lb + self.domino_width / 2,
+                    y = rng.uniform(self.y_lb + self.domino_width ,
                                     self.y_ub - 3 * self.domino_width )
                                     # self.y_lb + self.domino_width * 2)
                     rot = rng.uniform(-np.pi/2, np.pi/2)
-                    rot = np.pi/2
                     rot = rng.choice([0, np.pi/2, -np.pi/2])
                     gap = self.domino_width * 1.3
 
@@ -789,7 +788,7 @@ class PyBulletDominoEnv(PyBulletEnv):
 
 if __name__ == "__main__":
 
-    CFG.seed = 0
+    CFG.seed = 1
     CFG.env = "pybullet_domino"
     env = PyBulletDominoEnv(use_gui=True)
     tasks = env._make_tasks(10, env._train_rng)

@@ -35,7 +35,7 @@ class PyBulletDominoGroundTruthOptionFactory(GroundTruthOptionFactory):
     env_cls: ClassVar[TypingType[PyBulletDominoEnv]] = PyBulletDominoEnv
     _move_to_pose_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _transport_z: ClassVar[float] = env_cls.z_ub - 0.2
+    _transport_z: ClassVar[float] = env_cls.z_ub - 0.3
     _offset_x: ClassVar[float] = 0.05
     _offset_z: ClassVar[float] = 0.1
 
