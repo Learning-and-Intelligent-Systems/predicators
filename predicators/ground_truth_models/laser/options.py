@@ -37,8 +37,9 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
     env_cls: ClassVar[TypingType[PyBulletLaserEnv]] = PyBulletLaserEnv
     _move_to_pose_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _transport_z: ClassVar[float] = env_cls.z_ub - 0.5
+    _transport_z: ClassVar[float] = env_cls.z_ub - 0.3
     _z_offset: ClassVar[float] = 0.1
+    _x_offset: ClassVar[float] = 0.03
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -58,6 +59,7 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
         robot_type = types["robot"]
         mirror_type = types["mirror"]
         target_type = types["target"]
+        station_type = types["station"]
 
         def get_current_fingers(state: State) -> float:
             robot, = state.get_objects(robot_type)
@@ -88,7 +90,7 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move to far the mirror which we will grasp.
                 cls._create_laser_move_to_above_mirror_option(
                     "MoveToAboveMirror",
-                    lambda _: cls.env_cls.z_ub - cls._z_offset, "open",
+                    lambda _: cls._transport_z, "open",
                     option_types, params_space),
                 # Move down to grasp.
                 cls._create_laser_move_to_above_mirror_option(
@@ -103,7 +105,7 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move up
                 cls._create_laser_move_to_above_mirror_option(
                     "MoveEndEffectorBackUp",
-                    lambda _: cls.env_cls.z_ub - cls._z_offset * 2, "closed",
+                    lambda _: cls._transport_z, "closed",
                     option_types, params_space),
             ])
         options.add(PickMirror)
@@ -117,12 +119,13 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move to above the position for connecting.
                 cls._create_laser_move_to_above_position_option(
                     "MoveToAboveTwoSnaps",
-                    lambda _: cls.env_cls.z_ub - cls._z_offset, "closed",
+                    lambda _: cls._transport_z, "closed",
                     option_types, params_space),
                 # Move down to connect.
                 cls._create_laser_move_to_above_position_option(
-                    "MoveToPlace", lambda _: cls.env_cls.piece_height + cls.
-                    env_cls.z_lb + 0.01, "closed", option_types, params_space),
+                    "MoveToPlace", 
+                    lambda _: cls.env_cls.piece_height + cls.env_cls.z_lb, 
+                    "closed", option_types, params_space),
                 # Open fingers
                 create_change_fingers_option(
                     pybullet_robot, "OpenFingers", option_types, params_space,
@@ -131,12 +134,88 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move back up
                 cls._create_laser_move_to_above_position_option(
                     "MoveEndEffectorBackUp",
-                    lambda _: cls.env_cls.z_ub - cls._z_offset, "open",
+                    lambda _: cls._transport_z, "open",
                     option_types, params_space),
             ])
         options.add(Place)
 
+        # SwitchOn
+        option_type = [robot_type, station_type]
+        params_space = Box(0, 1, (0, ))
+        SwitchOn = utils.LinearChainParameterizedOption(
+            "SwitchOn", [
+                cls._create_laser_move_to_push_switch_option(
+                    "MoveToAboveAndBehindSwitch",
+                    lambda x: x - cls._x_offset * 5,
+                    lambda _: cls._transport_z,
+                    "open", option_type,
+                    params_space),
+                cls._create_laser_move_to_push_switch_option(
+                    "MoveToBehindSwitch", 
+                    lambda x: x - cls._x_offset * 5,
+                    lambda z: z + cls.env_cls.station_height/2, "open",
+                    option_type, params_space),
+                cls._create_laser_move_to_push_switch_option(
+                    "PushSwitch", 
+                    lambda x: x - cls._x_offset  ,
+                    lambda z: z + cls.env_cls.station_height/2, 
+                    "open",
+                    option_type, params_space),
+                cls._create_laser_move_to_push_switch_option(
+                    "MoveBack", 
+                    lambda x: x - cls._x_offset * 3,
+                    lambda _: cls._transport_z, 
+                    "open", option_type,
+                    params_space),
+            ])
+        options.add(SwitchOn)
+
         return options
+
+    @classmethod
+    def _create_laser_move_to_push_switch_option(
+            cls, name: str, x_func: Callable[[float],
+                                             float], z_func: Callable[[float],
+                                                                      float],
+            finger_status: str, option_types: List[Type],
+            params_space: Box) -> ParameterizedOption:
+        """Create a move-to-pose option for the switch environment."""
+
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object], params: Array) -> \
+                Tuple[Pose, Pose, str]:
+            assert not params
+            robot, switch = objects
+            current_position = (state.get(robot, "x"), state.get(robot, "y"),
+                                state.get(robot, "z"))
+            ee_orn = p.getQuaternionFromEuler(
+                [0, state.get(robot, "tilt"),
+                 state.get(robot, "wrist")])
+            current_pose = Pose(current_position, ee_orn)
+
+            sx = state.get(switch, "x")
+            sy = state.get(switch, "y")
+            sz = state.get(switch, "z")
+            srot = state.get(switch, "rot") + np.pi/2
+
+            target_position = (x_func(sx),
+                               sy,
+                               z_func(sz))
+            target_orn = p.getQuaternionFromEuler(
+                [0, cls.env_cls.robot_init_tilt, srot])
+            target_pose = Pose(target_position, target_orn)
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_option(
+            _get_pybullet_robot(),
+            name,
+            option_types,
+            params_space,
+            _get_current_and_target_pose_and_finger_status,
+            cls._move_to_pose_tol,
+            CFG.pybullet_max_vel_norm,
+            cls._finger_action_nudge_magnitude,
+            validate=CFG.pybullet_ik_validate)
 
     @classmethod
     def _create_laser_move_to_above_mirror_option(
@@ -208,10 +287,8 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
             current_pose = Pose(current_position, ee_orn)
 
             # TODO: this is just for demo
-            x_lb, x_ub = 0.4, 1.1
-            y_lb = 1.1
-            target_pos = ((x_lb + x_ub) / 2,
-                          y_lb + 3 * cls.env_cls.piece_width,
+            target_pos = (cls.env_cls.robot_init_x,
+                          cls.env_cls.y_lb + 4 * cls.env_cls.piece_width,
                           z_func(cls.env_cls.piece_height))
 
             # Calculate rot from lx, ly, bx, by

@@ -23,16 +23,19 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
         mirror_type = types["mirror"]
         target_type = types["target"]
+        station_type = types["station"]
 
         # Predicates
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
         TargetHit = predicates["TargetHit"]
         IsSplitMirror = predicates["IsSplitMirror"]
+        SwitchedOn = predicates["StationOn"]
 
         # Options
         Pick = options["PickMirror"]
         Place = options["Place"]
+        SwitchOn = options["SwitchOn"]
 
         nsrts = set()
 
@@ -57,7 +60,7 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                 set(), option, option_vars, null_sampler)
         nsrts.add(pick_mirror_nsrt)
 
-        # PlaceFirstMirror. Place first mirror to light and battery.
+        # PlaceFirstMirror. Place first mirror to light and station.
         robot = Variable("?robot", robot_type)
         mirror = Variable("?mirror", mirror_type)
         target1 = Variable("?target1", target_type)
@@ -83,5 +86,23 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                          delete_effects, set(), option,
                                          option_vars, null_sampler)
         nsrts.add(connect_first_mirror_nsrt)
+
+        # SwitchOn
+        robot = Variable("?robot", robot_type)
+        station = Variable("?station", station_type)
+        parameters = [robot, station]
+        option_vars = [robot, station]
+        option = SwitchOn
+        preconditions = {
+            LiftedAtom(HandEmpty, [robot]),
+        }
+        add_effects = {
+            LiftedAtom(SwitchedOn, [station]),
+        }
+        delete_effects = set()
+        switch_on_nsrt = NSRT("SwitchOn", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+        nsrts.add(switch_on_nsrt)
 
         return nsrts

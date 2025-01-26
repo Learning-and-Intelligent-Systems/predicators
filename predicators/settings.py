@@ -95,6 +95,10 @@ class GlobalSettings:
     # grow env parameters
     grow_plant_same_color_as_cup = False
 
+    # laser env parameters
+    laser_zero_reflection_angle = False
+    laser_use_debug_line_for_beams = True
+
     # playroom env parameters
     playroom_num_blocks_train = [3]
     playroom_num_blocks_test = [3]
