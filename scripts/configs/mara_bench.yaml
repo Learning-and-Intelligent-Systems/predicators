@@ -116,6 +116,7 @@ ENVS:
   #     sesame_check_expected_atoms: False
   #     horizon: 50
   #     pybullet_ik_validate: False
+  #     num_train_tasks: 0
   #     num_test_tasks: 2
   domino_cf:
     NAME: "pybullet_domino"
@@ -125,13 +126,11 @@ ENVS:
       domino_some_dominoes_are_connected: True
       sesame_max_skeletons_optimized: 1
       sesame_check_expected_atoms: False
-      horizon: 50
+      horizon: 60
       pybullet_ik_validate: False
+      num_train_tasks: 0
       num_test_tasks: 2
       pybullet_max_vel_norm: 0.03
-
-
-
 ARGS:
   - "debug"
   - "use_gui"

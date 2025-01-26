@@ -326,6 +326,20 @@ class PyBulletDominoEnv(PyBulletEnv):
         return cid
         
 
+    def _no_target_in_between(self, state, domino1: Object, domino2: Object) -> bool:
+        for target in state.get_objects(self._target_type):
+            x1 = state.get(domino1, "x")
+            y1 = state.get(domino1, "y")
+            x2 = state.get(domino2, "x")
+            y2 = state.get(domino2, "y")
+            x = state.get(target, "x")
+            y = state.get(target, "y")
+            if x1 < x < x2 and y == y1:
+                return False
+            if y1 < y < y2 and x == x1:
+                return False
+        return True
+
     def _reset_custom_env_state(self, state: State) -> None:
         """Reset the custom environment state to match the given state."""
         domino_objs = state.get_objects(self._domino_type)
@@ -340,7 +354,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                 domino2 = domino_objs[i + 1]
                 rot1 = state.get(domino1, "rot")
                 rot2 = state.get(domino2, "rot")
-                if abs(rot1 - rot2) < 1e-5:
+
+                if abs(rot1 - rot2) < 1e-5 and self._no_target_in_between(state, domino1, domino2):
                     cid = self._create_fixed_constraint(domino1.id,  domino2.id)
                     self.block_constraints.append(cid)
                     break
@@ -588,7 +603,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                         self.y_lb < ny < self.y_ub
 
                 n_dominos = rng.integers(low=5, high=len(self.dominos) + 1)
-                n_dominos = len(self.dominos) - 1
+                n_dominos = len(self.dominos)
                 n_targets = rng.integers(low=1,
                                          high=min(3, len(self.targets)) + 1)
                 # n_targets = 2
