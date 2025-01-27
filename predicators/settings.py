@@ -99,6 +99,9 @@ class GlobalSettings:
     laser_zero_reflection_angle = False
     laser_use_debug_line_for_beams = True
 
+    # ants env params
+    ants_ants_attracted_to_points = False
+
     # playroom env parameters
     playroom_num_blocks_train = [3]
     playroom_num_blocks_test = [3]
@@ -792,6 +795,7 @@ class GlobalSettings:
                     "pybullet_float": 2000,
                     "pybullet_domino": 2000,
                     "pybullet_laser": 2000,
+                    "pybullet_ants": 2000,
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,

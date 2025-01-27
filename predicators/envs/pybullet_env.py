@@ -47,7 +47,7 @@ class PyBulletEnv(BaseEnv):
     # Object parameters.
     _obj_mass: ClassVar[float] = 0.5
     _obj_friction: ClassVar[float] = 1.2
-    _obj_colors: ClassVar[Sequence[Tuple[float, float, float, float]]] = [
+    _obj_colors_main: ClassVar[Sequence[Tuple[float, float, float, float]]] = [
         (0.95, 0.05, 0.1, 1.),
         (0.05, 0.95, 0.1, 1.),
         (0.1, 0.05, 0.95, 1.),
@@ -56,7 +56,9 @@ class PyBulletEnv(BaseEnv):
         (0.05, 0.04, 0.6, 1.),
         (0.95, 0.95, 0.1, 1.),
         (0.95, 0.05, 0.95, 1.),
-        (0.05, 0.95, 0.95, 1.),
+        (0.05, 0.95, 0.95, 1.)]
+    _obj_colors: ClassVar[Sequence[Tuple[float, float, float, float]]] =\
+        _obj_colors_main + [
         (0.941, 0.196, 0.196, 1.),  # Red
         (0.196, 0.941, 0.196, 1.),  # Green
         (0.196, 0.196, 0.941, 1.),  # Blue

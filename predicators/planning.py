@@ -124,6 +124,7 @@ def _sesame_plan_with_astar(
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
+    logging.debug(f"Initial atoms: {init_atoms}")
     objects = list(task.init)
     start_time = time.perf_counter()
     ground_nsrts = sesame_ground_nsrts(task, init_atoms, nsrts, objects,

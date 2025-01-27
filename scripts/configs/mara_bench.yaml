@@ -131,23 +131,44 @@ ENVS:
   #     num_train_tasks: 0
   #     num_test_tasks: 2
   #     pybullet_max_vel_norm: 0.03
-  laser:
-    NAME: "pybullet_laser"
-    FLAGS:
-      sesame_max_skeletons_optimized: 1
-      sesame_check_expected_atoms: False
-      pybullet_ik_validate: False
-      num_train_tasks: 0
-      num_test_tasks: 2
-  laser_cf:
-    NAME: "pybullet_laser"
-    FLAGS:
-      laser_zero_reflection_angle: True
-      sesame_max_skeletons_optimized: 1
-      sesame_check_expected_atoms: False
-      pybullet_ik_validate: False
-      num_train_tasks: 0
-      num_test_tasks: 2
+  # laser:
+  #   NAME: "pybullet_laser"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     num_train_tasks: 0
+  #     num_test_tasks: 2
+  # laser_cf:
+  #   NAME: "pybullet_laser"
+  #   FLAGS:
+  #     laser_zero_reflection_angle: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     num_train_tasks: 0
+  #     num_test_tasks: 2
+  # ants:
+  #   NAME: "pybullet_ants"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     num_train_tasks: 0
+  #     num_test_tasks: 2
+  #     terminate_on_goal_reached: False
+  # ants_cf:
+  #   NAME: "pybullet_ants"
+  #   FLAGS:
+  #     ants_ants_attracted_to_points: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     num_train_tasks: 0
+  #     num_test_tasks: 2
+  #     terminate_on_goal_reached: False
+  fan:
+    NAME: "pybullet_fan"
 ARGS:
   - "debug"
   - "use_gui"

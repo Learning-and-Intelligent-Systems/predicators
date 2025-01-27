@@ -31,9 +31,6 @@ class PyBulletDominoEnv(PyBulletEnv):
     from its upright orientation. The overall goal is to topple all
     targets.
     """
-
-    _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
-
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
     table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2)

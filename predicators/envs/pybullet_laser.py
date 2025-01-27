@@ -38,7 +38,6 @@ class PyBulletLaserEnv(PyBulletEnv):
     target is hit.
     """
 
-    _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
     # -------------
     # Table / workspace bounds (adjust as you wish)
     # -------------
