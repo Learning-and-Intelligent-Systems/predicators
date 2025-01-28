@@ -409,7 +409,11 @@ class GlobalSettings:
     # Number of test tasks where you start out holding a patty.
     burger_num_test_start_holding = 5
 
+    # circuit
     circuit_light_doesnt_need_battery = False
+
+    # fan env
+    fan_fans_blow_opposite_direction = False
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -796,6 +800,7 @@ class GlobalSettings:
                     "pybullet_domino": 2000,
                     "pybullet_laser": 2000,
                     "pybullet_ants": 2000,
+                    "pybullet_fan": 2000,
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,

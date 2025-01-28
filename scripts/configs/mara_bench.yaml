@@ -167,8 +167,23 @@ ENVS:
   #     num_train_tasks: 0
   #     num_test_tasks: 2
   #     terminate_on_goal_reached: False
-  fan:
+  # fan:
+  #   NAME: "pybullet_fan"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     terminate_on_goal_reached: False
+  #     pybullet_ik_validate: False
+  #     num_test_tasks: 5
+  fan_cf:
     NAME: "pybullet_fan"
+    FLAGS:
+      fan_fans_blow_opposite_direction: True
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      terminate_on_goal_reached: False
+      pybullet_ik_validate: False
+      num_test_tasks: 5
 ARGS:
   - "debug"
   - "use_gui"
@@ -187,6 +202,6 @@ FLAGS:
   pybullet_camera_width: 900
   use_counterfactual_dataset_path_name: True
   keep_failed_demos: True
-START_SEED: 0
+START_SEED: 1
 NUM_SEEDS: 1
 # 

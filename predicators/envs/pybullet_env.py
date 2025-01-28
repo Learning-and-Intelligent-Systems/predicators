@@ -366,6 +366,9 @@ class PyBulletEnv(BaseEnv):
         for obj in self._objects:
             if obj.type.name == "robot":
                 continue
+            if obj.type.name == "position":
+                # abstract entity
+                continue
             self._reset_single_object(obj, state)
 
         # 4) Let the subclass do any additional specialized resetting
@@ -452,13 +455,24 @@ class PyBulletEnv(BaseEnv):
 
         # --- 2) Other Objects ---
         for obj in self._objects:
-            if obj.type.name == "robot":
+            if obj.type.name in ["robot"]:
                 continue
+
             obj_features = obj.type.feature_names
             obj_dict = {}
+
+            if obj.type.name == "position":
+                for feature in obj_features:
+                    obj_dict[feature] = self._extract_feature(obj, feature)
+                state_dict[obj] = obj_dict
+                continue
+
             # Basic features
-            (px, py, pz), orn = p.getBasePositionAndOrientation(
+            try:
+                (px, py, pz), orn = p.getBasePositionAndOrientation(
                 obj.id, physicsClientId=self._physics_client_id)
+            except:
+                breakpoint()
             if "x" in obj_features:
                 obj_dict["x"] = px
             if "y" in obj_features:
