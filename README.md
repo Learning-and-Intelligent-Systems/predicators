@@ -1,4 +1,9 @@
-# predicators
+# predicators_robocasa
+
+## New Intsallation Instructions
+1. Follow instruction for robocasa (In step 4, use fork [here](https://github.com/shaoyifei96/robocasa.git)) [here](https://robocasa.ai/docs/introduction/installation.html)
+1. Install this repo using the instructions below, also in the conda env (There should be nothing red appearing)
+1. all three repos should be in a directory, in that directory, create .vscode folder and copy the launch.json file in this repo to that folder, making edits to the file, to enable debugging.
 
 ## Repository Description
 
