@@ -12,10 +12,13 @@ import numpy as np
 
 
 class GlobalSettings:
+    robo_kitchen_randomize_init_state = True
+
+
     """Unchanging settings."""
     # global parameters
-    num_train_tasks = 50
-    num_test_tasks = 50
+    num_train_tasks = 0
+    num_test_tasks = 1
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
     num_online_learning_cycles = 10
@@ -332,11 +335,11 @@ class GlobalSettings:
     sokoban_gym_name = "Sokoban-v0"
 
     # kitchen env parameters
-    kitchen_use_perfect_samplers = False
-    kitchen_goals = "all"
+    kitchen_use_perfect_samplers = True
+    kitchen_goals = "boil_kettle"
     kitchen_render_set_of_marks = False
     kitchen_use_combo_move_nsrts = False
-    kitchen_randomize_init_state = False
+    kitchen_randomize_init_state = True
 
     # sticky table env parameters
     sticky_table_num_tables = 5
@@ -458,7 +461,7 @@ class GlobalSettings:
     # need for a simulator. In the future, we could check to see if the
     # observed states match (at the abstract level) the expected states, and
     # replan if not. But for now, we just execute each step without checking.
-    bilevel_plan_without_sim = False
+    bilevel_plan_without_sim = True
 
     # evaluation parameters
     log_dir = "logs"
@@ -727,6 +730,7 @@ class GlobalSettings:
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
                 "kitchen": "kitchen",
+                "robo_kitchen": "robo_kitchen",
             })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.

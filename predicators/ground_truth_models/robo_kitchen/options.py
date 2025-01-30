@@ -4,23 +4,17 @@ from typing import ClassVar, Dict, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
+import mujoco # for quaternion operations
 
-from predicators.envs.kitchen import KitchenEnv
+from predicators.envs.robo_kitchen import RoboKitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, ParameterizedTerminal, Predicate, State, Type
 
-try:
-    from gymnasium_robotics.utils.rotations import euler2quat, quat2euler, \
-        subtract_euler
-    _MJKITCHEN_IMPORTED = True
-except (ImportError, RuntimeError):
-    _MJKITCHEN_IMPORTED = False
 
-
-class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
-    """Ground-truth options for the Kitchen environment."""
+class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the RoboKitchen environment."""
 
     moveto_tol: ClassVar[float] = 0.03  # for terminating moving
     max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
@@ -34,32 +28,38 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"kitchen"}
+        return {"robo_kitchen"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
-        assert _MJKITCHEN_IMPORTED, "See kitchen.py"
+        # assert _MJKITCHEN_IMPORTED, "See kitchen.py"
 
-        # Need to define these here because users may not have euler2quat.
-        down_quat = euler2quat((-np.pi, 0.0, -np.pi / 2))
+        # Define quaternions using MuJoCo's utilities
+        down_quat = np.zeros(4)
+        mujoco.mju_euler2Quat(down_quat, np.array([-np.pi, 0.0, -np.pi / 2]), 'xyz')
+
         # End effector facing forward (e.g., toward the knobs.)
-        fwd_quat = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
-        angled_quat = euler2quat((-3 * np.pi / 4, 0.0, -np.pi / 2))
+        fwd_quat = np.zeros(4)
+        mujoco.mju_euler2Quat(fwd_quat, np.array([-np.pi / 2, 0.0, -np.pi / 2]), 'xyz')
+
+        # Angled quaternion
+        angled_quat = np.zeros(4)
+        mujoco.mju_euler2Quat(angled_quat, np.array([-3 * np.pi / 4, 0.0, -np.pi / 2]), 'xyz')
 
         # Types
-        gripper_type = types["gripper"]
-        on_off_type = types["on_off"]
-        kettle_type = types["kettle"]
-        surface_type = types["surface"]
-        switch_type = types["switch"]
-        knob_type = types["knob"]
-        hinge_door_type = types["hinge_door"]
+        gripper_type = types["rich_object_type"]
+        on_off_type = types["rich_object_type"]
+        kettle_type = types["rich_object_type"]
+        surface_type = types["rich_object_type"]
+        switch_type = types["rich_object_type"]
+        knob_type = types["rich_object_type"]
+        hinge_door_type = types["rich_object_type"]
 
         # Predicates
-        OnTop = predicates["OnTop"]
+        # OnTop = predicates["OnTop"]
 
         options: Set[ParameterizedOption] = set()
 
@@ -94,7 +94,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 (target_pose, target_quat),
             ]
             # Moves away from handle to prevent collision.
-            if obj.name == "microhandle":
+            if obj.name == "    ":
                 memory["waypoints"] = [
                     ((gx - 0.15, gy - 0.15, gz + 0.2), down_quat)
                 ] + memory["waypoints"]
@@ -110,19 +110,25 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            gqw = state.get(gripper, "qw")
-            gqx = state.get(gripper, "qx")
-            gqy = state.get(gripper, "qy")
-            gqz = state.get(gripper, "qz")
-            current_euler = quat2euler([gqw, gqx, gqy, gqz])
+            current_quat = np.array([
+                state.get(gripper, "qw"),
+                state.get(gripper, "qx"),
+                state.get(gripper, "qy"),
+                state.get(gripper, "qz")
+            ])
+            
             way_pos, way_quat = memory["waypoints"][0]
             if np.allclose((gx, gy, gz), way_pos, atol=cls.moveto_tol):
                 memory["waypoints"].pop(0)
                 way_pos, way_quat = memory["waypoints"][0]
+            
             dx, dy, dz = np.subtract(way_pos, (gx, gy, gz))
-            target_euler = quat2euler(way_quat)
-            droll, dpitch, dyaw = subtract_euler(target_euler, current_euler)
-            arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0],
+            
+            # Calculate rotation difference using MuJoCo's quaternion subtraction
+            drot = np.zeros(3)
+            mj_.mju_subQuat(drot, way_quat, current_quat)
+            
+            arr = np.array([dx, dy, dz, drot[0], drot[1], drot[2], 0.0],
                            dtype=np.float32)
             action_mag = np.linalg.norm(arr)
             if action_mag > cls.max_delta_mag:

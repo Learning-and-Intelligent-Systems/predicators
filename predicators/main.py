@@ -84,7 +84,8 @@ def main() -> None:
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
-    logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
+    # logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
+    # commented since debugging from parent directory, no git
     # Create results directory.
     os.makedirs(CFG.results_dir, exist_ok=True)
     # Create the eval trajectories directory.
@@ -508,7 +509,7 @@ def _save_test_results(results: Metrics,
     outdata = {
         "config": CFG,
         "results": results.copy(),
-        "git_commit_hash": utils.get_git_commit_hash()
+        # "git_commit_hash": utils.get_git_commit_hash()
     }
     # Dump the CFG, results, and git commit hash to a pickle file.
     with open(outfile, "wb") as f:

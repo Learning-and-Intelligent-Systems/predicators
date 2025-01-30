@@ -21,6 +21,7 @@ def create_new_env(name: str,
     later be loaded using get_or_create_env().
     """
     for cls in utils.get_all_subclasses(BaseEnv):
+        check_abstract_methods(cls) # helpful in knowning what is missing
         if not cls.__abstractmethods__ and cls.get_name() == name:
             env = cls(use_gui)
             break
@@ -49,3 +50,21 @@ def get_or_create_env(name: str) -> BaseEnv:
             f"find {name} in the cache. Making a new instance.")
         create_new_env(name, do_cache=True, use_gui=False)
     return _MOST_RECENT_ENV_INSTANCE[name]
+
+
+def check_abstract_methods(cls):
+    # ANSI color codes
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    RESET = '\033[0m'
+    
+    if cls.__abstractmethods__:
+        print(f"{GREEN}{cls.__name__}{RESET}")
+        print(f"{RED}The following abstract methods need to be implemented:{RESET}")
+        for method in cls.__abstractmethods__:
+            print(f"- {method}")
+        return False
+    return True
+
+# Usage example:
+# check_abstract_methods(RoboKitchenEnv)

@@ -8,25 +8,23 @@ import numpy as np
 import PIL
 from gym.spaces import Box
 from PIL import ImageDraw
+from .ik_controller import IKController
+from mujoco import mju_mulQuat, mju_mat2Quat
 
-try:
-    import gymnasium as mujoco_kitchen_gym
-    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, \
-        get_site_xmat, get_site_xpos
-    from gymnasium_robotics.utils.rotations import mat2quat
-    _MJKITCHEN_IMPORTED = True
-except (ImportError, RuntimeError):
-    _MJKITCHEN_IMPORTED = False
+_MJKITCHEN_IMPORTED = False
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Image, Object, \
     Observation, Predicate, State, Type, Video
 
+MAX_CARTESIAN_DISPLACEMENT = 0.2
+MAX_ROTATION_DISPLACEMENT = 0.5
+
 _TRACKED_SITES = [
     "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
     "knob1_site", "knob2_site", "knob3_site", "knob4_site", "light_site",
-    "slide_site", "EEF"
+    "slide_site", "end_effector"
 ]
 
 _TRACKED_SITE_TO_JOINT = {
@@ -123,9 +121,12 @@ README of that repo suggests!"
         self._pred_name_to_pred = self.create_predicates()
 
         render_mode = "human" if self._using_gui else "rgb_array"
-        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
-                                                render_mode=render_mode,
-                                                ik_controller=True)
+        self._gym_env_warpper = mujoco_kitchen_gym.make("FrankaKitchen-v1",
+                                                render_mode=render_mode)
+        self._gym_env = self._gym_env_warpper.env.env.env
+        #,
+         #                                       ik_controller=True)
+        self._ik_controller = IKController(self._gym_env.model, self._gym_env.data)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
@@ -145,12 +146,13 @@ README of that repo suggests!"
         mujoco_model = self._gym_env.model  # type: ignore
         mujoco_data = self._gym_env.data  # type: ignore
         mujoco_model_names = self._gym_env.robot_env.model_names  # type: ignore
+        
         state_info = {}
         for site in _TRACKED_SITES:
             state_info[site] = get_site_xpos(mujoco_model, mujoco_data,
                                              site).copy()
             # Include rotation for gripper.
-            if site == "EEF":
+            if site == "end_effector":
                 xmat = get_site_xmat(mujoco_model, mujoco_data, site).copy()
                 quat = mat2quat(xmat)
                 state_info[site] = np.concatenate([state_info[site], quat])
@@ -305,7 +307,8 @@ README of that repo suggests!"
 
     @property
     def action_space(self) -> Box:
-        return cast(Box, self._gym_env.action_space)
+        # return cast(Box, self._gym_env.action_space) # changed because mujoco is 9D, but kitchen env is 7D
+        return Box(-1.0, 1.0, (7,), np.float32)
 
     @classmethod
     def object_name_to_object(cls, obj_name: str) -> Object:
@@ -328,9 +331,59 @@ README of that repo suggests!"
             "Try using --bilevel_plan_without_sim True")
 
     def step(self, action: Action) -> Observation:
-        self._gym_env.step(action.arr)
+        """Execute action and return observation.
+        
+        The action from options.py is 7D: [dx, dy, dz, droll, dpitch, dyaw, gripper]
+        We need to convert it to 9D joint space action for the new environment.
+        """
+        # Get current end effector pose
+        # eef_site_id = self._gym_env.model.site_name2id("end_effector")
+        current_pos = get_site_xpos(self._gym_env.model, self._gym_env.data, "end_effector")
+        current_rot_mat = get_site_xmat(self._gym_env.model, self._gym_env.data, "end_effector").flatten().copy()
+        pos_delta = action.arr[:3] * MAX_CARTESIAN_DISPLACEMENT
+        rot_delta = action.arr[3:6] * MAX_ROTATION_DISPLACEMENT
+        gripper_cmd = action.arr[6]
+
+        target_pos = current_pos + pos_delta
+        quat_rot = euler2quat(rot_delta)
+
+
+        current_eef_quat = np.empty(
+                4
+            )  # current orientation of the end effector site in quaternions
+        target_orientation = np.empty(
+                4
+            )  # desired end effector orientation in quaternions
+        mju_mat2Quat(
+                current_eef_quat,
+                current_rot_mat,
+            )
+        mju_mulQuat(target_orientation, quat_rot, current_eef_quat)
+
+        action_9d = np.zeros(9)
+    
+        action_9d[7:] = gripper_cmd
+
+        # Create 9D action: 7 arm joints + 2 gripper joints
+        action_9d = np.zeros(9)
+        
+        # Use IK to get delta joint positions for arm
+        delta_qpos = self._ik_controller.compute_qpos_delta(target_pos, target_orientation)
+        
+        # the command is joint velocity, so we need to scale it up
+        action_9d[:7] = delta_qpos[:7] * 50.0
+        
+        # # Execute action
+        # curr_qpos = self._gym_env.data.qpos[:7]
+        # joint_ranges = self._gym_env.model.jnt_range[:7]
+        # percentages = (curr_qpos - joint_ranges[:,0]) / (joint_ranges[:,1] - joint_ranges[:,0]) * 100
+        # print("Joint ranges:", joint_ranges)
+        # print("Joint percentages of range:", percentages.astype(int))
+        
+        self._gym_env.step(action_9d)
         if self._using_gui:
             self._gym_env.render()
+    
         self._current_observation = {
             "state_info": self.get_object_centric_state_info(),
             "obs_images": self.render()
@@ -340,10 +393,10 @@ README of that repo suggests!"
     @classmethod
     def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
         """Get state from state info dictionary."""
-        assert "EEF" in state_info  # sanity check
+        assert "end_effector" in state_info  # sanity check
         state_dict = {}
         for key, val in state_info.items():
-            if key == "EEF":
+            if key == "end_effector":
                 obj = cls.object_name_to_object("gripper")
                 state_dict[obj] = {
                     "x": val[0],
@@ -461,6 +514,7 @@ README of that repo suggests!"
     def _reset_initial_state_from_seed(self, seed: int,
                                        train_or_test: str) -> Observation:
         self._gym_env.reset(seed=seed)
+        self._gym_env.data.qpos[:7] = np.array([0.0, 0.0, 0.0, -1.5, 0.0, 0.0, 0.0])
         kettle_x_coord = -0.269
         if train_or_test == "test":
             kettle_x_coord = 0.169
@@ -471,6 +525,7 @@ README of that repo suggests!"
             # is anywhere between burners 2 and 4. Later, we might add
             # even more variation.
             kettle_y_coord = rng.uniform(0.4, 0.55)
+        # import ipdb; ipdb.set_trace()  # Add this line where you want to pause execution
         self._gym_env.set_body_position(  # type: ignore
             "kettle", (kettle_x_coord, kettle_y_coord, 1.626))
         return {
