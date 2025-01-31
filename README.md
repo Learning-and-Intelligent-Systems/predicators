@@ -1,9 +1,14 @@
 # predicators_robocasa
 
-## New Intsallation Instructions
-1. Follow instruction for robocasa (In step 4, use fork [here](https://github.com/shaoyifei96/robocasa.git)) [here](https://robocasa.ai/docs/introduction/installation.html)
+## Predicators_Robocasa Intsallation Instructions
+1. Follow instruction for robocasa (In step 4, use fork [here](https://github.com/shaoyifei96/robocasa.git)). Don't forget step 5 to download dataset.[here](https://robocasa.ai/docs/introduction/installation.html)
 1. Install this repo using the instructions below, also in the conda env (There should be nothing red appearing)
 1. all three repos should be in a directory, in that directory, create .vscode folder and copy the launch.json file in this repo to that folder, making edits to the file, to enable debugging.
+1. put ```export PYTHONHASHSEED=0``` in bashrc
+1. In VSCode, you should see 2 debug profiles, the teleop profile should work as is.(Try complete the task, it is not easy). The predicator_robocasa main file should not solve and saying ```Task 1 / 1: Approach failed to solve with error: Goal {Open(door_angle:hinge_door_type)} not dr-reachable```
+
+
+# Predicators
 
 ## Repository Description
 

@@ -350,19 +350,19 @@ class RoboKitchenEnv(BaseEnv):
                 state_dict[obj] = {
                     "angle": val
                 }
-            if not key.endswith("_pos"):
+            if not key.endswith("_quat"): #joint_pos does end with pos but does not have _quat
                 continue
-            obj_name = key[:-4]  # Remove _pos
-            quat_val = state_info[key[:-4] + "_quat"]
+            obj_name = key[:-5]  # Remove _pos
+            pos_val = state_info[key[:-5] + "_pos"]
             obj = cls.object_name_to_object(obj_name)
             state_dict[obj] = {
-                    "x": val[0],
-                    "y": val[1],
-                    "z": val[2],
-                    "qw": quat_val[0],
-                    "qx": quat_val[1],
-                    "qy": quat_val[2],
-                    "qz": quat_val[3],
+                    "x": pos_val[0],
+                    "y": pos_val[1],
+                    "z": pos_val[2],
+                    "qw": val[0],
+                    "qx": val[1],
+                    "qy": val[2],
+                    "qz": val[3],
                 }
         state = utils.create_state_from_dict(state_dict)
         state.simulator_state = {}
