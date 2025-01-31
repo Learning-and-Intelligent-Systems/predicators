@@ -5,19 +5,10 @@
         "name": "Python: Debug predicators/main.py",
         "type": "python",
         "request": "launch",
-        "program": "${workspaceFolder}/predicators/predicators/main.py",
+        "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
         "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--use_gui", "--bilevel_plan_without_sim", "True","--debug"],
         "console": "integratedTerminal",
-        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
-      },
-      {
-        "name": "Python: Debug OG Kitchen",
-        "type": "python",
-        "request": "launch",
-        "program": "${workspaceFolder}/predicators/predicators/main.py",
-        "args": ["--env", "kitchen", "--approach", "oracle", "--seed", "0", "--use_gui", "--bilevel_plan_without_sim", "True","--debug"],
-        "console": "integratedTerminal",
-        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
+        "pythonPath": "/home/yifei/miniforge3/envs/robocasa/bin/python"
       },
       {
         "name": "Python: Debug robocasa/teleop.py",
@@ -26,7 +17,7 @@
         "program": "${workspaceFolder}/robocasa/robocasa/demos/demo_teleop.py",
         "args": ["--robot","PandaOmron","--task", "VeggieBoil", "--layout", "0", "--style", "0"],
         "console": "integratedTerminal",
-        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
+        "pythonPath": "/home/yifei/miniforge3/envs/robocasa/bin/python"
       }
     ]
   }
