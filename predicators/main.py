@@ -75,8 +75,8 @@ assert os.environ.get("PYTHONHASHSEED") == "0", \
 def main() -> None:
     """Main entry point for running approaches in environments."""
     script_start = time.perf_counter()
-    # pr = cProfile.Profile()
-    # pr.enable()
+    pr = cProfile.Profile()
+    pr.enable()
 
     # Parse & validate args
     args = utils.parse_args()
@@ -159,12 +159,12 @@ def main() -> None:
     _run_pipeline(env, cogman, approach_train_tasks, offline_dataset)
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
-    # pr.disable()
-    # s = io.StringIO()
-    # sortby = 'cumulative'
-    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    # ps.print_stats()
-    # print(s.getvalue())
+    pr.disable()
+    s = io.StringIO()
+    sortby = 'cumulative'
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print(s.getvalue())
 
 
 def _run_pipeline(env: BaseEnv,

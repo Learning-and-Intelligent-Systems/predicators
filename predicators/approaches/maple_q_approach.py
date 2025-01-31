@@ -112,7 +112,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]], reward_bonuses = None) -> None:
+                     annotations: Optional[List[Any]], reward_bonuses = None, plan_logs = None, final_num_planner_steps = None) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         if CFG.approach == "active_sampler_learning":
@@ -157,7 +157,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals, all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         if isinstance(self, MPDQNApproach):
-            MPDQNApproach._update_maple_data(self, reward_bonuses)  # pylint: disable=protected-access
+            MPDQNApproach._update_maple_data(self, reward_bonuses, plan_logs, final_num_planner_steps)  # pylint: disable=protected-access
         else:
             self._update_maple_data()
         # Re-learn Q function.
@@ -243,13 +243,13 @@ class MPDQNApproach(MapleQApproach):
             train_print_every=CFG.pytorch_train_print_every,
             n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
             num_lookahead_samples=CFG.
-            active_sampler_learning_num_lookahead_samples)
+            active_sampler_learning_num_lookahead_samples, train_tasks=train_tasks)
 
     @classmethod
     def get_name(cls) -> str:
         return "mpdqn"
 
-    def _update_maple_data(self, reward_bonuses) -> None:
+    def _update_maple_data(self, reward_bonuses, plan_logs, last_planner_idx) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
@@ -257,23 +257,39 @@ class MPDQNApproach(MapleQApproach):
 
             for traj_i, segmented_traj in enumerate(new_trajs):
                 self._last_seen_segment_traj_idx += 1
-                reward_bonus = reward_bonuses[traj_i]
+                plan = plan_logs[traj_i]
+                num_rewards = 0
                 # assert len(reward_bonus) == len(segmented_traj)
-                # if sum(reward_bonus) > 0:
+                # if sum(reward_bonuses[traj_i]) > 0:
                 #     import ipdb;ipdb.set_trace()
+
                 for seg_i, segment in enumerate(segmented_traj):
-                    import ipdb; ipdb.set_trace()
                     s = segment.states[0]
                     goal = None
                     o = segment.get_option()
                     ns = segment.states[-1]
-                    # reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                    reward = 0
-                    # if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
-                    #     reward += 0.5
-
-                    reward += reward_bonus[0]
-                    reward_bonus.pop(0)
+                    reward = -1  # Default reward is -1
+                    current_atoms = utils.abstract(ns, self._get_current_predicates())
+                    # Find the last planner state before this point
+                    # Get all states from last planner state onwards in the plan
+                    try:
+                        safe_states = plan[last_planner_idx[traj_i]:]
+                    except:
+                        import ipdb; ipdb.set_trace()
+   
+                    # Check if current state satisfies postconditions of all remaining operators
+                    # by checking if it contains atoms from any future state in the plan
+                    for future_state in safe_states:
+                        if future_state.issubset(current_atoms):
+                            print("FOUND MATCH")
+                            print(future_state)
+                            print(current_atoms)
+                            print(safe_states)
+                            # import ipdb;ipdb.set_trace()
+                            reward = 1000  # We found a match, this is a safe state
+                            num_rewards += 1
+                            break
+                    # import ipdb; ipdb.set_trace()
     
                     # if reward > 0:
                     #     import ipdb; ipdb.set_trace()
@@ -283,7 +299,6 @@ class MPDQNApproach(MapleQApproach):
                     #     print(s, o, reward)
                         
                     terminal = reward > 0 or seg_i == len(segmented_traj) - 1
-
 
                     # if reward >= 1:
                     #     import ipdb;ipdb.set_trace()
@@ -297,8 +312,6 @@ class MPDQNApproach(MapleQApproach):
             assert len(self._segmented_trajs) == goal_offset + \
                 len(self._interaction_goals)
             new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
-
-
 
             for traj_i, segmented_traj in enumerate(new_trajs):
                 self._last_seen_segment_traj_idx += 1

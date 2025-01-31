@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Collection, Deque, Dict, FrozenSet, \
     Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
+import time
 
 import numpy as np
 import torch
@@ -1816,15 +1817,37 @@ class MapleQFunction(MLPRegressor):
     def _sample_applicable_options_from_state(
             self,
             state: State,
-            num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
+            num_samples_per_applicable_nsrt: int = 1, train_or_test: str = "train") -> List[_Option]:
         """Use NSRTs to sample options in the current state."""
         # Create all applicable ground NSRTs.
         state_objs = set(state)
-        applicable_nsrts = [
-            o for o in self._ordered_ground_nsrts if \
-            set(o.objects).issubset(state_objs) and all(
-            a.holds(state) for a in o.preconditions)
-        ]
+
+        try:
+            applicable_nsrts = [
+                o for o in self._ordered_ground_nsrts if \
+                set(o.objects).issubset(state_objs) and all(
+                a.holds(state) for a in o.preconditions)
+            ]
+        except:
+            import ipdb; ipdb.set_trace()
+
+        time.sleep(0.1)
+        # print("applicable nsrt", [(nsrt.name, nsrt.objects) for nsrt in applicable_nsrts])
+
+        # print("applicable nsrt", len(applicable_nsrts))
+        # print(self._ordered_ground_nsrts)
+
+        # import ipdb; ipdb.set_trace()
+        # print(train_or_test, len(self._ordered_ground_nsrts))
+        # print("applicable nsrt", (applicable_nsrts))
+        # if len(applicable_nsrts) == 1:
+        #     for o in self._ordered_ground_nsrts:
+        #         import ipdb; ipdb.set_trace()
+        #         if set(o.objects).issubset(state_objs):
+        #             import ipdb; ipdb.set_trace()
+        #             if all(a.holds(state) for a in o.preconditions):
+        #                 applicable_nsrts.append(o)
+        #     import ipdb; ipdb.set_trace()
         # Randomize order of applicable NSRTs to assure that the output order
         # of this function is completely randomized.
         indices = list(range(len(applicable_nsrts)))
@@ -1847,6 +1870,7 @@ class MapleQFunction(MLPRegressor):
         if sampled_options == []:
             import ipdb; ipdb.set_trace()
         # print(sampled_options)
+        # print("sampled options", sampled_options)
         return sampled_options
 
 
@@ -1867,7 +1891,7 @@ class MPDQNFunction(MapleQFunction):
                 discount: float = 0.8,
                 num_lookahead_samples: int = 5,
                 replay_buffer_max_size: int = 1000000,
-                replay_buffer_sample_with_replacement: bool = True) -> None:
+                replay_buffer_sample_with_replacement: bool = True, train_tasks = []) -> None:
         super().__init__(seed,
                 hid_sizes,
                 max_train_iters,
@@ -1914,7 +1938,9 @@ class MPDQNFunction(MapleQFunction):
         self.target_qnet.load_state_dict(self.qnet.state_dict())
         self._qfunc_init = False
         self._last_planner_state = None
-     
+        self._task_to_nsrts = {}
+        self._train_tasks = train_tasks
+        self._test_tasks = []
         self._ep_reduction = CFG.epsilon_reduction*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
@@ -1926,8 +1952,10 @@ class MPDQNFunction(MapleQFunction):
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
-                      ground_nsrts: Collection[_GroundNSRT], nsrts) -> None:
+                      ground_nsrts: Collection[_GroundNSRT], nsrts, task_to_ground_nsrts, test_tasks) -> None:
         """After initialization because NSRTs not learned at first."""
+        self._task_to_nsrts = task_to_ground_nsrts
+        self._test_tasks = test_tasks
         for ground_nsrt in ground_nsrts:
             num_params = ground_nsrt.option.params_space.shape[0]
             self._max_num_params = max(self._max_num_params, num_params)
@@ -1940,6 +1968,25 @@ class MPDQNFunction(MapleQFunction):
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
         self._options = nsrts
+        # import ipdb; ipdb.set_trace()
+
+    def update_nsrts(self, task, train_or_test):
+        print("in update nsrts")
+        if train_or_test == "train":
+            self._ordered_ground_nsrts=[]
+            self.qnet._ordered_ground_nsrts = []
+            self.target_qnet._ordered_ground_nsrts = []
+            for t in self._train_tasks:
+                self._ordered_ground_nsrts.extend(sorted(self._task_to_nsrts[t]))
+                self.qnet._ordered_ground_nsrts.extend(sorted(self._task_to_nsrts[t]))
+                self.target_qnet._ordered_ground_nsrts.extend(sorted(self._task_to_nsrts[t]))
+        else:
+            self._ordered_ground_nsrts=sorted(self._task_to_nsrts[task])
+            self.qnet._ordered_ground_nsrts = sorted(self._task_to_nsrts[task])
+            self.target_qnet._ordered_ground_nsrts = sorted(self._task_to_nsrts[task])
+
+        # import ipdb; ipdb.set_trace()
+
 
     def _old_vectorize_state(self, state: State) -> Array:
         vecs: List[Array] = []
@@ -2283,7 +2330,7 @@ class MPDQNFunction(MapleQFunction):
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
-            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt, train_or_test=train_or_test)
         scores = [
             self.predict_q_value(state, option) for option in options
         ]

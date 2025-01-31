@@ -405,6 +405,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self.bridge_done = False
         self.planning_policy = None
         self.num_planner_steps = 0
+        self._test_tasks = []
+        self._task_to_nsrts = {}
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
         if (MPDQNFunction._old_vectorize_state(self.mapleq._q_function, state) !=  # pylint: disable=protected-access
@@ -427,7 +429,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
         )
-        print("current plan", self._current_plan)
         if CFG.env == "grid_row_door":
             return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
         elif CFG.env == "doorknobs":
@@ -449,7 +450,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                  add_effects, delete_effects, ignore_effects,
                                  option, option_vars, utils.null_sampler)
         return call_planner_nsrt
-
+    
     @classmethod
     def get_name(cls) -> str:
         return "rl_bridge_policy"
@@ -477,37 +478,123 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             rng=self._rng,
             necessary_atoms_seq=atoms_seq)
     
+    # def _init_nsrts(self) -> None:
+    #     """Initializing nsrts for MAPLE Q."""
+    #     options = self._initial_options
+    #     nsrts = self._get_current_nsrts()
+    #     callplanner_nsrt = self.call_planner_nsrt()
+    #     if CFG.use_callplanner:
+    #         nsrts.add(callplanner_nsrt)
+    #     predicates = self._get_current_predicates()
+    #     all_ground_nsrts: Set[_GroundNSRT] = set()
+    #     if CFG.sesame_grounder == "naive":
+    #         for nsrt in nsrts:
+    #             all_objects = {o for o in self._current_task.init}
+    #             all_ground_nsrts.update(
+    #                 utils.all_ground_nsrts(nsrt, all_objects))
+    #     elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+    #         all_objects = set()
+    #         t = self._current_task
+    #         curr_task_objects = set(t.init)
+    #         curr_task_types = {o.type for o in t.init}
+    #         curr_init_atoms = utils.abstract(t.init, predicates)
+    #         all_ground_nsrts.update(
+    #             utils.all_ground_nsrts_fd_translator(
+    #                 nsrts, curr_task_objects, predicates, curr_task_types,
+    #                 curr_init_atoms, t.goal))
+    #         all_objects.update(curr_task_objects)
+    #     else:  # pragma: no cover
+    #         raise ValueError(
+    #             f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+    #     goals = [self._current_task.goal]  # pylint: disable=protected-access
+    #     self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
+    #         all_objects, goals, all_ground_nsrts, options)
+    #     # self.mapleq._q_function.nsrts = nsrts
+    #     # import ipdb;ipdb.set_trace()
+
+
+    
     def _init_nsrts(self) -> None:
         """Initializing nsrts for MAPLE Q."""
         options = self._initial_options
         nsrts = self._get_current_nsrts()
         callplanner_nsrt = self.call_planner_nsrt()
-        if CFG.use_callplanner:
-            nsrts.add(callplanner_nsrt)
         predicates = self._get_current_predicates()
+        print("predicates", predicates)
         all_ground_nsrts: Set[_GroundNSRT] = set()
+        all_tasks = self._train_tasks + self._test_tasks
         if CFG.sesame_grounder == "naive":
-            for nsrt in nsrts:
-                all_objects = {o for o in self._current_task.init}
-                all_ground_nsrts.update(
-                    utils.all_ground_nsrts(nsrt, all_objects))
+            if CFG.use_callplanner:
+                nsrts.add(callplanner_nsrt)
+            for task in all_tasks:
+                task_nsrts = set()
+                for nsrt in nsrts:
+                    all_objects = {o for o in task.init}
+                    task_nsrts.update(
+                        utils.all_ground_nsrts(nsrt, all_objects))
+                self._task_to_nsrts[task] = task_nsrts
+                all_ground_nsrts.update(task_nsrts)
+                # import ipdb; ipdb.set_trace()
         elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+            print("in fd_translator")
             all_objects = set()
-            t = self._current_task
-            curr_task_objects = set(t.init)
-            curr_task_types = {o.type for o in t.init}
-            curr_init_atoms = utils.abstract(t.init, predicates)
-            all_ground_nsrts.update(
-                utils.all_ground_nsrts_fd_translator(
-                    nsrts, curr_task_objects, predicates, curr_task_types,
-                    curr_init_atoms, t.goal))
-            all_objects.update(curr_task_objects)
+            for t in all_tasks:
+                curr_task_objects = set(t.init)
+                curr_task_types = {o.type for o in t.init}
+                curr_init_atoms = utils.abstract(t.init, predicates)
+                task_nsrts = set(
+                    utils.all_ground_nsrts_fd_translator(
+                        nsrts, curr_task_objects, predicates, curr_task_types,
+                        curr_init_atoms, t.goal))
+                self._task_to_nsrts[t] = task_nsrts
+                all_objects.update(curr_task_objects)
+                all_ground_nsrts.update(task_nsrts)
+
+            if CFG.env == "doorknobs":
+                for nsrt in nsrts:
+                    if nsrt.name == "OpenDoor":
+                        opendoor_nsrt = nsrt
+                        break
+                for task in all_tasks:
+                    task_nsrts = set()
+                    objects = {o for o in task.init}
+                    task_nsrts.update(
+                        utils.all_ground_nsrts(opendoor_nsrt, objects))
+                    self._task_to_nsrts[task].update(task_nsrts)
+                    all_ground_nsrts.update(task_nsrts)     
+
+            if CFG.env == "grid_row_door":
+                for nsrt in nsrts:
+                    if nsrt.name == "TurnKey":
+                        turnkey_nsrt = nsrt
+                    if nsrt.name == "MoveKey":
+                        movekey_nsrt = nsrt
+                for task in all_tasks:
+                    task_nsrts = set()
+                    objects = {o for o in task.init}
+                    task_nsrts.update(
+                        utils.all_ground_nsrts(turnkey_nsrt, objects))
+                    task_nsrts.update(
+                        utils.all_ground_nsrts(movekey_nsrt, objects))
+                    self._task_to_nsrts[task].update(task_nsrts)
+                    all_ground_nsrts.update(task_nsrts)   
+
+            if CFG.use_callplanner:
+                for task in all_tasks:
+                    task_nsrts = set()
+                    objects = {o for o in task.init}
+                    task_nsrts.update(
+                        utils.all_ground_nsrts(callplanner_nsrt, objects))
+                    self._task_to_nsrts[task].update(task_nsrts)
+                    all_ground_nsrts.update(task_nsrts)
+
         else:  # pragma: no cover
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
         goals = [self._current_task.goal]  # pylint: disable=protected-access
+        # import ipdb; ipdb.set_trace()
         self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
-            all_objects, goals, all_ground_nsrts, options)
+            all_objects, goals, all_ground_nsrts, options, self._task_to_nsrts, self._test_tasks)
         # self.mapleq._q_function.nsrts = nsrts
         # import ipdb;ipdb.set_trace()
 
@@ -518,6 +605,13 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         self._current_task = task
+        print("in solve.")
+        if task not in self._test_tasks and task not in self._train_tasks:
+            print("Adding to test tasks")
+            self._test_tasks.append(task)
+            if self._maple_initialized:
+                self._init_nsrts()
+        print(f"Before maple initialization check, maple_initialized: {self._maple_initialized}")  # Debug print
         # import ipdb;ipdb.set_trace()
         self._current_control = "planner"
         task_list, option_policy = self._get_option_policy_by_planning(task, timeout)
@@ -527,13 +621,16 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise_error_on_repeated_state=True,
         )
         self._current_plan = task_list
+        print(f"Before maple initialization check, maple_initialized: {self._maple_initialized}")  # Debug print
+
         if not self._maple_initialized:
             self.mapleq = MPDQNApproach(self._get_current_predicates(),
                                          self._initial_options, self._types,
                                          self._action_space, self._train_tasks, self.CallPlanner)
             self._maple_initialized = True
-        self._init_nsrts()
-
+            self._init_nsrts()
+        print("About to call update_nsrts")  # Debug print
+        self.mapleq._q_function.update_nsrts(task, train_or_test)
         # self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
         #     all_objects, goals, all_ground_nsrts)
 
@@ -543,7 +640,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
         def _policy(s: State) -> Action:
             nonlocal last_bridge_policy_state
-
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
             try:
@@ -584,6 +680,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             nonlocal just_starting
             if just_starting:
                 task = self._train_tasks[train_task_idx]
+                self._current_task = task
                 self._current_control = "planner"
                 self.num_bridge_steps = 0
                 self.bridge_done = False
@@ -937,6 +1034,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
         self.last_action = None
         self.num_bridge_steps = 0
         self.planning_policy = None
+        self.final_num_planner_steps = []
  
     @classmethod
     def get_name(cls) -> str:
@@ -966,12 +1064,25 @@ class RapidLearnApproach(RLBridgePolicyApproach):
         )
         self.planning_policy = self._current_policy
         self._current_plan = task_list
+
+        print("in solve.")
+        if task not in self._test_tasks and task not in self._train_tasks:
+            print("Adding to test tasks")
+            self._test_tasks.append(task)
+            if self._maple_initialized:
+                self._init_nsrts()
+
+
         if not self._maple_initialized:
             self.mapleq = MPDQNApproach(self._get_current_predicates(),
                                          self._initial_options, self._types,
                                          self._action_space, self._train_tasks, self.CallPlanner)
             self._maple_initialized = True
-        self._init_nsrts()
+            self._init_nsrts()
+        print("About to call update_nsrts")  # Debug print
+        self.mapleq._q_function.update_nsrts(task, train_or_test)
+
+        # print("current task", self._current_task.goal)
 
         # self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
         #     all_objects, goals, all_ground_nsrts)
@@ -985,6 +1096,8 @@ class RapidLearnApproach(RLBridgePolicyApproach):
 
         def _policy(s: State) -> Action:
             nonlocal last_bridge_policy_state, curr_option
+            
+            # print("current task", self._current_task.goal)
 
             # if we are in bridge policy mode, check if our current state has the atoms of a later state in the plan
             # if so then self.bridge_done = True
@@ -1000,7 +1113,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                     self._current_control = "planner"
                     self._current_policy = self.planning_policy
                     self.num_bridge_steps = 0
-                    print("bridge done")
+                    print("bridge done because we hit max bridge steps")
                 else:
                     current_atoms = utils.abstract(s, self._get_current_predicates())
                     
@@ -1012,12 +1125,12 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                             self.bridge_done = True
                             self._current_control = "planner"
                             self._current_policy = self.planning_policy
-                            # import ipdb;ipdb.set_trace()
                             print("bridge done")
                             # print(self._current_plan)
                             break
                 if self.bridge_done:
                     print("bridge done")
+                    # print("current task", self._current_task.goal)
                     current_task = Task(s, self._current_task.goal)
                     task_list, option_policy = self._get_option_policy_by_planning(
                     current_task, CFG.timeout)
@@ -1027,7 +1140,9 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                     max_option_steps=CFG.max_num_steps_option_rollout,
                     raise_error_on_repeated_state=True,
                     )           
+                    # self._current_policy = self.planning_policy
                     self.bridge_done = False
+                    
 
                 # self.bridge_done = False
                 
@@ -1106,6 +1221,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
             action = self._current_policy(s)
             if self._current_control == "bridge":
                 self.num_bridge_steps += 1
+            self.final_num_planner_steps.append(self.num_planner_steps)
 
 
             if train_or_test == "train":
@@ -1133,6 +1249,8 @@ class RapidLearnApproach(RLBridgePolicyApproach):
         mapleq_states = []
         mapleq_actions = []
         reward_bonuses = []
+        plan_per_traj = []
+        last_planner_idxs = []
         for i in range(len(results)):
             reward_bonus = []
             result = results[i]
@@ -1162,6 +1280,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                         mapleq_states.append([])
                         mapleq_actions.append([])
                         reward_bonuses.append([])
+                        plan_per_traj.append(plan_log[j])
                         count+=1
                     #add to the current trajectory
                     mapleq_states[count].append(result.states[j])
@@ -1200,7 +1319,6 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                     reward_bonuses[count].append(rwd)
 
                 else:
-                    
                     if add_to_traj:
                         #end the current trajectory and add the last state
                         #also add the trajectory to the list of trajectories
@@ -1208,8 +1326,8 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                         mapleq_states[count].append(result.states[j])
                         new_traj = LowLevelTrajectory(mapleq_states[count], mapleq_actions[count])
                         self._trajs.append(new_traj)
+                        last_planner_idxs.append(last_planner_idx+1)
                         # import ipdb; ipdb.set_trace()
-            
             
             # print("num rewards", num_rewards)
             # if num_rewards >= 1:
@@ -1220,7 +1338,8 @@ class RapidLearnApproach(RLBridgePolicyApproach):
             plan_logs = plan_logs[len(result.states) - 1:]
         # import ipdb; ipdb.set_trace()
         self.mapleq.get_interaction_requests()
-        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs), reward_bonuses)  # pylint: disable=protected-access
+
+        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs), reward_bonuses, plan_per_traj, last_planner_idxs)  # pylint: disable=protected-access
         self._policy_logs = []
         self._plan_logs = []
         return None

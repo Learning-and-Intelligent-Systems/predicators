@@ -115,11 +115,46 @@ def _segment_with_option_changes(
             option_duration = t - backward_t + 1
             if option_duration >= CFG.max_num_steps_option_rollout:
                 return True
+            if "Pick" in option_t.name:
+                import ipdb; ipdb.set_trace()
             return option_t.terminal(ll_traj.states[t + 1])
         return option_t is not ll_traj.actions[t + 1].get_option()
 
     return _segment_with_switch_function(ll_traj, predicates, atom_seq,
                                          _switch_fn)
+
+
+def _segment_with_failed_option_changes(
+        ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
+        atom_seq: Optional[List[Set[GroundAtom]]]) -> List[Segment]:
+    """Segment a trajectory whenever the (assumed known) option changes."""
+
+    def _switch_fn(t: int) -> bool:
+        # Segment by checking whether the option changes on the next step.
+        option_t = ll_traj.actions[t].get_option()
+        # As a special case, if this is the last timestep, then use the
+        # option's terminal function to check if it completed, or see if the
+        # termination was due to max_num_steps_option_rollout.
+        if t == len(ll_traj.actions) - 1:
+            # Calculate the number of steps since the option changed.
+            backward_t = t
+            while backward_t > 0:
+                if ll_traj.actions[backward_t -
+                                   1].get_option() is not option_t:
+                    break
+                backward_t -= 1
+            option_duration = t - backward_t + 1
+            if option_duration >= CFG.max_num_steps_option_rollout:
+                return True
+            # if "Pick" in option_t.name:
+            #     import ipdb; ipdb.set_trace()
+            return True
+        return option_t is not ll_traj.actions[t + 1].get_option()
+
+    return _segment_with_switch_function(ll_traj, predicates, atom_seq,
+                                         _switch_fn)
+
+
 
 
 def _segment_with_oracle(ll_traj: LowLevelTrajectory,
@@ -135,6 +170,8 @@ def _segment_with_oracle(ll_traj: LowLevelTrajectory,
     """
     if ll_traj.actions and ll_traj.actions[0].has_option():
         assert CFG.option_learner == "no_learning"
+        if CFG.segment_failed_options:
+            return _segment_with_failed_option_changes(ll_traj, predicates, atom_seq)
         return _segment_with_option_changes(ll_traj, predicates, atom_seq)
     env = get_or_create_env(CFG.env)
     env_options = get_gt_options(env.get_name())

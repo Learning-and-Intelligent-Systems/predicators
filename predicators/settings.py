@@ -602,8 +602,9 @@ class GlobalSettings:
     # whether or not we use object centric state vectorization, 
     # should be true for normal rl bridge, false for normal mapleq
     use_obj_centric = True
-    # shivam vats inspo
+    # shivam vats inspo (rapidlearn)
     rl_rwd_shape = False
+    segment_failed_options = False
     max_num_bridge_steps = 90
     # default epsilon reduction factor
     epsilon_reduction = 2
