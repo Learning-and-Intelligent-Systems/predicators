@@ -85,18 +85,18 @@ def test_door_initial_states(task_name, expected_open):
     obs = raw_env.reset()
     
     # Get door angle from observation
-    raw_angle = raw_env.sim.data.qpos[raw_env.hinge_qpos_addr]
+    # raw_angle = raw_env.sim.data.qpos[raw_env.hinge_qpos_addr]
     # Get normalized door state
     door_state = raw_env.door_fxtr.get_door_state(env=raw_env)
     for k, v in door_state.items():
         print(f"Door state {k}: {v}")
     door_angle = door_state['door']  # Use normalized angle
     print(f"\nTask: {task_name}")
-    print(f"Raw angle: {raw_angle}")
+    # print(f"Raw angle: {raw_angle}")
     print(f"Normalized angle: {door_angle}")
     print(f"Door state: {door_state}")
-    print(f"Hinge qpos addr: {raw_env.hinge_qpos_addr}")
-    print(f"All qpos: {raw_env.sim.data.qpos}")
+    # print(f"Hinge qpos addr: {raw_env.hinge_qpos_addr}")
+    # print(f"All qpos: {raw_env.sim.data.qpos}")
     
     # Create door object and state
     door = Object("door", env.hinge_door_type)

@@ -17,6 +17,7 @@ from predicators.structs import Action, EnvironmentTask, Image, Object, \
 import matplotlib
 from collections import OrderedDict
 from termcolor import colored
+import warnings
 
 # Constants from demo files
 MAX_CARTESIAN_DISPLACEMENT = 0.2
@@ -203,15 +204,42 @@ class RoboKitchenEnv(BaseEnv):
         raise NotImplementedError("Simulate not implemented for robosuite kitchen")
 
     def step(self, action: Action) -> Observation:
-        """Execute action and return observation."""
-        # Convert action to environment action
+        """Execute action and return observation.
+        
+        Convert 7D predicators action [dx, dy, dz, droll, dpitch, dyaw, gripper]
+        to 12D robocasa action [right_pose(6), right_gripper(1), base(3), torso(1), extra(1)]
+        """
+        # Debug print
+        # print("\n" + "="*50)
+        # print("STEP DEBUG INFO:")
+        # print(f"Door state: {self._env_raw.door_fxtr.get_door_state(env=self._env_raw)}")
+        # print(f"Action: {action.arr}")
+        # print("="*50 + "\n")
+        # Scale the action
         pos_delta = action.arr[:3] * MAX_CARTESIAN_DISPLACEMENT
         rot_delta = action.arr[3:6] * MAX_ROTATION_DISPLACEMENT
         gripper_cmd = action.arr[6]
 
+        # Create 12D robocasa action:
+        # - First 6D: right arm pose (position + rotation)
+        # - Next 1D: right gripper
+        # - Next 3D: base (no movement)
+        # - Next 1D: torso (no movement)
+        # - Last 1D: extra dimension (not used)
+        env_action = np.zeros(12, dtype=np.float32)
+        env_action[0:3] = pos_delta  # position control
+        env_action[3:6] = rot_delta  # rotation control
+        env_action[6] = gripper_cmd  # gripper control
+        # env_action[7:10] are zeros (no base movement)
+        # env_action[10] is zero (no torso movement)
+        # env_action[11] is zero (extra dimension)
+
         # Execute action in environment
-        env_action = np.concatenate([pos_delta, rot_delta, [gripper_cmd]])
         obs, _, _, _ = self._env.step(env_action)
+        obs = {
+            "state_info": obs,
+            "obs_images": []
+        }
         
         self._current_observation = obs
         return self._copy_observation(self._current_observation)
@@ -221,10 +249,17 @@ class RoboKitchenEnv(BaseEnv):
         #TODO: Need to get the task as predicates
         # self._current_task = self.get_task(train_or_test, task_idx)
         # seed = utils.get_task_seed(train_or_test, task_idx)
-        
+        # Add warning that task-specific reset not implemented
+        warnings.warn("reset task not implemented for robo_kitchen")
+
         # Reset robosuite env
-        self._current_observation = self._env.reset() 
-        # self._current_observation, _, _, _ = self._get_current_observation()
+        obs = self._env.reset()
+        obs = {
+            "state_info": obs,
+            "obs_images": []
+        }
+        
+        self._current_observation = obs
         return self._copy_observation(self._current_observation)
 
     def render(self, action: Optional[Action] = None, # this renders the robot observation, not the viewer??
