@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   call-openhands-resolver:
-    uses: shaoyifei96/OpenHands/.github/workflows/openhands-resolver.yml@main
+    uses: shaoyifei96/OpenHands/.github/workflows/openhands-resolver.yml@ubuntu-runtime
     with:
       macro: ${{ vars.OPENHANDS_MACRO || '@openhands-agent' }}
       max_iterations: ${{ fromJson(vars.OPENHANDS_MAX_ITER || 50) }}
