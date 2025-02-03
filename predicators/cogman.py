@@ -52,7 +52,7 @@ class CogMan:
         self._current_env_task = env_task
         self._current_goal = task.goal
         self._reset_policy(task)
-        time.sleep(0.1)
+        # time.sleep(0.1)
         self._exec_monitor.reset(task)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
@@ -212,19 +212,19 @@ def run_episode_and_get_observations(
             monitor.reset(train_or_test, task_idx)
     
     obs = env.get_observation()
-    time.sleep(1)
+    # time.sleep(1)
     # print("obs", obs)
-    if train_or_test == "test":
-        tasks = [
-            task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
-        ]
-    else:
-        preds, _ = utils.parse_config_excluded_predicates(env)
-        env_train_tasks = env.get_train_tasks()
-        train_tasks = [cogman._perceiver.reset(t) for t in env_train_tasks]
-        tasks = [
-            utils.strip_task(task, preds) for task in train_tasks
-        ]
+    # if train_or_test == "test":
+    #     tasks = [
+    #         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
+    #     ]
+    # else:
+    #     preds, _ = utils.parse_config_excluded_predicates(env)
+    #     env_train_tasks = env.get_train_tasks()
+    #     train_tasks = [cogman._perceiver.reset(t) for t in env_train_tasks]
+    #     tasks = [
+    #         utils.strip_task(task, preds) for task in train_tasks
+    #     ]
         
     observations = [obs]
     actions: List[Action] = []
