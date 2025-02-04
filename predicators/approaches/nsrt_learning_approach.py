@@ -119,7 +119,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
-        if CFG.pretty_print_when_loading:
+        if CFG.pretty_print_when_loading:  # pragma: no cover
             preds, _ = utils.extract_preds_and_types(self._nsrts)
             name_map = {}
             logging.info("Invented predicates:")

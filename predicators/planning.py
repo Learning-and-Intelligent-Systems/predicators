@@ -1101,6 +1101,7 @@ def fd_plan_from_sas_file(
         raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
+    metrics["plan_length"] = len(skeleton_str)
     return (skeleton, atoms_sequence, metrics)
 
 

@@ -71,8 +71,8 @@ def _generate_prompt_for_atom_proposals(
         # camera view, but probably will need to be amended in the future!
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
-    elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
-        "options_labels_whole_traj":
+    elif "options_labels_whole_traj" in \
+        CFG.grammar_search_vlm_atom_proposal_prompt_type:
         prompt += "\nSkills executed in trajectory:\n"
         prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
@@ -80,7 +80,9 @@ def _generate_prompt_for_atom_proposals(
         # naive_whole_traj.
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
-
+    else:  # pragma: no cover.
+        raise ValueError("Unknown VLM prompting option " +
+                         f"{CFG.grammar_search_vlm_atom_proposal_prompt_type}")
     return ret_list
 
 
@@ -95,71 +97,14 @@ def _generate_prompt_for_scene_labelling(
     Note that all our prompts are saved as separate txt files under the
     'vlm_input_data_prompts/atom_labelling' folder.
     """
-    filepath_prefix = utils.get_path_to_predicators_root() + \
-        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
-    try:
-        with open(filepath_prefix +
-                  CFG.grammar_search_vlm_atom_label_prompt_type + ".txt",
-                  "r",
-                  encoding="utf-8") as f:
-            prompt = f.read()
-    except FileNotFoundError:
-        raise ValueError("Unknown VLM prompting option " +
-                         f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-    # The prompt ends with a section for 'Predicates', so list these.
-    for atom_str in atoms_list:
-        prompt += f"\n{atom_str}"
-
-    if "img_option_diffs" in CFG.grammar_search_vlm_atom_label_prompt_type:
-        # In this case, we need to load the 'per_scene_naive' prompt as well
-        # for the first timestep.
-        with open(filepath_prefix + "per_scene_naive.txt",
-                  "r",
-                  encoding="utf-8") as f:
-            init_prompt = f.read()
-        for atom_str in atoms_list:
-            init_prompt += f"\n{atom_str}"
-        if len(label_history) == 0:
-            yield (init_prompt, traj.imgs[0])
-
-        # Now, we use actual difference-based prompting for the second timestep
-        # and beyond.
-        for i in range(1, len(traj.imgs)):
-            curr_prompt = prompt[:]
-            # Here, we want to give the VLM the images corresponding to the
-            # states at timestep t-1 and timestep t. Note that in the general
-            # case, there can be multiple images associated with each state, but
-            # for now we assume that there is just a single image. So, here we
-            # give the VLM the image from the state at t-1, and the image from
-            # the state at t.
-            curr_prompt_imgs = [
-                imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
-            ]
-            if CFG.vlm_include_cropped_images:
-                if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
-                    curr_prompt_imgs.extend([
-                        traj.cropped_imgs[i - 1][1],
-                        traj.cropped_imgs[i - 1][0]
-                    ])
-                else:
-                    raise NotImplementedError(
-                        f"Cropped images not implemented for {CFG.env}.")
-            curr_prompt += "\n\nSkill executed between states: "
-            skill_name = traj.actions[i - 1].name + str(
-                traj.actions[i - 1].objects)
-            curr_prompt += skill_name
-
-            if "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
-                curr_prompt += "\n\nPredicate values in the first scene, " \
-                "before the skill was executed: \n"
-                curr_prompt += label_history[-1]
-            yield (curr_prompt, curr_prompt_imgs)
-    else:
-        for curr_imgs in traj.imgs:
-            # NOTE: same problem with ripping out images as in the above note.
-            yield (prompt, [curr_imgs[0]])
+    for i in range(len(traj.imgs)):
+        yield utils.get_prompt_for_vlm_state_labelling(
+            CFG.grammar_search_vlm_atom_label_prompt_type, atoms_list,
+            label_history, traj.imgs[:i + 1], traj.cropped_imgs[:i + 1],
+            traj.actions[:i])
 
 
+#
 def _sample_vlm_atom_proposals_from_trajectories(
         trajectories: List[ImageOptionTrajectory],
         vlm: VisionLanguageModel,
@@ -222,6 +167,60 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                                                          0.0,
                                                          CFG.seed,
                                                          num_completions=1)
+        if CFG.vlm_double_check_output and len(curr_traj_txt_outputs) > 0 and \
+            "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
+            # Double check the VLM's reasoning.
+            # The current implementation checks that the VLM made correct use
+            # of the previous timestep's labels.
+            double_check_prompt = "[START OF PROMPT]\n" + text_prompt[:] + \
+                "\n[END OF PROMPT]\n\n"
+            double_check_prompt += "To this prompt, you responded with:\n"
+            double_check_prompt += "[Start of your previous answer]\n" + \
+                curr_vlm_atom_labelling[0] + \
+                "\n[End of your previous answer]\n\n"
+            # pylint: disable=line-too-long
+            previous_timestep_check_prompt = utils.get_path_to_predicators_root() + \
+                "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
+                "double_check_prompt_prev_labels.txt"
+            # pylint: enable=line-too-long
+            double_check_prompt += previous_timestep_check_prompt
+            double_check_prompt += "\n\nTruth values of predicates at " + \
+                "the previous timestep:\n\n"
+
+            def extract_labels(text: str) -> List[str]:
+                substrings = []
+                i = 0
+                # Loop through the text character by character.
+                while i < len(text):
+                    # Look for the '*' character.
+                    if text[i] == '*':
+                        start = i
+                        # Search for the occurrence of 'True' or 'False'.
+                        while i < len(text) and 'True' not in text[
+                                start:i + 4] and 'False' not in text[start:i +
+                                                                     5]:
+                            i += 1
+                        if 'True' in text[start:i + 4]:
+                            substrings.append(text[start:i + 4].strip())
+                            i += 4  # Move the pointer past 'True'.
+                        elif 'False' in text[start:i + 5]:
+                            substrings.append(text[start:i + 5].strip())
+                            i += 5  # Move the pointer past 'False'.
+                    else:
+                        i += 1
+                return substrings
+
+            prev_labels = extract_labels(curr_traj_txt_outputs[-1])
+            prev_labels_str = "\n".join(prev_labels)
+            double_check_prompt += prev_labels_str
+            double_checked_labelling = vlm.sample_completions(
+                prompt=double_check_prompt,
+                imgs=img_prompt,
+                temperature=0.0,
+                seed=CFG.seed,
+                num_completions=1)
+            curr_vlm_atom_labelling = double_checked_labelling
+
         assert len(curr_vlm_atom_labelling) == 1
         sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
         curr_traj_txt_outputs.append(sanitized_output)
@@ -336,12 +335,16 @@ def _parse_unique_atom_proposals_from_list(
                 for og in other_groundings:
                     all_atom_groundings.add(og)
             logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
+    logging.info("VISUAL PREDICATES PROPOSED")
+    for unique_pred in unique_predicates:
+        logging.info(unique_pred)
     logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
     logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
     logging.info(
         f"For the {len(unique_predicates)} predicates, there were " \
         f"{len(all_atom_groundings)} unique groundings."
     )
+    logging.info("END VISUAL PREDICATES PROPOSALS")
     return all_atom_groundings
 
 
@@ -947,7 +950,8 @@ def _parse_predicate_proposals(
             exec(code_str, context)
             # pylint: enable=exec-used
             utils.abstract(tasks[0].init, [context[pred_name]])
-        except (TypeError, AttributeError, ValueError) as e:
+        except (TypeError, AttributeError, ValueError, IndentationError,
+                NameError) as e:
             # Was using Exception but pylint was complaining, so I'm
             # adding specific exceptions to this tuple as we encounter them.
             error_trace = traceback.format_exc()
@@ -1029,7 +1033,9 @@ def create_ground_atom_data_from_generated_demos(
                     assert prev_state.simulator_state is not None
                     assert "images" in prev_state.simulator_state
                     relevant_states_for_crop = [state, prev_state]
-                    if i != 0:
+                    if i == 0:
+                        cropped_state_imgs.append([])
+                    else:
                         # Figure out which cells to include in the crop.
                         action = curr_traj_actions_for_vlm[i - 1].get_option()
                         min_col = env.num_cols

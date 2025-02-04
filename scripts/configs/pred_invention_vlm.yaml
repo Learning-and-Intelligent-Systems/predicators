@@ -1,0 +1,186 @@
+# Experiments to test predicate invention with VLMs
+---
+APPROACHES:
+  ours:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+      offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: False
+  ours-vlm-subselection:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+      offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: True
+  ours-no-subselection:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+      offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_pred_selection_approach: no_select
+      grammar_search_invent_geo_predicates_only: False
+  ours-no-invent:
+    NAME: "nsrt_learning"
+    FLAGS: {}
+  ours-no-visual:
+    NAME: "grammar_search_invention"
+    FLAGS: 
+      offline_data_method: demo
+  ours-no-geo:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: False
+  interpret:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      offline_data_method: demo_with_vlm_imgs
+      vlm_predicate_vision_api_generate_ground_atoms: True
+  vila-with-fewshot:
+    NAME: "vlm_open_loop"
+    FLAGS:
+      vlm_open_loop_use_training_demos: True
+  vila-pure:
+    NAME: "vlm_open_loop"
+    FLAGS:
+      vlm_open_loop_use_training_demos: False
+
+ENVS:
+  burger_no_move_more_stacks:
+    NAME: "burger_no_move"
+    FLAGS:
+      burger_no_move_task_type: "more_stacks"
+      bilevel_plan_without_sim: True
+      segmenter: option_changes
+      grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history_burger
+      grammar_search_task_planning_timeout: 10.0
+      sesame_max_skeletons_optimized: 200
+      disable_harmlessness_check: True
+      sesame_task_planner: fdopt
+      excluded_predicates: all
+      option_model_terminate_on_repeat: False
+      grammar_search_vlm_atom_proposal_use_debug: False
+      allow_exclude_goal_predicates: True
+      grammar_search_prune_redundant_preds: True
+      grammar_search_predicate_cost_upper_bound: 13
+      allow_state_allclose_comparison_despite_simulator_state: True
+      grammar_search_max_predicates: 100
+      grammar_search_parallelize_vlm_labeling: True
+      grammar_search_use_handcoded_debug_grammar: False
+      grammar_search_select_all_debug: False
+      cluster_and_intersect_soft_intersection_for_preconditions: True
+      vlm_include_cropped_images: True
+      timeout: 80
+      grammar_search_grammar_includes_givens: False
+      cluster_and_intersect_prune_low_data_pnads: True
+      cluster_and_intersect_min_datastore_fraction: 0.05
+      num_train_tasks: 12 # 8 for VILA
+      precondition_soft_intersection_threshold_percent: 0.8
+      grammar_search_early_termination_heuristic_thresh: 2000
+      vlm_double_check_output: True
+  burger_no_move_fatter_burger:
+    NAME: "burger_no_move"
+    FLAGS:
+      burger_no_move_task_type: "fatter_burger"
+      bilevel_plan_without_sim: True
+      segmenter: option_changes
+      grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history_burger
+      grammar_search_task_planning_timeout: 10.0
+      sesame_max_skeletons_optimized: 200
+      disable_harmlessness_check: True
+      sesame_task_planner: fdopt
+      excluded_predicates: all
+      option_model_terminate_on_repeat: False
+      grammar_search_vlm_atom_proposal_use_debug: False
+      allow_exclude_goal_predicates: True
+      grammar_search_prune_redundant_preds: True
+      grammar_search_predicate_cost_upper_bound: 13
+      allow_state_allclose_comparison_despite_simulator_state: True
+      grammar_search_max_predicates: 100
+      grammar_search_parallelize_vlm_labeling: True
+      grammar_search_use_handcoded_debug_grammar: False
+      grammar_search_select_all_debug: False
+      cluster_and_intersect_soft_intersection_for_preconditions: True
+      vlm_include_cropped_images: True
+      timeout: 80
+      grammar_search_grammar_includes_givens: False
+      cluster_and_intersect_prune_low_data_pnads: True
+      cluster_and_intersect_min_datastore_fraction: 0.05
+      num_train_tasks: 12
+      precondition_soft_intersection_threshold_percent: 0.8
+      grammar_search_early_termination_heuristic_thresh: 2000
+      vlm_double_check_output: True
+  burger_no_move_combo_burger:
+    NAME: "burger_no_move"
+    FLAGS:
+      burger_no_move_task_type: "combo_burger"
+      bilevel_plan_without_sim: True
+      segmenter: option_changes
+      grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history_burger
+      grammar_search_task_planning_timeout: 10.0
+      sesame_max_skeletons_optimized: 200
+      disable_harmlessness_check: True
+      sesame_task_planner: fdopt
+      excluded_predicates: all
+      option_model_terminate_on_repeat: False
+      grammar_search_vlm_atom_proposal_use_debug: False
+      allow_exclude_goal_predicates: True
+      grammar_search_prune_redundant_preds: True
+      grammar_search_predicate_cost_upper_bound: 13
+      allow_state_allclose_comparison_despite_simulator_state: True
+      grammar_search_max_predicates: 100
+      grammar_search_parallelize_vlm_labeling: True
+      grammar_search_use_handcoded_debug_grammar: False
+      grammar_search_select_all_debug: False
+      cluster_and_intersect_soft_intersection_for_preconditions: True
+      vlm_include_cropped_images: True
+      timeout: 80
+      grammar_search_grammar_includes_givens: False
+      cluster_and_intersect_prune_low_data_pnads: True
+      cluster_and_intersect_min_datastore_fraction: 0.05
+      num_train_tasks: 12
+      precondition_soft_intersection_threshold_percent: 0.8
+      grammar_search_early_termination_heuristic_thresh: 2000
+      vlm_double_check_output: True
+  kitchen_boil_kettle:
+    NAME: "kitchen"
+    FLAGS:
+      perceiver: "kitchen"
+      kitchen_goals: "boil_kettle"
+      kitchen_use_perfect_samplers: True
+      kitchen_render_set_of_marks: True
+      kitchen_use_combo_move_nsrts: True
+      kitchen_randomize_init_state: True
+      bilevel_plan_without_sim: True
+      segmenter: option_changes
+      grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history
+      grammar_search_task_planning_timeout: 3.0
+      sesame_max_skeletons_optimized: 5
+      disable_harmlessness_check: True
+      excluded_predicates: all
+      grammar_search_vlm_atom_proposal_use_debug: False
+      grammar_search_prune_redundant_preds: True
+      grammar_search_predicate_cost_upper_bound: 13
+      allow_state_allclose_comparison_despite_simulator_state: True
+      grammar_search_max_predicates: 100
+      grammar_search_parallelize_vlm_labeling: True
+      grammar_search_use_handcoded_debug_grammar: False
+      grammar_search_select_all_debug: False
+      cluster_and_intersect_soft_intersection_for_preconditions: True
+      grammar_search_grammar_includes_givens: False
+      cluster_and_intersect_prune_low_data_pnads: True
+      cluster_and_intersect_min_datastore_fraction: 0.05
+      num_train_tasks: 3
+      precondition_soft_intersection_threshold_percent: 0.8
+      vlm_double_check_output: True
+      grammar_search_early_termination_heuristic_thresh: 100
+
+ARGS: []
+FLAGS: 
+  vlm_model_name: gpt-4o
+  num_test_tasks: 10
+  save_eval_trajs: False
+START_SEED: 0
+NUM_SEEDS: 5
+...

@@ -16,6 +16,8 @@ from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
 
+import predicators.pretrained_model_interface
+import predicators.utils as utils  # pylint: disable=consider-using-from-import
 from predicators.settings import CFG
 
 
@@ -224,8 +226,6 @@ class State:
             obj_dict = {}
             if obj.type.name == "robot" or object_features:
                 for attribute, value in zip(obj.type.feature_names, self[obj]):
-                    if isinstance(value, (float, int, np.float32)):
-                        value = round(float(value), 1)
                     obj_dict[attribute] = value
             obj_name = obj.name
             state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict

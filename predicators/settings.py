@@ -374,6 +374,8 @@ class GlobalSettings:
     # Replace actual rendering with dummy rendering (black 16x16 image) to speed
     # up rendering -- used in testing or when debugging.
     burger_dummy_render = False
+    # Number of test tasks where you start out holding a patty.
+    burger_num_test_start_holding = 5
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -439,6 +441,7 @@ class GlobalSettings:
     vlm_num_completions = 1
     vlm_include_cropped_images = False
     use_hardcoded_vlm_atom_proposals = False
+    vlm_double_check_output = False
 
     # parameters for the vlm_open_loop planning approach
     vlm_open_loop_use_training_demos = False
@@ -675,6 +678,7 @@ class GlobalSettings:
     grammar_search_grammar_use_diff_features = False
     grammar_search_grammar_use_euclidean_dist = False
     grammar_search_use_handcoded_debug_grammar = False
+    grammar_search_forall_penalty = 1
     grammar_search_pred_selection_approach = "score_optimization"
     grammar_search_pred_clusterer = "oracle"
     grammar_search_true_pos_weight = 10
@@ -703,11 +707,14 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
-    grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
+    grammar_search_vlm_atom_proposal_prompt_type = \
+        "options_labels_whole_traj_diverse"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
     grammar_search_parallelize_vlm_labeling = True
     grammar_search_select_all_debug = False
+    grammar_search_invent_geo_predicates_only = False
+    grammar_search_early_termination_heuristic_thresh = 0.0
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
@@ -722,6 +729,8 @@ class GlobalSettings:
     # At test-time, we will use the below number of states
     # as part of labelling the current state's VLM atoms.
     vlm_test_time_atom_label_prompt_type = "per_scene_naive"
+    # Whether or not to save eval trajectories
+    save_eval_trajs = True
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

@@ -245,7 +245,8 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
         responses = [
             self.call_openai_api(messages,
                                  model=self._model_name,
-                                 temperature=temperature)
+                                 temperature=temperature,
+                                 max_tokens=self._max_tokens)
             for _ in range(num_completions)
         ]
         return responses
@@ -289,8 +290,8 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     necessary API key to query the particular model name.
     """
 
-    # @retry(wait=wait_random_exponential(min=1, max=60),
-    #        stop=stop_after_attempt(10))
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(20))
     def _sample_completions(
             self,
             prompt: str,

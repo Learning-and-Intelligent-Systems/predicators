@@ -20,4 +20,16 @@ Your response should have three sections. Here is an outline of what your respon
 [insert your bulleted list of `* <predicate>: <truth value>. <explanation>`]
 [END OUTLINE]
 
+Your response should have three sections. Here is an outline of what your response should look like:
+[START OULTLINE]
+# Expected changes based on the executed skill
+[insert your analysis on the expected changes you will see based on the skill that was executed]
+
+# Visual changes observed between the images
+[insert your analysis on the visual changes observed between the images]
+
+# Predicate values in the after image
+[insert your bulleted list of `* <predicate>: <truth value>. <explanation>`]
+[END OUTLINE]
+
 Predicates:

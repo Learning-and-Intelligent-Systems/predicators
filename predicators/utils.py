@@ -1491,8 +1491,8 @@ def nsrt_plan_to_greedy_option_policy(
         cur_nsrt = nsrt_queue.pop(0)
         logging.info(f"Running nsrt: {cur_nsrt.name}, {cur_nsrt.objects}")
         cur_option = cur_nsrt.sample_option(state, goal, rng)
-        logging.debug(f"Using option {cur_option.name}{cur_option.objects} "
-                      "from NSRT plan.")
+        logging.debug(f"Using option {cur_option.name}{cur_option.objects}"
+                      f"{cur_option.params} from NSRT plan.")
         return cur_option
 
     return _option_policy
@@ -2570,45 +2570,40 @@ def query_vlm_for_atom_vals(
         vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Given a set of ground atoms, queries a VLM and gets the subset of these
     atoms that are true."""
+    # Short-circuit this function in the case where there are no atoms that
+    # need be labelled.
+    if len(vlm_atoms) == 0:
+        return set()
     true_atoms: Set[GroundAtom] = set()
-    # This only works if state.simulator_state is some list of images that the
-    # vlm can be called on.
+    # Get quantities necessary to construct prompt to query VLM.
     assert state.simulator_state is not None
     assert isinstance(state.simulator_state["images"], List)
-    # if "vlm_atoms_history" not in state.simulator_state:
-    #     state.simulator_state["vlm_atoms_history"] = []
-    # imgs = state.simulator_state["images"]
-    # previous_states = []
-    # # We assume the state.simulator_state contains a list of previous states.
-    # if "state_history" in state.simulator_state:
-    #     previous_states = state.simulator_state["state_history"]
-    # state_imgs_history = [
-    #     state.simulator_state["images"] for state in previous_states
-    # ]
+    curr_state_imgs = state.simulator_state["images"]
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_list = [atom.get_vlm_query_str() for atom in vlm_atoms]
-    # All "history" fields in the simulator state contain things from 
-    # previous states -- not the current state. 
-    # We want the image history to include the images from the current state.
-    curr_state_images = state.simulator_state["images"]
-    if "state_history" in state.simulator_state:
+    prev_states_imgs_history = []
+    prev_state_cropped_imgs_history: List[List[PIL.Image.Image]] = []
+    if "state_history" in state.simulator_state:  # pragma: no cover
         prev_states = state.simulator_state["state_history"]
-        prev_states_imgs_history = [s.simulator_state["images"] for s in prev_states]
-    images_history = prev_states_imgs_history + [curr_state_images]
+        prev_states_imgs_history = [
+            s.simulator_state["images"] for s in prev_states
+        ]
+        if "cropped_images" in prev_states[0].simulator_state:
+            prev_states_imgs_history = [
+                s.simulator_state["cropped_images"] for s in prev_states
+            ]
+    images_history = prev_states_imgs_history + [curr_state_imgs]
     skill_history = []
-    if "skill_history" in state.simulator_state:
+    if "skill_history" in state.simulator_state:  # pragma: no cover
         skill_history = state.simulator_state["skill_history"]
     label_history = []
-    if "vlm_label_history" in state.simulator_state:
+    if "vlm_label_history" in state.simulator_state:  # pragma: no cover
         label_history = state.simulator_state["vlm_label_history"]
-
-    # vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
-    #     CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
-    #     state.simulator_state["vlm_atoms_history"], state_imgs_history, [],
-    #     state.simulator_state["skill_history"])
     vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
         CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
-        label_history, images_history, [], skill_history)
+        label_history, images_history, prev_state_cropped_imgs_history,
+        skill_history)
+    # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \
