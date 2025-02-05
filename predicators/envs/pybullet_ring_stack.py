@@ -131,44 +131,52 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
 
     def generate_new_ring_models(self, state):
         logging.info(f"new rings for p_client_id {self._physics_client_id}")
-        new_ring_ids = []
-        logging.info(f'pb bodies: {p.getNumBodies()}')
-        if self._ring_ids is None:
-            self._ring_ids = []
-        logging.info(f"ring_ids: {self._ring_ids}")
-        for body_id in self._ring_ids:
-            p.removeBody(body_id)
+        success = False
 
-        rings = state.get_objects(self._ring_type)
-        logging.info(f"task init state: {state}")
+        while not success:
+            try:
+                new_ring_ids = []
+                logging.info(f'pb bodies: {p.getNumBodies()}')
+                if self._ring_ids is None:
+                    self._ring_ids = []
+                logging.info(f"ring_ids: {self._ring_ids}")
+                for body_id in self._ring_ids:
+                    p.removeBody(body_id)
 
-        for ring in rings:
-            task_ring_idx = int(state.get(ring, "id"))
+                rings = state.get_objects(self._ring_type)
+                logging.info(f"task init state: {state}")
 
-            # Update the URDF file to point to the new .obj file
-            urdf_file = utils.get_env_asset_path("urdf/ring.urdf")
-            with open(urdf_file, 'r') as file:
-                urdf_data = file.read()
 
-            # Replace the old .obj file reference with the new one
-            updated_urdf_data = urdf_data.replace('ring.obj', f'../rings/ring_{task_ring_idx}.obj')
+                for ring in rings:
+                    task_ring_idx = int(state.get(ring, "id"))
 
-            # Write the updated URDF data to a temporary file
-            temp_urdf_file = f"predicators/envs/assets/urdf/temp/ring_temp_{task_ring_idx}.urdf"
-            with open(temp_urdf_file, 'w') as file:
-                file.write(updated_urdf_data)
+                    # Update the URDF file to point to the new .obj file
+                    urdf_file = utils.get_env_asset_path("urdf/ring.urdf")
+                    with open(urdf_file, 'r') as file:
+                        urdf_data = file.read()
 
-            logging.info(f"Using ring: {task_ring_idx} for test task")
+                    # Replace the old .obj file reference with the new one
+                    updated_urdf_data = urdf_data.replace('ring.obj', f'../rings/ring_{task_ring_idx}.obj')
 
-            # Load the updated URDF
-            ring_id = p.loadURDF(temp_urdf_file,
-                                 useFixedBase=False,
-                                 physicsClientId=self._physics_client_id)
+                    # Write the updated URDF data to a temporary file
+                    temp_urdf_file = f"predicators/envs/assets/urdf/temp/ring_temp_{task_ring_idx}.urdf"
+                    with open(temp_urdf_file, 'w') as file:
+                        file.write(updated_urdf_data)
 
-            os.remove(temp_urdf_file)
+                    logging.info(f"Using ring: {task_ring_idx} for test task")
 
-            new_ring_ids.append(ring_id)
+                    # Load the updated URDF
+                    ring_id = p.loadURDF(temp_urdf_file,
+                                         useFixedBase=False,
+                                         physicsClientId=self._physics_client_id)
 
+                    os.remove(temp_urdf_file)
+
+                    new_ring_ids.append(ring_id)
+                success = True
+            except Exception as e:
+                logging.info("Race condition error in generating rings")
+                success = False
         logging.info(f'pb bodies: {p.getNumBodies()}')
 
         self._ring_ids = new_ring_ids

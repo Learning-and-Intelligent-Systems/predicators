@@ -2,6 +2,8 @@
 
 import logging
 import os
+from distutils.command.bdist import bdist
+from lib2to3.fixes.fix_next import bind_warning
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Tuple
 
@@ -26,7 +28,7 @@ def get_asset_path(filename: str) -> str:
 
 
 def get_tagged_block_sizes() -> List[Tuple[float, float, float]]:
-    tags_path = get_asset_path('tags')
+    tags_path = get_asset_path('block_tags')
     return [
         dimensions
         for block_info_fname in os.listdir(tags_path)
@@ -59,6 +61,7 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
         self._zone_id_to_zone: Dict[int, Object] = {}
+        self._goal_state_obj: Object | None = None
 
     @classmethod
     def initialize_pybullet(
@@ -79,7 +82,7 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
 
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
-        if True:  # pragma: no cover
+        if CFG.pybullet_draw_debug:  # pragma: no cover
 
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.table_height],
@@ -141,12 +144,14 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
                 create_pybullet_block(color, half_extents, cls._obj_mass,
                                       cls._obj_friction, cls._default_orn,
                                       physics_client_id))
+            logging.info(f"Init half extents: {half_extents}")
         logging.info(block_ids)
 
         zone_ids = []
 
-        if CFG.multi_modal_cover_real_robot:
-            cls.zone_extents = get_zone_data()
+        # TODO: Implement
+        # if CFG.multi_modal_cover_real_robot:
+        #     cls.zone_extents = get_zone_data()
 
         for i, zone in enumerate(cls.zone_extents):
             color = cls._obj_colors[i % len(cls._obj_colors)]
@@ -156,9 +161,19 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
             half_extents = (zone_width / 2.0, zone_height / 2.0,
                             cls._target_height / 2.0)
             zone_ids.append(
-                create_pybullet_block(color, half_extents, cls._obj_mass,
+                create_pybullet_block(color, half_extents, 0,
                                       cls._obj_friction, cls._default_orn,
                                       physics_client_id))
+
+
+            if i == len(cls.zone_extents) - 1:
+                half_extents = (zone_width / 2.0, zone_height / 2.0,
+                                cls._target_height)
+
+                color = cls._obj_colors[i+1 % len(cls._obj_colors)]
+                zone_ids.append(create_pybullet_block(color, half_extents, 0,
+                                                      cls._obj_friction, cls._default_orn,
+                                                      physics_client_id))
 
         bodies["block_ids"] = block_ids
         bodies["zone_ids"] = zone_ids
@@ -207,17 +222,80 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
         logging.info(block_objs)
         self._block_id_to_block = {}
         self._zone_id_to_zone = {}
-        for i, block_obj in enumerate(block_objs):
-            block_id = self._block_ids[i]
+        logging.info(state.get_objects(self._dummy_zone_goal_type))
+        self._goal_state_obj = state.get_objects(self._dummy_zone_goal_type)[0]
 
-            self._block_id_to_block[block_id] = block_obj
+        for i, block_obj in enumerate(block_objs):
+
+
+            block_id = self._block_ids[i]
+            visual_data = p.getVisualShapeData(block_id, physicsClientId=self._physics_client_id)
+            old_color = visual_data[0][7]
+
+            p.removeBody(block_id, physicsClientId=self._physics_client_id)
+
+
+
             bx = state.get(block_obj, "pose_x")
             by = state.get(block_obj, "pose_y")
             bz = state.get(block_obj, "pose_z")
-            p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz],
-                self._default_orn,
+
+            if CFG.multi_modal_cover_real_robot:
+                bqx = state.get(block_obj, "qx")
+                bqy = state.get(block_obj, "qy")
+                bqz = state.get(block_obj, "qz")
+                bqw = state.get(block_obj, "qw")
+            else:
+                bqx, bqy, bqz, bqw = (0, 0, 0, 1)
+
+
+            bd = state.get(block_obj, "depth")
+            bw = state.get(block_obj, "width")
+            bh = state.get(block_obj, "height")
+
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_BOX,
+                halfExtents=[bd / 2, bw / 2, bh / 2],
+                rgbaColor=old_color,
+                physicsClientId=self._physics_client_id
+            )
+
+            # Create new collision shape
+            collision_shape_id = p.createCollisionShape(
+                shapeType=p.GEOM_BOX,
+                halfExtents=[bd / 2, bw / 2, bh / 2],
+                physicsClientId=self._physics_client_id
+            )
+
+            # Step 4: Recreate the block with the same color and updated shapes
+            new_block_id = p.createMultiBody(
+                baseMass=1.0,
+                baseCollisionShapeIndex=collision_shape_id,
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=[bx, by, bz],
+                baseOrientation=[bqx, bqy, bqz, bqw],
+                physicsClientId=self._physics_client_id
+            )
+
+            logging.info(f"NEW BLOCK ID: {new_block_id}")
+
+            p.changeDynamics(
+                new_block_id,
+                linkIndex=-1,  # -1 for the base
+                lateralFriction=self._obj_friction,
                 physicsClientId=self._physics_client_id)
+
+            self._block_ids[i] = new_block_id
+            self._block_id_to_block[new_block_id] = block_obj
+
+
+            logging.info(f"reset state: {bd, bw, bh}")
+            p.resetBasePositionAndOrientation(
+                new_block_id, [bx, by, bz],
+                [bqx, bqy, bqz, bqw],
+                physicsClientId=self._physics_client_id)
+
+
 
         for i, zone_obj in enumerate(zone_objs):
             zone_id = self._zone_ids[i]
@@ -271,6 +349,7 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
         """
         state_dict = {}
 
+
         # Get robot state.
         rx, ry, rz, ox, oy, oz, ow, rf = self._pybullet_robot.get_state()
         fingers = self._fingers_joint_to_state(rf)
@@ -280,19 +359,33 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
-            (bx, by, bz), _ = p.getBasePositionAndOrientation(
+            (bx, by, bz), (bqx, bqy, bqz, bqw) = p.getBasePositionAndOrientation(
                 block_id, physicsClientId=self._physics_client_id)
             held = (block_id == self._held_obj_id)
+
+            visual_data = p.getVisualShapeData(block_id, physicsClientId=self._physics_client_id)
+            # Assume the first shape is the main one
+            if visual_data:
+                dimensions = visual_data[0][3]  # This gives the dimensions of the shape
+                depth, width, height = dimensions  # Assuming it's in the order of x, y, z
             # pose_x, pose_y, pose_z, held
-            state_dict[block] = np.array([bx, by, bz, held],
+
+            if CFG.multi_modal_cover_real_robot:
+                state_dict[block] = np.array([bx, by, bz, depth, width, height, bqx, bqy, bqz, bqw, held],
                                          dtype=np.float32)
+            else:
+                state_dict[block] = np.array([bx, by, bz, depth, width, height, held],
+                                             dtype=np.float32)
 
         zone_width = self.zone_extents[0][1][0] - self.zone_extents[0][0][0]
         zone_height = self.zone_extents[0][1][1] - self.zone_extents[0][0][1]
 
-        for zone_id, zone in self._zone_id_to_zone.items():
+        seen_zones = set()
+
+        for i, (zone_id, zone) in enumerate(self._zone_id_to_zone.items()):
             (x, y, z), _ = p.getBasePositionAndOrientation(
                 zone_id, physicsClientId=self._physics_client_id)
+
 
             lower_extent_x = x - zone_width / 2.0
             lower_extent_y = y - zone_height / 2.0
@@ -303,10 +396,19 @@ class PyBulletMultiModalCoverEnv(PyBulletEnv, MultiModalCoverEnv):
             state_dict[zone] = np.array([lower_extent_x, lower_extent_y, upper_extent_x, upper_extent_y],
                                         dtype=np.float32)
 
+            zone_idx = -1
+
+            for j, zone_extent in enumerate(self.zone_extents):
+                if np.allclose(zone_extent, ((lower_extent_x, lower_extent_y),(upper_extent_x, upper_extent_y)), atol=0.075):
+                    zone_idx = j
+
+            if zone_idx in seen_zones:
+                state_dict[self._goal_state_obj] = np.array([zone_idx])
+            else:
+                seen_zones.add(zone_idx)
+
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
-
-
 
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "

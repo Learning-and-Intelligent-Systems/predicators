@@ -350,7 +350,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
 
             if isinstance(env, PyBulletMultiModalCoverEnv):
                 # set seed TODO
-                env.goal_zone = int(np.random.random() * 4)
+                env.goal_zone = int(np.random.random() * len(PyBulletMultiModalCoverEnv.zone_extents))
 
             with open('number.txt', 'w') as file:
                 # Write the number to the file
@@ -442,6 +442,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
+
+
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"
@@ -455,6 +457,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
+
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
@@ -479,14 +482,19 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
+
+
+
     for metric_name in [
             "num_samples", "num_skeletons_optimized", "num_nodes_expanded",
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:
         total = cogman.metrics[f"total_{metric_name}"]
+        
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
+        
     return metrics
 
 

@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from math import trunc
 from typing import Any, List, Sequence, Set, Tuple
 
 import numpy as np
@@ -20,8 +21,6 @@ from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
 from matplotlib import pyplot as plt
 
 
-
-
 def learn_samplers(strips_ops: List[STRIPSOperator],
                    datastores: List[Datastore], option_specs: List[OptionSpec],
                    sampler_learner: str) -> List[NSRTSampler]:
@@ -33,7 +32,7 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
         logging.info(strips_ops)
         param_option, _ = option_specs[i]
         if sampler_learner == "random" or \
-           param_option.params_space.shape == (0,):
+                param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
         elif sampler_learner == "neural":
             sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
@@ -47,8 +46,8 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
 
 
 def _extract_oracle_samplers(
-    strips_ops: List[STRIPSOperator],
-    option_specs: List[OptionSpec],
+        strips_ops: List[STRIPSOperator],
+        option_specs: List[OptionSpec],
 ) -> List[NSRTSampler]:
     """Extract the oracle samplers matching the given STRIPSOperator objects
     from the ground truth operators defined in approaches/oracle_approach.py.
@@ -64,7 +63,7 @@ def _extract_oracle_samplers(
     gt_nsrts = {
         nsrt
         for nsrt in get_gt_nsrts(env.get_name(), env.predicates, env_options)
-        if nsrt.option.params_space.shape != (0, )
+        if nsrt.option.params_space.shape != (0,)
     }
     assert len(strips_ops) == len(option_specs)
     # Initialize all samplers to random.
@@ -162,7 +161,12 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                 assert len(goal_atom.objects) == 1
                 goal_obj = goal_atom.objects[0]
                 X_classifier[-1].extend(state[goal_obj])
-        X_arr_classifier = np.array(X_classifier)
+
+        if nsrt_name == "PutOnTableInZone":
+            X_arr_classifier = np.array(X_classifier)[:, :-1]
+        else:
+            X_arr_classifier = np.array(X_classifier)
+        logging.info(f'classifier: {X_arr_classifier.shape}')
         # output is binary signal
         y_arr_classifier = np.array([1 for _ in positive_data] +
                                     [0 for _ in negative_data])
@@ -189,6 +193,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         X_regressor.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
+
         # Above, we made the assumption that there is one goal atom with one
         # goal object, which must also be used when assembling data for the
         # regressor.
@@ -201,9 +206,10 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             X_regressor[-1].extend(state[goal_obj])
         # output is option parameters
         Y_regressor.append(option.params)
-    X_arr_regressor = np.array(X_regressor)
+    X_arr_regressor = np.array(X_regressor)[:, :]
+    np.set_printoptions(threshold=np.inf)
+
     Y_arr_regressor = np.array(Y_regressor)
-    logging.info(Y_arr_regressor)
 
     if CFG.sampler_learning_regressor_model == "neural_gaussian":
         regressor: DistributionRegressor = NeuralGaussianRegressor(
@@ -234,26 +240,134 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
-    ys = []
-    xs = []
-    x_true = []
-    y_true = []
-    rng = np.random.default_rng(CFG.seed)
-    for x in X_arr_regressor:
-        y_hat = regressor.predict_sample(x, rng)
-        xs.append(y_hat[0])
-        ys.append(y_hat[1])
-    for y in Y_arr_regressor:
-        x_true.append(y[0])
-        y_true.append(y[1])
+    if nsrt_name == "PickFromTable":
 
-    plt.scatter(xs, ys)
-    plt.savefig(f"modelfig_{nsrt_name}_{CFG.sampler_learning_regressor_model}.png")
+        ys = []
+        xs = []
+        x_true = []
+        y_true = []
+        rng = np.random.default_rng(CFG.seed)
+        for x in X_arr_regressor:
+            y_hat = regressor.predict_sample(x, rng)
 
-    plt.scatter(x_true, y_true)
-    plt.savefig(f"GTmodelfig_{nsrt_name}_{CFG.sampler_learning_regressor_model}.png")
-    
+            if not CFG.sampler_disable_classifier:
+               if classifier.classify(np.r_[x, y_hat]):
+                    x_cart = y_hat[0] * np.cos(y_hat[1] * 2 * np.pi)
+                    y_cart = y_hat[0] * np.sin(y_hat[1] * 2 * np.pi)
 
+                    xs.append(x_cart)
+                    ys.append(y_cart)
+            else:
+                x_cart = y_hat[0] * np.cos(y_hat[1] * 2 * np.pi)
+                y_cart = y_hat[0] * np.sin(y_hat[1] * 2 * np.pi)
+
+                xs.append(x_cart)
+                ys.append(y_cart)
+
+        for y in Y_arr_regressor:
+            x_cart_true = y[0] * np.cos(y[1] * 2 * np.pi)
+            y_cart_true = y[0] * np.sin(y[1] * 2 * np.pi)
+
+            x_true.append(x_cart_true)
+            y_true.append(y_cart_true)
+
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))  # Adjust figsize as needed
+
+
+        axes[0].scatter(x_true, y_true, alpha=0.3)
+        axes[0].set_title(f"{nsrt_name} Option: Ground Truth",fontsize=20)
+        axes[0].set_xlabel("x",fontsize=18)
+        axes[0].set_ylabel("y",fontsize=18)
+        axes[0].tick_params(axis='x', labelsize=15)
+        axes[0].tick_params(axis='y', labelsize=15)
+
+        # First subplot: Gaussian Sampler With Rejection Classifier
+        axes[1].scatter(xs, ys, color='green', alpha=0.3)
+        axes[1].set_xlabel("x",fontsize=18)
+        axes[1].set_ylabel("y",fontsize=18)
+        axes[1].set_title(f"{nsrt_name} Option: {CFG.sampler_learning_regressor_model}", fontsize=20)
+        axes[1].tick_params(axis='x',labelsize=15)
+        axes[1].tick_params(axis='y',labelsize=15)
+
+        # Third subplot: Overlay
+        axes[2].scatter(xs, ys, color='green', alpha=0.3, label=CFG.sampler_learning_regressor_model)
+        axes[2].scatter(x_true, y_true, alpha=0.3, label="GT")
+        axes[2].set_xlabel("x",fontsize=18)
+        axes[2].set_ylabel("y",fontsize=18)
+        axes[2].set_title(f"{nsrt_name} Option: Comparison", fontsize=20)
+        axes[2].tick_params(axis='x',labelsize=15)
+        axes[2].tick_params(axis='y',labelsize=15)
+        axes[2].legend(fontsize=18)
+
+        # Adjust layout and save the combined figure
+        plt.tight_layout()
+        plt.savefig(f"combined_row_{nsrt_name}_{CFG.sampler_learning_regressor_model}.pdf", format="pdf")
+        plt.close()
+
+
+    if nsrt_name == "PutOnTableAroundPole":
+        nsrt_name = "PutAroundPole"
+        ys = []
+        xs = []
+        x_true = []
+        y_true = []
+        rng = np.random.default_rng(CFG.seed)
+        for x in X_arr_regressor:
+            y_hat = regressor.predict_sample(x, rng)
+
+            if not CFG.sampler_disable_classifier:
+               if classifier.classify(np.r_[x, y_hat]):
+                    x_cart = y_hat[0]
+                    y_cart = y_hat[1]
+
+                    xs.append(x_cart)
+                    ys.append(y_cart)
+            else:
+                x_cart = y_hat[0]
+                y_cart = y_hat[1]
+
+                xs.append(x_cart)
+                ys.append(y_cart)
+
+        for y in Y_arr_regressor:
+            x_cart_true = y[0]
+            y_cart_true = y[1]
+
+            x_true.append(x_cart_true)
+            y_true.append(y_cart_true)
+
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))  # Adjust figsize as needed
+
+
+        axes[0].scatter(x_true, y_true, alpha=0.3)
+        axes[0].set_title(f"{nsrt_name} Option: Ground Truth",fontsize=20)
+        axes[0].set_xlabel("x",fontsize=18)
+        axes[0].set_ylabel("y",fontsize=18)
+        axes[0].tick_params(axis='x', labelsize=15)
+        axes[0].tick_params(axis='y', labelsize=15)
+
+        # First subplot: Gaussian Sampler With Rejection Classifier
+        axes[1].scatter(xs, ys, color='green', alpha=0.3)
+        axes[1].set_xlabel("x",fontsize=18)
+        axes[1].set_ylabel("y",fontsize=18)
+        axes[1].set_title(f"{nsrt_name} Option: {CFG.sampler_learning_regressor_model}", fontsize=20)
+        axes[1].tick_params(axis='x',labelsize=15)
+        axes[1].tick_params(axis='y',labelsize=15)
+
+        # Third subplot: Overlay
+        axes[2].scatter(xs, ys, color='green', alpha=0.3, label=CFG.sampler_learning_regressor_model)
+        axes[2].scatter(x_true, y_true, alpha=0.3, label="GT")
+        axes[2].set_xlabel("x",fontsize=18)
+        axes[2].set_ylabel("y",fontsize=18)
+        axes[2].set_title(f"{nsrt_name} Option: Comparison", fontsize=20)
+        axes[2].tick_params(axis='x',labelsize=15)
+        axes[2].tick_params(axis='y',labelsize=15)
+        axes[2].legend(fontsize=18)
+
+        # Adjust layout and save the combined figure
+        plt.tight_layout()
+        plt.savefig(f"combined_row_{nsrt_name}_{CFG.sampler_learning_regressor_model}.pdf", format="pdf")
+        plt.close()
 
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
@@ -261,16 +375,14 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
 
 
 def _create_sampler_data(
-    datastores: List[Datastore], variables: Sequence[Variable],
-    preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
-    delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
-    datastore_idx: int
+        datastores: List[Datastore], variables: Sequence[Variable],
+        preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
+        delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
+        datastore_idx: int
 ) -> Tuple[List[SamplerDatapoint], List[SamplerDatapoint]]:
     """Generate positive and negative data for training a sampler."""
     # Populate all positive data.
     positive_data: List[SamplerDatapoint] = []
-    logging.info(f"DATASTORE: {len(datastores)}")
-    logging.info(f"DATASTORE: {len(datastores[datastore_idx])}")
     for (segment, var_to_obj) in datastores[datastore_idx]:
         option = segment.get_option()
         state = segment.states[0]
@@ -336,7 +448,7 @@ def _create_sampler_data(
                 ground_add_effects = {e.ground(sub) for e in add_effects}
                 ground_delete_effects = {e.ground(sub) for e in delete_effects}
                 if ground_add_effects.issubset(trans_add_effects) and \
-                   ground_delete_effects.issubset(trans_delete_effects):
+                        ground_delete_effects.issubset(trans_delete_effects):
                     continue
 
                 # Add this datapoint to the negative data.
@@ -362,8 +474,10 @@ class _LearnedSampler:
         """
         x_lst: List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))
+        x_names = []
         for var in self._variables:
             x_lst.extend(state[sub[var]])
+            x_names.append(sub[var])
         if CFG.sampler_learning_use_goals:
             # For goal-conditioned sampler learning, we currently make the
             # extremely limiting assumption that there is one goal atom, with
@@ -374,25 +488,52 @@ class _LearnedSampler:
             assert len(goal_atom.objects) == 1
             goal_obj = goal_atom.objects[0]
             x_lst.extend(state[goal_obj])  # add goal state
+
+        np.set_printoptions(threshold=np.inf)
+
         x = np.array(x_lst)
+        truncated_x = np.array(x_lst)[:-1]
+
         num_rejections = 0
 
         if CFG.sampler_disable_classifier:
-            params = np.array(self._regressor.predict_sample(x, rng),
-                              dtype=self._param_option.params_space.dtype)
-            
-            
-            
-            #logging.info(f'PARAMS: {params}')
+            try:
+                params = np.array(self._regressor.predict_sample(truncated_x, rng),
+                                  dtype=self._param_option.params_space.dtype)
+            except:
+                params = np.array(self._regressor.predict_sample(x, rng),
+                                  dtype=self._param_option.params_space.dtype)
+
+            file_path = f"output_dist_direct_all.txt"
+
+            # Open the file in append mode
+            with open(file_path, "a") as file:
+                # Iterate through the array and write each element to the file
+                if self._param_option.name == "Pick":
+                    file.write(f"({params[0]}, {params[1]})\n")  # Each item on a new line
+
             return params
+
         while num_rejections <= CFG.max_rejection_sampling_tries:
             # sampler_visualizer.visualize(self._regressor, x, rng)
-            params = np.array(self._regressor.predict_sample(x, rng),
-                              dtype=self._param_option.params_space.dtype)
-            if not CFG.sampler_disable_classifier and self._param_option.params_space.contains(params) and \
-               self._classifier.classify(np.r_[x, params]):
-                break
+            try:
+
+                params = np.array(self._regressor.predict_sample(x, rng),
+                                  dtype=self._param_option.params_space.dtype)
+                if not CFG.sampler_disable_classifier and self._param_option.params_space.contains(params) and \
+                        self._classifier.classify(np.r_[x, params]):
+                    break
+
+            except AssertionError:
+                params = np.array(self._regressor.predict_sample(truncated_x, rng),
+                                  dtype=self._param_option.params_space.dtype)
+                if not CFG.sampler_disable_classifier and self._param_option.params_space.contains(params) and \
+                        self._classifier.classify(np.r_[truncated_x, params]):
+                    break
+
             num_rejections += 1
+
+
         return params
 
 

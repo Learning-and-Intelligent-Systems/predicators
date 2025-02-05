@@ -1,0 +1,26 @@
+105: zone_extents: ClassVar[List[Tuple[Tuple[float, float], Tuple[float, float]]]] = [((1.175, 0.44), (1.33, 0.60)),
+                                                                                     ((1.335, 0.44), (1.490, 0.60)),
+                                                                                     ((1.175, 0.90), (1.33, 1.06)),
+                                                                                     ((1.335, 0.90), (1.490, 1.06))]
+
+112-116: Official experiments blocks hard
+
+
+
+150-155:  Official experiments blocks easy
+zone_extents: ClassVar[List[Tuple[Tuple[float, float], Tuple[float, float]]]] = [((1.175, 0.44), (1.33, 0.70)),
+                                                                                     ((1.335, 0.44), (1.490, 0.70)),
+                                                                                     ((1.175, 0.80), (1.33, 1.06)),
+                                                                                     ((1.335, 0.80), (1.490, 1.06))]
+
+
+200 (variable size blocks): zone_extents: ClassVar[List[Tuple[Tuple[float, float], Tuple[float, float]]]] = [((1.175, 0.44), (1.33, 0.69)),
+                                                                                     ((1.335, 0.44), (1.490, 0.69)),
+                                                                                     ((1.175, 0.81), (1.33, 1.06)),
+                                                                                     ((1.335, 0.81), (1.490, 1.06))]
+
+
+  - add_directives:
+      file: package://dummy_project/Directives/cameras.dmd.yaml
+  - add_directives:
+      file: package://dummy_project/Directives/belt_and_bins.dmd.yaml

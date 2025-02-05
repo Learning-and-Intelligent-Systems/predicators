@@ -2550,8 +2550,7 @@ def create_dataset_filename_str(
         f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
-        # dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
-        dataset_fname_template.replace(regex, str(100)))
+        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
     return dataset_fname, dataset_fname_template
 
 

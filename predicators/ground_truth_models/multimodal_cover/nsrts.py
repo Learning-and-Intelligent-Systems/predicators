@@ -64,7 +64,7 @@ class MultiModalCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         zone_goal = Variable("?zone_goal", zone_goal_type)
         parameters = [block, robot, zone_goal]
-        option_vars = [robot]
+        option_vars = [robot, block]
         option = PutOnTable
         preconditions = {LiftedAtom(Holding, [block])}
         add_effects = {
@@ -89,30 +89,26 @@ class MultiModalCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    option_vars, putontable_sampler)
         nsrts.add(putontablezone_nsrt)
 
-        # PickFromZone
+        # PutOnTable
         block = Variable("?block", block_type)
         robot = Variable("?robot", robot_type)
         zone_goal = Variable("?zone_goal", zone_goal_type)
-        parameters = [block, robot, zone_goal]
+        parameters = [block, robot]
         option_vars = [robot, block]
-        option = Pick
-        preconditions = {
+        option = PutOnTable
+        preconditions = {LiftedAtom(Holding, [block])}
+        add_effects = {
             LiftedAtom(OnTable, [block]),
-            LiftedAtom(GripperOpen, [robot]),
-            LiftedAtom(OnZone, [block, zone_goal]),
-        }
-        add_effects = {LiftedAtom(Holding, [block])}
+            LiftedAtom(GripperOpen, [robot])}
 
         delete_effects = {
-            LiftedAtom(OnTable, [block]),
-            LiftedAtom(OnZone, [block, zone_goal]),
-            LiftedAtom(GripperOpen, [robot])
+            LiftedAtom(Holding, [block])
         }
 
-        pickfromzone_nsrt = NSRT("PickFromZone", parameters, preconditions,
-                                   add_effects, delete_effects, set(), option,
-                                   option_vars, null_sampler)
-        nsrts.add(pickfromzone_nsrt)
+        putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,
+                                 add_effects, delete_effects, set(), option,
+                                 option_vars, putontable_sampler)
+        nsrts.add(putontable_nsrt)
 
         for nsrt in nsrts:
             logging.info(f'NSRT CREATION: {nsrt.name}:{nsrt.option.params_space}')

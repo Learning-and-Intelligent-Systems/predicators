@@ -44,7 +44,7 @@ class GlobalSettings:
     # which is set in utils.reset_config(). If you want higher-quality videos
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
-    render_state_dpi = 900
+    render_state_dpi = 3200
     approach_wrapper = None
 
     # cover_multistep_options env parameters
@@ -74,20 +74,22 @@ class GlobalSettings:
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
     # multimodal cover env paramaters
-    mcover_num_blocks_train = [1]
-    mcover_num_blocks_test = [1]
+    mcover_num_blocks_train = [4]
+    mcover_num_blocks_test = [4]
     multi_modal_cover_real_robot = False
 
     # ring stack env parameters
     ring_height_modifier = 1.85
     ring_width_modifier = 1.0
-    ring_max_outer_radius = 0.07 * ring_width_modifier
+    #normally 0.07
+    ring_max_outer_radius = 0.08 * ring_width_modifier
     ring_max_tubular_radius = 0.01
     ring_max_height = ring_max_tubular_radius * ring_height_modifier
     ring_dataset_size = 1000
     pole_base_height = 0.02
     pole_height = 0.15 + pole_base_height
-    pole_radius = 0.004
+    pole_radius = 0.003
+    pole_base_radius = 0.07
     ring_stack_max_num_rings = 4
     specific_tasks_to_execute = []
 
@@ -150,8 +152,8 @@ class GlobalSettings:
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
-    pybullet_camera_width = 1280  # for high quality, use 1674
-    pybullet_camera_height = 800 # for high quality, use 900
+    pybullet_camera_width = 1674 # for high quality, use 1674
+    pybullet_camera_height = 900 # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
@@ -447,7 +449,7 @@ class GlobalSettings:
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
-    video_fps = 16
+    video_fps = 32
     failure_video_mode = "longest_only"
 
     # dataset parameters

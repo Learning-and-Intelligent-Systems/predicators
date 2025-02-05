@@ -352,7 +352,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         x is single-dimensional.
         """
         assert len(self._x_dims), "Fit must be called before classify."
-        assert x.shape == self._x_dims
+        assert x.shape == self._x_dims, f"expected: {x.shape} == {self._x_dims}"
         if self._do_single_class_prediction:
             return self._predicted_single_class
         # Normalize.
@@ -987,7 +987,7 @@ class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
         # Note: we need to use _predict(), rather than predict(), because
         # we need to apply normalization separately to the mean and variance
         # components of the prediction (see below).
-        assert x.shape == self._x_dims
+        assert x.shape == self._x_dims, f"x.shape: {x.shape}, self._x_dims: {self._x_dims}"
         # Normalize.
         norm_x = (x - self._input_shift) / self._input_scale
         norm_y = self._predict(norm_x)
@@ -1393,10 +1393,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor):
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
 
-        logging.info("XXXX")
-        logging.info(X_cond)
-        logging.info("YYYYY")
-        logging.info(Y_out)
+
         self._initialize_net()
         logging.info(f"CUDA: {torch.cuda.is_available()}")
         self.to(self._device)

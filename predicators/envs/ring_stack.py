@@ -39,23 +39,25 @@ class RingStackEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
     table_height: ClassVar[float] = 0.2
     # The table x bounds are (1.1, 1.6),
-    x_lb: ClassVar[float] = 1.2
-    x_ub: ClassVar[float] = 1.475
+    x_lb: ClassVar[float] = 1.175
+    x_ub: ClassVar[float] = 1.5
     # The table y bounds are (0.3, 1.2)
-    y_lb: ClassVar[float] = 0.4
-    y_ub: ClassVar[float] = 1.1
+    y_lb: ClassVar[float] = 0.375
+    y_ub: ClassVar[float] = 1.125
 
     pick_z: ClassVar[float] = 0.5  # Q: Maybe picking height for blocks?
 
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = 0.7
+    finger_length = 0.05
 
     # Q: Error tolerances maybe for sampling?
     held_tol: ClassVar[float] = 0.5
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
     around_tol: ClassVar[float] = 0.1
+    small_ring_radius: ClassVar[float] = 0.037
 
     collision_padding: ClassVar[float] = 2.0  # Q: Variable to explore
 
@@ -98,6 +100,7 @@ class RingStackEnv(BaseEnv):
         self._pole_base_height = CFG.pole_base_height
         self._pole_height = CFG.pole_height
         self._pole_radius = CFG.pole_radius
+        self._pole_base_radius = CFG.pole_base_radius
         self._max_rings = CFG.ring_stack_max_num_rings
         self._id_to_geometry = {}
         # Hyperparameters from CFG. # TODO
@@ -108,6 +111,44 @@ class RingStackEnv(BaseEnv):
     @classmethod
     def get_name(cls) -> str:
         return "ring_stack"
+
+    @classmethod
+    def find_intersection_with_circle(cls, circle_center, radius, start_point, direction_vector):
+        # Unpack variables
+        x_c, y_c = circle_center
+        x_0, y_0 = start_point
+        v_x, v_y = direction_vector
+
+        # Normalize the direction vector
+        direction_norm = np.linalg.norm(direction_vector)
+        v_x, v_y = v_x / direction_norm, v_y / direction_norm
+
+        # Translate start point to circle's frame
+        delta_x = x_0 - x_c
+        delta_y = y_0 - y_c
+
+        # Quadratic coefficients
+        B = 2 * (delta_x * v_x + delta_y * v_y)
+        C = delta_x ** 2 + delta_y ** 2 - radius ** 2
+
+        # Solve the quadratic equation for t
+        discriminant = B ** 2 - 4 * C
+        if discriminant < 0:
+            return None  # No intersection
+
+        # Find the smaller positive t
+        t1 = (-B + np.sqrt(discriminant)) / 2
+        t2 = (-B - np.sqrt(discriminant)) / 2
+        t = min(t1, t2) if min(t1, t2) > 0 else max(t1, t2)
+
+        if t < 0:
+            return None  # Intersection is behind the start point
+
+        # Calculate intersection point
+        intersection_x = x_0 + t * v_x
+        intersection_y = y_0 + t * v_y
+
+        return np.array([intersection_x, intersection_y])
 
     def simulate(self, state: State, action: Action) -> State:
         logging.info(action.arr[:4])
@@ -122,7 +163,7 @@ class RingStackEnv(BaseEnv):
             logging.info("transition pick")
             return self._transition_pick(state, x, y, z, [finger1_x, finger1_y, finger2_x, finger2_y])
 
-        if z < self.table_height + CFG.ring_max_tubular_radius:
+        if z < self.table_height + CFG.ring_max_tubular_radius + self._pole_base_height:
             logging.info("transition put on table")
             return self._transition_putontable(state, x, y, z)
 
@@ -141,6 +182,13 @@ class RingStackEnv(BaseEnv):
             logging.info("no ring at pose")
             return next_state
 
+        pole = None
+        for obj in state:
+            if obj.is_instance(self._pole_type):
+                pole = obj
+
+        pole_x, pole_y = state.get(pole, "pose_x"), state.get(pole, "pose_y")
+
         ring_outer_radius = get_ring_outer_radius(
             state.get(ring, "major_radius"),
             state.get(ring, "minor_radius"))
@@ -152,11 +200,80 @@ class RingStackEnv(BaseEnv):
         gripper_location_in_ring = ((x - state.get(ring, "pose_x")) ** 2 + (
                 y - state.get(ring, "pose_y")) ** 2) ** 0.5
 
+        finger1_location_in_pole_base = ((finger_positions[0] - pole_x) ** 2 + (
+                finger_positions[1] - pole_y) ** 2) ** 0.5
+
+        finger2_location_in_pole_base = ((finger_positions[2] - pole_x) ** 2 + (
+                finger_positions[3] - pole_y) ** 2) ** 0.5
+
+        if finger1_location_in_pole_base <= self._pole_base_radius + 0.015 \
+            or finger2_location_in_pole_base <= self._pole_base_radius + 0.015:
+            return next_state
+
+
         finger1_location_in_ring = ((finger_positions[0] - state.get(ring, "pose_x")) ** 2 + (
                 finger_positions[1] - state.get(ring, "pose_y")) ** 2) ** 0.5
 
         finger2_location_in_ring = ((finger_positions[2] - state.get(ring, "pose_x")) ** 2 + (
                 finger_positions[3] - state.get(ring, "pose_y")) ** 2) ** 0.5
+
+
+        finger_ring_pick_buffer = 0.002 if ring_inner_radius < self.small_ring_radius - 0.005 else 0.01
+
+
+        finger1_in_ring = finger1_location_in_ring < ring_inner_radius - finger_ring_pick_buffer
+        finger2_in_ring = finger2_location_in_ring < ring_inner_radius - finger_ring_pick_buffer
+
+
+        finger_to_finger_vector = np.array([finger_positions[2]-finger_positions[0],finger_positions[3]-finger_positions[1]])
+
+        position_on_ring_outer_edge = self.find_intersection_with_circle((state.get(ring, "pose_x"),state.get(ring, "pose_y")),
+                                                                   ring_outer_radius,
+                                                                   (finger_positions[0],finger_positions[1]),
+                                                                   finger_to_finger_vector)
+
+        position_on_ring_inner_edge = self.find_intersection_with_circle(
+            (state.get(ring, "pose_x"), state.get(ring, "pose_y")),
+            ring_inner_radius,
+            (finger_positions[0], finger_positions[1]),
+            finger_to_finger_vector)
+
+        logging.info(f"finger positions: {finger_positions}")
+        logging.info(f"ring outer positions: {position_on_ring_outer_edge}")
+        logging.info(f"ring inner positions: {position_on_ring_inner_edge}")
+
+        try:
+            distance_finger_ring_inner_2 = ((finger_positions[2] - position_on_ring_inner_edge[0])**2 + (finger_positions[3] - position_on_ring_inner_edge[1])**2)**0.5
+
+            distance_finger_ring_outer_2 = ((finger_positions[2] - position_on_ring_outer_edge[0]) ** 2 + (
+                        finger_positions[3] - position_on_ring_outer_edge[1]) ** 2) ** 0.5
+
+            distance_finger_ring_inner_1 = ((finger_positions[0] - position_on_ring_inner_edge[0]) ** 2 + (
+                        finger_positions[1] - position_on_ring_inner_edge[1]) ** 2) ** 0.5
+            distance_finger_ring_outer_1 = ((finger_positions[0] - position_on_ring_outer_edge[0]) ** 2 + (
+                    finger_positions[1] - position_on_ring_outer_edge[1]) ** 2) ** 0.5
+
+            distance_finger_ring_1 = min(distance_finger_ring_inner_1, distance_finger_ring_outer_1)
+            distance_finger_ring_2 = min(distance_finger_ring_inner_2, distance_finger_ring_outer_2)
+        except:
+            logging.info("Error in distance calculations, grasp unlikely. Skipping.")
+            return next_state
+
+        if distance_finger_ring_1 <= distance_finger_ring_2:
+            position_ring_edge = position_on_ring_inner_edge
+
+        else:
+            position_ring_edge = position_on_ring_inner_edge
+
+        position_ring_edge_xy_diff = np.array((x-position_ring_edge[0], y-position_ring_edge[1])) * 0.5
+        new_ring_x = position_ring_edge_xy_diff[0] + state.get(ring, "pose_x")
+        new_ring_y = position_ring_edge_xy_diff[1] + state.get(ring, "pose_y")
+
+        logging.info(f"small ring?: {ring_outer_radius <= self.small_ring_radius}")
+        logging.info(f"ring_outer_radius: {ring_outer_radius}")
+        logging.info(f"finger1_in_ring: {finger1_in_ring}")
+        logging.info(f"finger2_in_ring: {finger2_in_ring}")
+        logging.info(f"position_on_ring_edge: {position_ring_edge}")
 
         logging.info(f"CHECKING RING OUTER RADIUS: {ring_outer_radius}")
         logging.info(f"CHECKING RING INNER RADIUS: {ring_inner_radius}")
@@ -164,13 +281,44 @@ class RingStackEnv(BaseEnv):
         logging.info(f'finger1_location_in_ring: {finger1_location_in_ring}')
         logging.info(f'finger2_location_in_ring: {finger2_location_in_ring}')
 
-        valid_grip = ((ring_outer_radius < 0.036 and gripper_location_in_ring < ring_inner_radius and
-                       finger1_location_in_ring > ring_outer_radius and
-                       finger2_location_in_ring > ring_outer_radius)
-                      or (ring_outer_radius >= 0.036 and ((
-                                                                  finger1_location_in_ring < ring_inner_radius - 0.005 and finger2_location_in_ring > ring_outer_radius)
-                                                          or (
-                                                                  finger2_location_in_ring < ring_inner_radius - 0.005 and finger1_location_in_ring > ring_outer_radius))))
+        logging.info(f'old_ring_x: {state.get(ring, "pose_x")}')
+        logging.info(f'old_ring_y: {state.get(ring, "pose_y")}')
+        logging.info(f"new_ring_x: {new_ring_x}")
+        logging.info(f"new_ring_y: {new_ring_y}")
+        logging.info(f"gripper_location: {x,y}")
+
+        valid_grip = ((ring_outer_radius < self.small_ring_radius and gripper_location_in_ring < 0.005 and
+                       finger1_location_in_ring > ring_outer_radius + 0.002 and
+                       finger2_location_in_ring > ring_outer_radius + 0.002)
+                      or (ring_outer_radius >= self.small_ring_radius and ((finger1_in_ring and not finger2_in_ring)  or (not finger1_in_ring and finger2_in_ring))))
+
+
+        for other_ring in state:
+            if not other_ring.is_instance(self._ring_type) or other_ring == ring:
+                continue
+
+            other_ring_outer_radius = get_ring_outer_radius(
+                state.get(other_ring, "major_radius"),
+                state.get(other_ring, "minor_radius"))
+
+            other_ring_inner_radius = get_ring_inner_radius(
+                state.get(other_ring, "major_radius"),
+                state.get(other_ring, "minor_radius"))
+
+            finger1_location_in_other_ring = ((finger_positions[0] - state.get(other_ring, "pose_x")) ** 2 + (
+                    finger_positions[1] - state.get(other_ring, "pose_y")) ** 2) ** 0.5
+
+            finger2_location_in_other_ring = ((finger_positions[2] - state.get(other_ring, "pose_x")) ** 2 + (
+                    finger_positions[3] - state.get(other_ring, "pose_y")) ** 2) ** 0.5
+
+            finger1_in_other_ring = finger1_location_in_other_ring < ring_outer_radius + 0.015
+            finger2_in_other_ring = finger2_location_in_other_ring < ring_outer_radius + 0.015
+
+            if finger1_in_other_ring or finger2_in_other_ring:
+                valid_grip = False
+                logging.info("Overlapping rings in grasp")
+                break
+
 
         if not valid_grip:
             logging.info("invalid grasp")
@@ -178,9 +326,12 @@ class RingStackEnv(BaseEnv):
         else:
             logging.info("valid grasp found")
 
+        if ring_outer_radius < self.small_ring_radius:
+            new_ring_x, new_ring_y = (x,y)
+
         # Execute pick
-        next_state.set(ring, "pose_x", state.get(ring, "pose_x"))
-        next_state.set(ring, "pose_y", state.get(ring, "pose_y"))
+        next_state.set(ring, "pose_x", new_ring_x)
+        next_state.set(ring, "pose_y", new_ring_y)
         next_state.set(ring, "pose_z", self.pick_z)
         next_state.set(ring, "held", 1.0)
         next_state.set(self._robot, "fingers", 0.0)  # close fingers
@@ -200,14 +351,21 @@ class RingStackEnv(BaseEnv):
         ring = self._get_held_ring(state)
         assert ring is not None
         # Check that table surface is clear at this pose
-        poses = [[
+
+        rings  = [(
             state.get(r, "pose_x"),
             state.get(r, "pose_y"),
-            state.get(r, "pose_z")
-        ] for r in state if r.is_instance(self._ring_type)]
-        existing_xys = {(float(p[0]), float(p[1])) for p in poses}
-        if not self._table_xy_is_clear(x, y, existing_xys):
+            get_ring_outer_radius(state.get(r, "major_radius"),state.get(r, "minor_radius")),
+        ) for r in state if r.is_instance(self._ring_type) and r != ring]
+
+        ring_circle = (state.get(ring, "pose_x"),
+                       state.get(ring, "pose_y"),
+                       get_ring_outer_radius(state.get(ring, "major_radius"),
+                                             state.get(ring, "minor_radius")))
+
+        if not self._table_xy_is_clear(ring_circle, rings, padding=0.015):
             return next_state
+
         # Execute putontable
         next_state.set(ring, "pose_x", x)
         next_state.set(ring, "pose_y", y)
@@ -253,7 +411,8 @@ class RingStackEnv(BaseEnv):
                                       state.get(ring, "pose_z")])
 
         # Get ring's new pose given gripper's new pose
-        new_ring_pose = np.r_[current_ring_pose[:2] + xy_diff_vector, new_r_pose].astype(np.float32)
+        new_ring_pose = np.r_[current_ring_pose[:2] + xy_diff_vector, new_r_pose[2]].astype(np.float32)
+
 
         # check if a ring is already around pole
         otherring = self._get_highest_ring_below(state, pole_x, pole_y, pole_z + self._pole_height)
@@ -266,36 +425,32 @@ class RingStackEnv(BaseEnv):
         else:
             snap_z = pole_z + self._pole_base_height
 
-        finger_account = 0.005 if get_ring_outer_radius(
+        # if larger ring, else small ring
+        # Was 0.021
+        finger_account = 0.021 if get_ring_outer_radius(
             state.get(ring, "major_radius"),
-            state.get(ring, "minor_radius")) >= 0.036 else 0.0015
+            state.get(ring, "minor_radius")) >= self.small_ring_radius else 0.002
+
+        # if larger ring with small inner radius
+        if get_ring_inner_radius(state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius")) <= self.small_ring_radius - 0.005 and get_ring_outer_radius(
+            state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius")) >= self.small_ring_radius:
+            finger_account = 0.015
 
         logging.info(f"finger account: {finger_account}")
 
         # Check if pole is inside the ring
         if ((pole_x - new_ring_pose[0]) ** 2 + (
-                pole_y - new_ring_pose[1]) ** 2) ** 0.5 + self._pole_radius + finger_account >= get_ring_inner_radius(
+                pole_y - new_ring_pose[1]) ** 2) ** 0.5 + self._pole_radius >= get_ring_inner_radius(
             state.get(ring, "major_radius"),
-            state.get(ring, "minor_radius")):
+            state.get(ring, "minor_radius")) - finger_account:
             logging.info(f"pole outside ring")
             return next_state
 
         else:
             logging.info(f"Pole inside ring!")
 
-        robot_finger_radius = ((pole_x - new_r_pose[0]) ** 2 + (pole_y - new_r_pose[1]) ** 2) ** 0.5 + self._pole_radius
-        area_to_avoid = self._pole_radius * 2
-
-        if get_ring_outer_radius(state.get(ring, "major_radius"), state.get(ring, "minor_radius")) >= 0.036 and \
-                                                                  robot_finger_radius <= area_to_avoid:
-            logging.info(f"possible finger collision with pole.")
-            logging.info(
-                f"circle check: {robot_finger_radius}")
-            logging.info(f"area to be out of: {area_to_avoid}")
-            logging.info(f"{robot_finger_radius <= area_to_avoid}")
-            return next_state
-        else:
-            logging.info("finger-pole collision avoided")
 
         next_state.set(ring, "pose_x", new_ring_pose[0])
         next_state.set(ring, "pose_y", new_ring_pose[1])
@@ -305,6 +460,12 @@ class RingStackEnv(BaseEnv):
         next_state.set(self._robot, "pose_x", new_r_pose[0])
         next_state.set(self._robot, "pose_y", new_r_pose[1])
         next_state.set(self._robot, "pose_z", self.pick_z)
+
+
+        logging.info(f"NEW RING POSE: {new_ring_pose}")
+        logging.info(f"xydiff: {xy_diff_vector}")
+        logging.info(f"OLD ROBOT POSE: {current_r_pose}")
+        logging.info(f"NEW ROBOT POSE: {new_r_pose}")
 
         return next_state
 
@@ -330,6 +491,12 @@ class RingStackEnv(BaseEnv):
     def types(self) -> Set[Type]:
         return {self._ring_type, self._pole_type, self._robot_type}
 
+    @classmethod
+    def get_action_space(cls) -> Box:
+        lowers = np.array([cls.x_lb, cls.y_lb, 0.0, 0.0], dtype=np.float32)
+        uppers = np.array([cls.x_ub, cls.y_ub, 10.0, 1.0], dtype=np.float32)
+        return Box(lowers, uppers)
+
     @property
     def action_space(self) -> Box:
         # dimensions: [x, y, z, fingers]
@@ -354,11 +521,11 @@ class RingStackEnv(BaseEnv):
 
     def _sample_state(self, rng: np.random.Generator) -> State:
         data: Dict[Object, Array] = {}
-        existing_xys = set()
+        existing_circles = set()
         # Create pole state
-        pole_x, pole_y = self._sample_initial_xy(rng, existing_xys)
+        pole_x, pole_y = self._sample_initial_xy(rng, self._pole_base_radius, existing_circles, modifier=0.1)
         logging.info(f"Pole_x: {pole_x}, Pole_y: {pole_y}")
-        existing_xys.add((pole_x, pole_y))
+        existing_circles.add((pole_x, pole_y, self._pole_base_radius))
         pole_z = self.table_height + self._pole_base_height * 0.5
         pole = Object(f"pole", self._pole_type)
         data[pole] = np.array([pole_x, pole_y, pole_z])
@@ -371,8 +538,10 @@ class RingStackEnv(BaseEnv):
                 utils.get_env_asset_path(f"rings/ring_{task_ring_idx}.obj"))
             self._id_to_geometry[task_ring_idx] = (major_radius, minor_radius)
 
-            ring_x, ring_y, = self._sample_initial_xy(rng, existing_xys)
-            existing_xys.add((ring_x, ring_y))
+            radius = get_ring_outer_radius(major_radius, minor_radius)
+
+            ring_x, ring_y, = self._sample_initial_xy(rng, radius, existing_circles,modifier=0.03)
+            existing_circles.add((ring_x, ring_y, radius))
             ring_z = self.table_height + minor_radius * CFG.ring_height_modifier
             ring = Object(f"ring{i}", self._ring_type)
             data[ring] = np.array([ring_x, ring_y, ring_z, task_ring_idx, major_radius, minor_radius, 0.0])
@@ -418,31 +587,31 @@ class RingStackEnv(BaseEnv):
             ring = rings_stack_order[i]
             if i == 0:
                 goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
-                goal_atoms.add(GroundAtom(self._OnTable, [ring]))
+                # goal_atoms.add(GroundAtom(self._OnTable, [ring]))
             else:
-                bottom_ring_outer_radius = get_ring_outer_radius(
-                    init_state.get(rings_stack_order[i - 1], "major_radius"),
-                    init_state.get(rings_stack_order[i - 1], "minor_radius"))
-
-                bottom_ring_inner_radius = get_ring_inner_radius(
-                    init_state.get(rings_stack_order[i - 1], "major_radius"),
-                    init_state.get(rings_stack_order[i - 1], "minor_radius"))
-
-                ring_inner_radius = get_ring_inner_radius(init_state.get(ring, "major_radius"),
-                                                          init_state.get(ring, "minor_radius"))
-
-                ring_outer_radius = get_ring_outer_radius(init_state.get(ring, "major_radius"),
-                                                          init_state.get(ring, "minor_radius"))
-
-                if ring_inner_radius > bottom_ring_outer_radius:
-                    goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
-                    rings_stack_order.pop(i)
-                    i -= 1
-                elif ring_outer_radius < bottom_ring_inner_radius:
-                    goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
-                else:
-                    goal_atoms.add(GroundAtom(self._On, [ring, rings_stack_order[i - 1]]))
-                    goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                # bottom_ring_outer_radius = get_ring_outer_radius(
+                #     init_state.get(rings_stack_order[i - 1], "major_radius"),
+                #     init_state.get(rings_stack_order[i - 1], "minor_radius"))
+                #
+                # bottom_ring_inner_radius = get_ring_inner_radius(
+                #     init_state.get(rings_stack_order[i - 1], "major_radius"),
+                #     init_state.get(rings_stack_order[i - 1], "minor_radius"))
+                #
+                # ring_inner_radius = get_ring_inner_radius(init_state.get(ring, "major_radius"),
+                #                                           init_state.get(ring, "minor_radius"))
+                #
+                # ring_outer_radius = get_ring_outer_radius(init_state.get(ring, "major_radius"),
+                #                                           init_state.get(ring, "minor_radius"))
+                goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                # if ring_inner_radius > bottom_ring_outer_radius:
+                #     goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                #     rings_stack_order.pop(i)
+                #     i -= 1
+                # elif ring_outer_radius < bottom_ring_inner_radius:
+                #     goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                # else:
+                #     goal_atoms.add(GroundAtom(self._On, [ring, rings_stack_order[i - 1]]))
+                #     goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
             i += 1
 
         # goal_atoms.add(GroundAtom(self._GripperOpen, [self._robot]))
@@ -450,28 +619,29 @@ class RingStackEnv(BaseEnv):
 
     def _sample_initial_xy(
             self, rng: np.random.Generator,
-            existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
+            circle_radius: float,
+            existing_circles: Set[Tuple[float, float, float]],
+            modifier: float= 1.0) -> Tuple[float, float]:
         while True:
-            x = rng.uniform(self.x_lb, self.x_ub)
-            y = rng.uniform(self.y_lb, self.y_ub)
+            x = rng.uniform(self.x_lb+modifier, self.x_ub-modifier)
+            y = rng.uniform(self.y_lb+modifier, self.y_ub-modifier)
             logging.info(f"sampling with {x},{y}")
-            if self._table_xy_is_clear(x, y, existing_xys):
+            if self._table_xy_is_clear((x,y, circle_radius), existing_circles):
                 return (x, y)
 
-    def _table_xy_is_clear(self, x: float, y: float,
-                           existing_xys: Set[Tuple[float, float]]) -> bool:
-        if all(
-                abs(x - other_x) > CFG.ring_max_outer_radius * 1.2
-                for other_x, _ in existing_xys):
-            return True
+    def _table_xy_is_clear(self, circle: Tuple[float, float, float],
+                           existing_circles: Set[Tuple[float, float, float]],
+                           padding: float = 0.015) -> bool:
+        '''
+        Circle: [x, y, radius]
+        '''
 
+        for other_circle in existing_circles:
+            d = ((circle[0]-other_circle[0])**2 + (circle[1]-other_circle[1])**2)**0.5
+            if d <= abs(circle[2] - (other_circle[2]+padding)) or d <= (circle[2] + (other_circle[2]+padding)):
+                return False
 
-        if all(
-                abs(y - other_y) > CFG.ring_max_outer_radius * 1.35
-                for _, other_y in existing_xys):
-            return True
-
-        return False
+        return True
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         ring1, ring2 = objects
@@ -538,12 +708,11 @@ class RingStackEnv(BaseEnv):
         ring_z = state.get(ring, "pose_z")
 
         pole_in_ring = ((pole_x - ring_x) ** 2 + (
-                pole_y - ring_y) ** 2) ** 0.5 + self._pole_radius < get_ring_inner_radius(
+                pole_y - ring_y) ** 2) ** 0.5 + self._pole_radius < get_ring_outer_radius(
             state.get(ring, "major_radius"),
             state.get(ring, "minor_radius"))
 
-        correct_height = pole_z < ring_z <= pole_z + self._pole_height - \
-                         state.get(ring, "minor_radius") * CFG.ring_height_modifier
+        correct_height = self.table_height + self._pole_base_height < ring_z <= pole_z + self._pole_height * 0.85
 
         logging.info(f'Around holds: {pole_in_ring and correct_height}')
         return pole_in_ring and correct_height

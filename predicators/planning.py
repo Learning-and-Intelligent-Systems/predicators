@@ -260,9 +260,7 @@ def filter_nsrts(
     ]
     all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
                                                     init_atoms)
-    logging.info(f'all_reachable_atoms: {all_reachable_atoms}')
-    logging.info(f'init atoms: {init_atoms}')
-    logging.info(f'ground_nsrts: {ground_nsrts}')
+
     if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
         logging.info(f'all_reachable_atoms: {all_reachable_atoms}')
         logging.info(f'init atoms: {init_atoms}')
@@ -569,16 +567,17 @@ def run_low_level_search(
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
         num_tries[cur_idx] += 1
+        logging.info(f'num tries: {num_tries}')
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
-        logging.info(num_tries)
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        logging.info(f"sampling option for nsrt: {nsrt}")
+        logging.info(f"sampling option for nsrt from planning.py: {nsrt}")
 
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
         logging.info(f"option: {option}")
+
         # Increment num_samples metric by 1
         metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.

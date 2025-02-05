@@ -7,6 +7,8 @@ from typing import Callable, Dict, Sequence, Tuple
 import dill as pkl
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 from predicators.settings import CFG
 
@@ -160,6 +162,9 @@ def create_dataframes(
 
 def _main() -> None:
     means, stds, sizes, df = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS, [])
+    # Set the EXPERIMENT_ID column as the index (if it exists in df)
+    df.set_index('EXPERIMENT_ID', inplace=True)
+
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
@@ -170,8 +175,59 @@ def _main() -> None:
     pd.set_option("expand_frame_repr", False)
     print("\n\nAGGREGATED DATA OVER SEEDS:")
     print(df)
+    print(f"\n\n{means}")
     means.to_csv("results_summary.csv")
     print("\n\nWrote out table to results_summary.csv")
+    print(means.index)
+    # Filter the means DataFrame for the specified columns
+    columns_to_include = [
+        "NUM_SOLVED",
+        "AVG_SAMPLES_PER_PLAN",
+        "MIN_SAMPLES_PER_PLAN",
+        "MAX_SAMPLES_PER_PLAN",
+        "AVG_SKELETONS",
+        "MAX_SKELETONS"
+    ]
+    # Ensure EXPERIMENT_ID is part of the table (reset index to bring it as a column)
+    filtered_means = means[columns_to_include].reset_index()
+    columns_to_include = [
+        "EXPERIMENT_ID",
+        "NUM_SOLVED",
+        "AVG_SAMPLES_PER_PLAN",
+        "MIN_SAMPLES_PER_PLAN",
+        "MAX_SAMPLES_PER_PLAN",
+        "AVG_SKELETONS",
+        "MAX_SKELETONS"
+    ]
+    filtered_means = filtered_means[columns_to_include]
+    filtered_means.rename(columns={'EXPERIMENT_ID': 'SAMPLER'}, inplace=True)
+    filtered_means.rename(columns={'NUM_SOLVED': 'TASKS_SOLVED'}, inplace=True)
+
+    # Now filtered_means has EXPERIMENT_ID as a column and will appear in the table
+    with PdfPages("filtered_means_table_ringstack_easy.pdf") as pdf:
+        fig, ax = plt.subplots(figsize=(13, len(filtered_means) * 0.5+2))  # Adjust height based on rows
+        ax.axis("tight")
+        ax.axis("off")
+
+        # Create the table with the EXPERIMENT_ID column included
+        table = ax.table(
+            cellText=filtered_means.values,
+            colLabels=filtered_means.columns,
+            cellLoc="center",
+            loc="center",
+        )
+
+
+        for (row, col), cell in table.get_celld().items():
+            cell.set_height(0.225)
+            cell.set_fontsize(11)
+
+        fig.suptitle("RingStack Experimental Results",fontsize=16)
+        table.auto_set_column_width(col=list(range(len(filtered_means.columns))))  # Auto-adjust column widths
+        pdf.savefig(fig)
+        plt.close()
+
+    print("\n\nTable saved as filtered_means_table.pdf")
 
 
 if __name__ == "__main__":

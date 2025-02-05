@@ -78,7 +78,6 @@ class BilevelPlanningApproach(BaseApproach):
                 task, nsrts, preds, timeout, seed)
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
-            logging.info(f'Running for real with plan: {option_plan}')
             policy = utils.option_plan_to_policy(option_plan)
 
         self._save_metrics(metrics, nsrts, preds)
@@ -168,6 +167,7 @@ class BilevelPlanningApproach(BaseApproach):
                 metrics[metric], self._metrics[f"min_{metric}"])
             self._metrics[f"max_{metric}"] = max(
                 metrics[metric], self._metrics[f"max_{metric}"])
+            
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:

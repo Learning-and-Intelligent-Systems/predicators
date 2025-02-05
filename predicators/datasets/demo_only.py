@@ -168,7 +168,11 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         if isinstance(env, PyBulletRingEnv):
             env.generate_new_ring_models(task.init)
         if isinstance(env, PyBulletMultiModalCoverEnv):
-            env.goal_zone = int(np.random.random() * 4)
+            env.goal_zone = int(np.random.random() * int(np.random.random() * len(PyBulletMultiModalCoverEnv.zone_extents)))
+
+        with open('number.txt', 'w') as file:
+            # Write the number to the file
+            file.write(f"On train task: {idx}")
 
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue

@@ -28,7 +28,7 @@ class MotionPlanController:
     def _create_motion_plan(self, initial_joint_positions, final_joint_positions,
                             pybullet_robot: SingleArmPyBulletRobot):
         body_ids = []
-        # logging.info(bodies)
+
         for body in self.bodies:
             if type(self.bodies[body]) is list:
                 for b in self.bodies[body]:
@@ -133,11 +133,6 @@ class MotionPlanController:
                                                                       set_joints=False)
 
                     self._create_motion_plan(initial_joint_positions, target_joint_positions, robot)
-
-                    #logging.info(self.motion_plan)
-
-                # logging.info(f'initial_joint_positions: {initial_joint_positions}')
-                #logging.info(f'state: {state}')
 
             except InverseKinematicsError:
                     self.planned = False
