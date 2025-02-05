@@ -167,7 +167,7 @@ class BilevelPlanningApproach(BaseApproach):
                 metrics[metric], self._metrics[f"min_{metric}"])
             self._metrics[f"max_{metric}"] = max(
                 metrics[metric], self._metrics[f"max_{metric}"])
-            
+
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:
