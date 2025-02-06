@@ -2511,14 +2511,12 @@ def get_prompt_for_vlm_state_labelling(
     filepath_prefix = get_path_to_predicators_root() + \
         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
     try:
-        with open(filepath_prefix +
-                  prompt_type + ".txt",
+        with open(filepath_prefix + prompt_type + ".txt",
                   "r",
                   encoding="utf-8") as f:
             prompt = f.read()
     except FileNotFoundError:
-        raise ValueError("Unknown VLM prompting option " +
-                         f"{prompt_type}")
+        raise ValueError("Unknown VLM prompting option " + f"{prompt_type}")
     # The prompt ends with a section for 'Predicates', so list these.
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
@@ -2537,10 +2535,7 @@ def get_prompt_for_vlm_state_labelling(
         # Now, we use actual difference-based prompting for the second timestep
         # and beyond.
         curr_prompt = prompt[:]
-        curr_prompt_imgs = [
-            imgs_history[-2][0],
-            imgs_history[-1][0]
-        ]
+        curr_prompt_imgs = [imgs_history[-2][0], imgs_history[-1][0]]
         if CFG.vlm_include_cropped_images:
             if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
                 curr_prompt_imgs.extend(
@@ -2555,7 +2550,6 @@ def get_prompt_for_vlm_state_labelling(
             curr_prompt += "\n\nPredicate values in the first scene, " \
             "before the skill was executed: \n"
             curr_prompt += label_history[-1]
-        # import pdb; pdb.set_trace()
         return (curr_prompt, curr_prompt_imgs)
     else:
         # NOTE: we rip out only the first image from each trajectory
@@ -2620,14 +2614,14 @@ def query_vlm_for_atom_vals(
     # ALTERNATIVE WAY TO PARSE
     if len(label_history) > 0:
         truth_values = re.findall(r'\* (.*): (True|False)', vlm_output_str)
-        for i, (atom_query, pred_label) in enumerate(zip(atom_queries_list, truth_values)):
+        for i, (atom_query,
+                pred_label) in enumerate(zip(atom_queries_list, truth_values)):
             pred, label = pred_label
             assert pred in atom_query
             label = label.lower()
             if label == "true":
                 true_atoms.add(vlm_atoms[i])
     else:
-        # import pdb; pdb.set_trace()
         all_vlm_responses = vlm_output_str.strip().split("\n")
         # NOTE: this assumption is likely too brittle; if this is breaking, feel
         # free to remove/adjust this and change the below parsing loop accordingly!
@@ -2641,13 +2635,13 @@ def query_vlm_for_atom_vals(
             value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
             if value == "true":
                 true_atoms.add(vlm_atoms[i])
-    
+
     # breakpoint()
     # Add the text of the VLM's response to the state, to be used in the future!
     # REMOVE THIS -> AND PUT IT IN THE PERCEIVER
-    # Perceiver calls utils.abstract once, and puts it in the state history. 
-    # According to a flag, anywhere else we normally call utils.abstract, we 
-    # instead just pull the abstract state from the state simulator state field that has it already. 
+    # Perceiver calls utils.abstract once, and puts it in the state history.
+    # According to a flag, anywhere else we normally call utils.abstract, we
+    # instead just pull the abstract state from the state simulator state field that has it already.
     # The appending of vlm atom history is currently done in query_vlm_for_atom_vals() in utils.py,
     # and utils.ground calls that.
     # state.simulator_state["vlm_atoms_history"].append(all_vlm_responses)
@@ -2680,7 +2674,6 @@ def abstract(state: State,
         for pred in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
-        # import pdb; pdb.set_trace()
         true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
         atoms |= true_vlm_atoms
     return atoms

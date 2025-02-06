@@ -900,9 +900,11 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
                                   state, memory, objects, params)
 
 
-def _create_teleop_policy_with_name(name: str) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+def _create_teleop_policy_with_name(
+        name: str) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+
     def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
+                       params: Array) -> Action:
         nonlocal name
         del state, memory, params
 
@@ -924,9 +926,10 @@ def _create_teleop_policy_with_name(name: str) -> Callable[[State, Dict, Sequenc
         sim_fn = lambda _: None
         sim_fn_args = ()
         name = name
-        action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
-                                                sim_fn_args)
+        action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args,
+                                                sim_fn, sim_fn_args)
         return utils.create_spot_env_action(action_extra_info)
+
     return _teleop_policy
 
 

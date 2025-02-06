@@ -88,14 +88,14 @@ _container_type = Type("container",
                        list(_movable_object_type.feature_names),
                        parent=_movable_object_type)
 _dustpan_type = Type("dustpan",
-                       list(_movable_object_type.feature_names),
-                       parent=_movable_object_type)
+                     list(_movable_object_type.feature_names),
+                     parent=_movable_object_type)
 _broom_type = Type("broom",
-                       list(_movable_object_type.feature_names),
-                       parent=_movable_object_type)
+                   list(_movable_object_type.feature_names),
+                   parent=_movable_object_type)
 _wrappers_type = Type("wrappers",
-                       list(_movable_object_type.feature_names),
-                       parent=_movable_object_type)
+                      list(_movable_object_type.feature_names),
+                      parent=_movable_object_type)
 
 
 def get_collision_geoms_for_nav(state: State) -> List[_Geom2D]:

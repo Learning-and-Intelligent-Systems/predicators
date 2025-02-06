@@ -40,9 +40,9 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_absolute_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import _base_object_type, _container_type, \
-    _immovable_object_type, _movable_object_type, _robot_type, \
-    _broom_type, _dustpan_type, _wrappers_type, \
+from predicators.spot_utils.utils import _base_object_type, _broom_type, \
+    _container_type, _dustpan_type, _immovable_object_type, \
+    _movable_object_type, _robot_type, _wrappers_type, \
     construct_state_given_pbrspot, get_allowed_map_regions, \
     get_graph_nav_dir, get_robot_gripper_open_percentage, get_spot_home_pose, \
     load_spot_metadata, object_to_top_down_geom, update_pbrspot_given_state, \
@@ -108,7 +108,8 @@ class _TruncatedSpotObservation:
     # nonpercept_atoms: Set[GroundAtom]
     # nonpercept_predicates: Set[Predicate]
     # Object detections per camera in self.rgbd_images.
-    object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]
+    object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID,
+                                                       SegmentedBoundingBox]]]
     executed_skill: Optional[_Option] = None
 
 
@@ -1511,24 +1512,22 @@ _Open = utils.create_vlm_predicate("Open", [_movable_object_type],
 _Stained = utils.create_vlm_predicate(
     "Stained", [_movable_object_type],
     lambda o: _get_vlm_query_str("Stained", o))
-_Messy= utils.create_vlm_predicate(
-    "Messy", [_movable_object_type],
-    lambda o: _get_vlm_query_str("Messy", o))
+_Messy = utils.create_vlm_predicate("Messy", [_movable_object_type],
+                                    lambda o: _get_vlm_query_str("Messy", o))
 
 # long = "Is the dustpan oriented such that a single sweeping motion with a broom would move the mess into the dustpan?"
 # long = "Touching(dustpan, mess)"
 _Touching = utils.create_vlm_predicate(
     "Touching", [_dustpan_type, _wrappers_type],
     lambda o: _get_vlm_query_str("Touching", o))
-_Inside = utils.create_vlm_predicate(
-    "Inside", [_wrappers_type, _dustpan_type],
-    lambda o: _get_vlm_query_str("Inside", o))
+_Inside = utils.create_vlm_predicate("Inside", [_wrappers_type, _dustpan_type],
+                                     lambda o: _get_vlm_query_str("Inside", o))
 
 _ALL_PREDICATES = {
-    _NEq, _On, _TopAbove, _NotInsideAnyContainer, _FitsInXY,
-    _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
-    _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
-    _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
+    _NEq, _On, _TopAbove, _NotInsideAnyContainer, _FitsInXY, _HandEmpty,
+    _Holding, _NotHolding, _InHandView, _InView, _Reachable, _Blocking,
+    _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable, _IsNotPlaceable,
+    _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
     _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
     _Stained, _Messy, _Touching, _Inside
 }
@@ -2463,8 +2462,9 @@ class VLMTestEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         # return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Pourable", "Toasted", "VLMIn", "Open"])
-        return set(p for p in _ALL_PREDICATES
-                   if p.name in ["Holding", "HandEmpty", "NotHolding", "Touching", "Inside"])
+        return set(
+            p for p in _ALL_PREDICATES if p.name in
+            ["Holding", "HandEmpty", "NotHolding", "Touching", "Inside"])
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -2532,7 +2532,6 @@ class VLMTestEnv(SpotRearrangementEnv):
         # ignore_effs: Set[LiftedAtom] = set()
         # yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
         #                      ignore_effs)
-        
 
         ##########################################3
         # Pick(robot, dustpan)
@@ -2565,9 +2564,9 @@ class VLMTestEnv(SpotRearrangementEnv):
         }
         del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("PlaceNextTo", parameters, preconds, add_effs, del_effs,
-                             ignore_effs)
-        
+        yield STRIPSOperator("PlaceNextTo", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
+
         # Pick(robot, broom)
         robot = Variable("?robot", _robot_type)
         broom = Variable("?broom", _broom_type)
@@ -2584,7 +2583,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         ignore_effs: Set[LiftedAtom] = set()
         yield STRIPSOperator("Pick2", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
-        
+
         # Sweep(robot, broom, mess, dustpan)
         robot = Variable("?robot", _robot_type)
         broom = Variable("?broom", _broom_type)
@@ -2601,7 +2600,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         ignore_effs: Set[LiftedAtom] = set()
         yield STRIPSOperator("Sweep", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
-        
+
         # Place(robot, broom)
         robot = Variable("?robot", _robot_type)
         broom = Variable("?broom", _broom_type)
@@ -2613,8 +2612,8 @@ class VLMTestEnv(SpotRearrangementEnv):
         }
         del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("PlaceOnFloor", parameters, preconds, add_effs, del_effs,
-                             ignore_effs)
+        yield STRIPSOperator("PlaceOnFloor", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
     # def _generate_train_tasks(self) -> List[EnvironmentTask]:
     #     goal = self._generate_goal_description()  # currently just one goal
@@ -2646,38 +2645,44 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
         op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {"Pick1", "PlaceNextTo", "Pick2", "Sweep", "PlaceOnFloor"}
+        op_names_to_keep = {
+            "Pick1", "PlaceNextTo", "Pick2", "Sweep", "PlaceOnFloor"
+        }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
         self._test_tasks = []
-    
-    def detect_objects(self, rgbd_images: Dict[str, RGBDImage]) -> Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]:
+
+    def detect_objects(
+        self, rgbd_images: Dict[str, RGBDImage]
+    ) -> Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]:
         object_ids = self._detection_id_to_obj.keys()
-        object_id_to_img_detections = _query_detic_sam2(object_ids, rgbd_images)
+        object_id_to_img_detections = _query_detic_sam2(
+            object_ids, rgbd_images)
         # This ^ is currently a mapping of object_id -> camera_name -> SegmentedBoundingBox.
         # We want to do our annotations by camera image, so let's turn this into a
-        # mapping of camera_name -> object_id -> SegmentedBoundingBox. 
+        # mapping of camera_name -> object_id -> SegmentedBoundingBox.
         detections = {k: [] for k in rgbd_images.keys()}
         for object_id, d in object_id_to_img_detections.items():
             for camera_name, seg_bb in d.items():
                 detections[camera_name].append((object_id, seg_bb))
         return detections
-    
+
     def _actively_construct_env_task(self) -> EnvironmentTask:
         assert self._robot is not None
         rgbd_images = capture_images_without_context(self._robot)
+        # Uncomment for debugging
         # import PIL
         # imgs = [v.rgb for _, v in rgbd_images.items()]
         # rot_imgs = [v.rotated_rgb for _, v in rgbd_images.items()]
         # ex1 = PIL.Image.fromarray(imgs[0])
         # ex2 = PIL.Image.fromarray(rot_imgs[0])
-        # import pdb; pdb.set_trace()
-        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        # import ipdb; ipdb.set_trace()
+        gripper_open_percentage = get_robot_gripper_open_percentage(
+            self._robot)
         objects_in_view = []
 
         # Perform object detection.
         object_detections_per_camera = self.detect_objects(rgbd_images)
-
 
         # artifacts = {"language": {"rgbds": rgbd_images, "object_id_to_img_detections": ret}}
         # detections_outfile = Path(".") / "object_detection_artifacts.png"
@@ -2694,7 +2699,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         #     for camera, seg_bb in img_detections.items():
         #         rgbd = rgbds[camera]
         #         flat_detections.append((rgbd, obj_id, seg_bb))
-        
+
         # # For now assume we only have 1 image, front-left.
         # import pdb; pdb.set_trace()
         # import PIL
@@ -2713,7 +2718,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         #     # font = utils.get_scaled_default_font(draw, 4)
         #     # text_width, text_height = draw.textsize(text, font)
         #     # text_width = draw.textlength(text, font)
-        #     # text_height = font.getsize("hg")[1] 
+        #     # text_height = font.getsize("hg")[1]
         #     text_mask = font.getmask(text)
         #     text_width, text_height = text_mask.size
         #     text_bbox = [(x0, y0 - text_height - 2), (x0 + text_width + 2, y0)]
@@ -2721,17 +2726,11 @@ class VLMTestEnv(SpotRearrangementEnv):
         #     draw.text((x0 + 1, y0 - text_height - 1), text, fill='white', font=font)
 
         # import pdb; pdb.set_trace()
-        
-        obs = _TruncatedSpotObservation(
-            rgbd_images,
-            set(objects_in_view),
-            set(),
-            set(),
-            self._spot_object,
-            gripper_open_percentage,
-            object_detections_per_camera,
-            None
-        )
+
+        obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
+                                        set(), set(), self._spot_object,
+                                        gripper_open_percentage,
+                                        object_detections_per_camera, None)
         goal_description = self._generate_goal_description()
         task = EnvironmentTask(obs, goal_description)
         return task
@@ -2777,15 +2776,11 @@ class VLMTestEnv(SpotRearrangementEnv):
                     break
                 logging.info("Invalid input, must be either 'y' or 'n'")
             return _TruncatedSpotObservation(
-                                    self._current_observation.rgbd_images,
-                                    self._current_observation.objects_in_view,
-                                    set(),
-                                    set(),
-                                    self._spot_object,
-                                    self._current_observation.gripper_open_percentage,
-                                    self._current_observation.object_detections_per_camera,
-                                    action
-                                )
+                self._current_observation.rgbd_images,
+                self._current_observation.objects_in_view, set(), set(),
+                self._spot_object,
+                self._current_observation.gripper_open_percentage,
+                self._current_observation.object_detections_per_camera, action)
 
         # Execute the action in the real environment. Automatically retry
         # if a retryable error is encountered.
@@ -2799,21 +2794,16 @@ class VLMTestEnv(SpotRearrangementEnv):
                 logging.warning("WARNING: the following retryable error "
                                 f"was encountered. Trying again.\n{e}")
         rgbd_images = capture_images_without_context(self._robot)
-        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        gripper_open_percentage = get_robot_gripper_open_percentage(
+            self._robot)
         objects_in_view = []
         # Perform object detection.
         object_detections_per_camera = self.detect_objects(rgbd_images)
 
-        obs = _TruncatedSpotObservation(
-            rgbd_images,
-            set(objects_in_view),
-            set(),
-            set(),
-            self._spot_object,
-            gripper_open_percentage,
-            object_detections_per_camera,
-            action
-        )
+        obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
+                                        set(), set(), self._spot_object,
+                                        gripper_open_percentage,
+                                        object_detections_per_camera, action)
         return obs
 
 

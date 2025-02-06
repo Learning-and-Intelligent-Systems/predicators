@@ -351,6 +351,7 @@ def _query_detic_sam(
 
     return object_id_to_img_detections
 
+
 def _query_detic_sam2(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImage],
@@ -375,11 +376,6 @@ def _query_detic_sam2(
     classes = sorted(o.language_id for o in object_ids)
 
     # Query server, retrying to handle possible wifi issues.
-    # import pdb; pdb.set_trace()
-    # imgs = [v.rotated_rgb for _, v in rgbds.items()]
-    # pil_img = PIL.Image.fromarray(imgs[0])
-    # import pdb; pdb.set_trace()
-
     for _ in range(max_server_retries):
         try:
             r = requests.post("http://localhost:5550/batch_predict",
@@ -449,8 +445,6 @@ def _query_detic_sam2(
                 seg_bb = SegmentedBoundingBox(boxes[best_idx], masks[best_idx],
                                               scores[best_idx])
                 object_id_to_img_detections[obj_id][rgbd.camera_name] = seg_bb
-
-    # import pdb; pdb.set_trace()
     return object_id_to_img_detections
 
 

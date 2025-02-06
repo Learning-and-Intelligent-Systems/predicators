@@ -21,13 +21,13 @@ from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, _query_detic_sam2, \
     detect_objects, visualize_all_artifacts
-from predicators.spot_utils.utils import _container_type, \
-    _immovable_object_type, _movable_object_type, _robot_type, \
-    _broom_type, _dustpan_type, _wrappers_type, \
-    get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
+from predicators.spot_utils.utils import _broom_type, _container_type, \
+    _dustpan_type, _immovable_object_type, _movable_object_type, _robot_type, \
+    _wrappers_type, get_allowed_map_regions, load_spot_metadata, \
+    object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, Task, Video, _Option, VLMPredicate
+    SpotActionExtraInfo, State, Task, Video, VLMPredicate, _Option
 
 
 class SpotPerceiver(BasePerceiver):
@@ -634,7 +634,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         # Load static, hard-coded features of objects, like their shapes.
         # meta = load_spot_metadata()
         # self._static_object_features = meta.get("static-object-features", {})
-        
 
     def _create_goal(self, state: State,
                      goal_description: GoalDescription) -> Set[GroundAtom]:
@@ -647,7 +646,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         Inside = pred_name_to_pred["Inside"]
         Holding = pred_name_to_pred["Holding"]
         HandEmpty = pred_name_to_pred["HandEmpty"]
-
 
         if goal_description == "put the cup in the pan":
             robot = Object("robot", _robot_type)
@@ -677,7 +675,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         #         GroundAtom(Holding, [robot, dustpan])
         #     }
         #     return goal
-        
+
         raise NotImplementedError("Unrecognized goal description")
 
     def update_perceiver_with_action(self, action: Action) -> None:
@@ -688,21 +686,8 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._prev_action = action
 
     def reset(self, env_task: EnvironmentTask) -> Task:
-        # import pdb; pdb.set_trace()
-        # init_obs = env_task.init_obs
-        # imgs = init_obs.rgbd_images
-        # self._robot = init_obs.robot
-        # state = self._create_state()
-        # state.simulator_state["images"] = [imgs]
-        # state.set(self._robot, "gripper_open_percentage", init_obs.gripper_open_percentage)
-        # self._curr_state = state
         self._curr_env = get_or_create_env(CFG.env)
         state = self._create_state()
-        # state.simulator_state = {}
-        # state.simulator_state["images"] = []
-        # state.simulator_state["state_history"] = []
-        # state.simulator_state["skill_history"] = []
-        # state.simulator_state["vlm_atoms_history"] = []
         self._curr_state = state
         goal = self._create_goal(state, env_task.goal_description)
 
@@ -715,7 +700,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
-        # import pdb; pdb.set_trace()
         self._waiting_for_observation = False
         self._robot = observation.robot
         img_objects = observation.rgbd_images  # RGBDImage objects
@@ -731,7 +715,9 @@ class SpotMinimalPerceiver(BasePerceiver):
             draw = ImageDraw.Draw(pil_imgs[i])
             # Annotate with camera name.
             font = utils.get_scaled_default_font(draw, 4)
-            _ = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[camera_name], font)
+            _ = utils.add_text_to_draw_img(
+                draw, (0, 0), self.camera_name_to_annotation[camera_name],
+                font)
             # Annotate with object detections.
             detections = object_detections_per_camera[camera_name]
             for obj_id, seg_bb in detections:
@@ -741,10 +727,14 @@ class SpotMinimalPerceiver(BasePerceiver):
                 font = utils.get_scaled_default_font(draw, 3)
                 text_mask = font.getmask(text)
                 text_width, text_height = text_mask.size
-                text_bbox = [(x0, y0 - 1.5*text_height), (x0 + text_width + 1, y0)]
+                text_bbox = [(x0, y0 - 1.5 * text_height),
+                             (x0 + text_width + 1, y0)]
                 draw.rectangle(text_bbox, fill='green')
-                draw.text((x0 + 1, y0 - 1.5*text_height), text, fill='white', font=font)
-        
+                draw.text((x0 + 1, y0 - 1.5 * text_height),
+                          text,
+                          fill='white',
+                          font=font)
+
         # import PIL
         # from PIL import ImageDraw
         # annotated_pil_imgs = []
@@ -767,16 +757,16 @@ class SpotMinimalPerceiver(BasePerceiver):
             if "Place" in observation.executed_skill.extra_info.action_name:
                 for obj in observation.executed_skill.extra_info.operator_objects:
                     if not obj.is_instance(_robot_type):
-                        # Turn the held feature off 
+                        # Turn the held feature off
                         self._curr_state.set(obj, "held", 0.0)
 
-        # import pdb; pdb.set_trace()
         # This state is a default/empty. We have to set the attributes
-        # of the objects and set the simulator state properly. 
+        # of the objects and set the simulator state properly.
         self._curr_state.simulator_state["images"] = annotated_imgs
         # At the first timestep, these histories will be empty due to self.reset().
         # But at every timestep that isn't the first one, they will be non-empty.
-        self._curr_state.simulator_state["state_history"] = list(self._state_history)
+        self._curr_state.simulator_state["state_history"] = list(
+            self._state_history)
         # We do this here so the call to `utils.abstract()` a few lines later has the skill
         # that was just run.
         executed_skill = None
@@ -786,31 +776,37 @@ class SpotMinimalPerceiver(BasePerceiver):
                 # Just return the default state
                 return DefaultState
             executed_skill = observation.executed_skill.get_option()
-        self._executed_skill_history.append(executed_skill)  # None in first timestep.
-        self._curr_state.simulator_state["skill_history"] = list(self._executed_skill_history)
-        self._curr_state.simulator_state["vlm_label_history"] = list(self._vlm_label_history)
+        self._executed_skill_history.append(
+            executed_skill)  # None in first timestep.
+        self._curr_state.simulator_state["skill_history"] = list(
+            self._executed_skill_history)
+        self._curr_state.simulator_state["vlm_label_history"] = list(
+            self._vlm_label_history)
 
         # Add to histories.
-        # A bit of extra work is required to build the VLM label history. 
-        # We want to keep `utils.abstract()` as straightforward as possible, 
-        # so we'll "rebuild" the VLM labels from the abstract state 
-        # returned by `utils.abstract()`. And since we call this function, 
+        # A bit of extra work is required to build the VLM label history.
+        # We want to keep `utils.abstract()` as straightforward as possible,
+        # so we'll "rebuild" the VLM labels from the abstract state
+        # returned by `utils.abstract()`. And since we call this function,
         # we might as well store the abstract state as a part of the simulator
-        # state so that we don't need to recompute it later in the approach or 
+        # state so that we don't need to recompute it later in the approach or
         # in planning.
         assert self._curr_env is not None
         preds = self._curr_env.predicates
         state_copy = self._curr_state.copy()
-        print(f"Right before abstract state, skill in obs: {observation.executed_skill}")
+        print(
+            f"Right before abstract state, skill in obs: {observation.executed_skill}"
+        )
         abstract_state = utils.abstract(state_copy, preds)
-        # import pdb; pdb.set_trace()
         self._curr_state.simulator_state["abstract_state"] = abstract_state
         # Compute all the VLM atoms. `utils.abstract()` only returns the ones that
         # are True. The remaining ones are the ones that are False.
-        vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+        vlm_preds = set(pred for pred in preds
+                        if isinstance(pred, VLMPredicate))
         vlm_atoms = set()
         for pred in vlm_preds:
-            for choice in utils.get_object_combinations(list(state_copy), pred.types):
+            for choice in utils.get_object_combinations(
+                    list(state_copy), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
         vlm_atoms = sorted(vlm_atoms)
         reconstructed_all_vlm_responses = []
@@ -998,7 +994,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qz": 0,
                 "shape": 0,
                 "height": 0,
-                "width" : 0,
+                "width": 0,
                 "length": 0,
                 "object_id": 2,
                 "placeable": 1,
@@ -1018,7 +1014,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qz": 0,
                 "shape": 0,
                 "height": 0,
-                "width" : 0,
+                "width": 0,
                 "length": 0,
                 "object_id": 2,
                 "placeable": 1,
@@ -1038,7 +1034,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qz": 0,
                 "shape": 0,
                 "height": 0,
-                "width" : 0,
+                "width": 0,
                 "length": 0,
                 "object_id": 2,
                 "placeable": 1,
