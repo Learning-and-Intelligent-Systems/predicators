@@ -18,6 +18,7 @@ import matplotlib
 from collections import OrderedDict
 from termcolor import colored
 import warnings
+import os
 
 # Constants from demo files
 MAX_CARTESIAN_DISPLACEMENT = 0.2
@@ -68,11 +69,16 @@ class RoboKitchenEnv(BaseEnv):
     )
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        if self._using_gui:
+            assert not CFG.make_test_videos or CFG.make_failure_videos, \
+                "Turn off --use_gui to make videos in robo kitchen env"
+
         robot_type = "PandaOmron"
         # Create robosuite environment
         controller_config = load_composite_controller_config(robot=robot_type)
 
-    # Create argument configuration
+        # Create argument configuration
         tasks_names = ['Lift', 'Stack', 'NutAssembly', 'NutAssemblySingle', 'NutAssemblySquare', 'NutAssemblyRound', 
                        'PickPlace', 'PickPlaceSingle', 'PickPlaceMilk', 'PickPlaceBread', 'PickPlaceCereal', 'PickPlaceCan', 
                        'Door', 'Wipe', 'ToolHang', 'TwoArmLift', 'TwoArmPegInHole', 'TwoArmHandover', 'TwoArmTransport', 'Kitchen',
@@ -103,8 +109,15 @@ class RoboKitchenEnv(BaseEnv):
 
         self._pred_name_to_pred = self.create_predicates()
 
+        # Set the selected task - default to OpenSingleDoor
+        self.task_selected = CFG.robo_kitchen_task
+        if self.task_selected not in self.tasks:
+            print(colored(f"Warning: Task {self.task_selected} not found in available tasks. Defaulting to OpenSingleDoor", "yellow"))
+            self.task_selected = "OpenSingleDoor"
+        print(colored(f"Selected task: {self.task_selected}", "green"))
+
         config = {
-            "env_name": list(self.tasks.keys())[4],  #this is name of task
+            "env_name": self.task_selected,
             "robots": robot_type,
             "controller_configs": controller_config,
             "layout_ids": 0, # this is the layout of the kitchen
@@ -114,18 +127,16 @@ class RoboKitchenEnv(BaseEnv):
 
         self._env_raw = robosuite.make(
             **config,
-            has_renderer=True,
+            has_renderer=self._using_gui,
             has_offscreen_renderer=False,
             # render_camera="robot0_frontview",
             ignore_done=True,
             use_camera_obs=False,
             control_freq=20,
-            renderer="mjviewer"
+            renderer="mjviewer" 
         )
 
-    # # Wrap this with visualization wrapper
-    # env = VisualizationWrapper(env)
-        # self._env = robosuite.make(**config)
+        # Wrap this with visualization wrapper
         self._env = VisualizationWrapper(self._env_raw)
         self.ep_meta = self._env.get_ep_meta()
         # robosuite.robots.robot.print_action_info()
@@ -133,7 +144,57 @@ class RoboKitchenEnv(BaseEnv):
             robot.print_action_info()
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return []
+        """Create an ordered list of tasks for training from demos."""
+        tasks = []
+        
+        # Get the demo dataset path
+        from robocasa.utils.dataset_registry import get_ds_path
+        dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
+        
+        if dataset_path is None or not os.path.exists(dataset_path):
+            print(colored(f"Unable to find dataset for {self.task_selected}. Downloading...", "yellow"))
+            from robocasa.scripts.download_datasets import download_datasets
+            download_datasets(tasks=[self.task_selected], ds_types=["human_raw"])
+            dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
+        
+        # Load the demos
+        import h5py
+        f = h5py.File(dataset_path, "r")
+        demos = list(f["data"].keys())
+        
+        # Sort demos by index
+        inds = np.argsort([int(elem[5:]) for elem in demos])
+        demos = [demos[i] for i in inds]
+        
+        # Create tasks from each demo
+        for task_idx in range(CFG.num_train_tasks):
+            if task_idx >= len(demos):
+                break
+                
+            # Get demo data
+            demo = f[f"data/{demos[task_idx]}"]
+            # Get initial state info from first timestep of datagen_info
+            initial_state = {}
+            for key in demo["datagen_info"].keys():
+                initial_state[key] = demo["datagen_info"][key][0]
+            initial_state["model"] = demo.attrs["model_file"]
+            initial_state["ep_meta"] = demo.attrs.get("ep_meta", None)
+            
+            # Create observation
+            obs = {
+                "state_info": initial_state,
+                "obs_images": []
+            }
+            
+            # Get goal description from task name
+            goal_description = self.task_selected
+            
+            # Create task
+            task = EnvironmentTask(obs, goal_description)
+            tasks.append(task)
+            
+        f.close()
+        return tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         # each task has a success condition, we can translate to predicate
@@ -143,7 +204,7 @@ class RoboKitchenEnv(BaseEnv):
             seed = utils.get_task_seed("test", task_idx)
             init_obs = self._reset_initial_state_from_seed(seed, "test")
             # Simplified goal for initial implementation
-            goal_description = self._env_raw.__class__.__name__
+            goal_description = self.task_selected
             task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
         return tasks
@@ -297,42 +358,6 @@ class RoboKitchenEnv(BaseEnv):
             self.rich_object_type, self.hinge_door_type
         }
 
-    def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        """Create an ordered list of tasks for training."""
-        tasks = []
-        for task_idx in range(CFG.num_train_tasks):
-            pass
-            # seed = utils.get_task_seed("train", task_idx)
-            # init_obs = self._reset_initial_state_from_seed(seed, "train")
-            # # Simplified goal for initial implementation
-            # goal_description = "Move the kettle to the back left burner"
-            # task = EnvironmentTask(init_obs, goal_description)
-            # tasks.append(task)
-        return tasks
-
-    # def _generate_test_tasks(self) -> List[EnvironmentTask]:
-    #     """Create an ordered list of tasks for testing / evaluation."""
-    #     tasks = []
-    #     for task_idx in range(CFG.num_test_tasks):
-    #         seed = utils.get_task_seed("test", task_idx)
-    #         init_obs = self._reset_initial_state_from_seed(seed, "test")
-    #         # Simplified goal for initial implementation
-    #         goal_description = "Move the kettle to the back right burner"
-    #         task = EnvironmentTask(init_obs, goal_description)
-    #         tasks.append(task)
-    #     return tasks
-
-    # def _get_current_observation(self) -> Observation:
-    #     """Get current observation from environment."""
-    #     # Get state info from robosuite env
-    #     state_info = {}
-    #     # ... populate state info from env
-
-    #     return {
-    #         "state_info": state_info,
-    #         "obs_images": self.render()
-    #     }
-
     def _copy_observation(self, obs: Observation) -> Observation:
         """Create copy of observation."""
         return copy.deepcopy(obs)
@@ -383,7 +408,7 @@ class RoboKitchenEnv(BaseEnv):
                 obj_name = key
                 obj = cls.object_name_to_object(obj_name)
                 state_dict[obj] = {
-                    "angle": val
+                    "angle": val #currently only support 1 door, double door dont work
                 }
             if not key.endswith("_quat"): #joint_pos does end with pos but does not have _quat
                 continue

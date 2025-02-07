@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+import warnings
 
 from predicators.envs.robo_kitchen import RoboKitchenEnv, MAX_CARTESIAN_DISPLACEMENT, MAX_ROTATION_DISPLACEMENT
 from predicators.structs import Action
@@ -104,3 +105,41 @@ def test_action_space():
         f"Expected action space low to be -1.0, got {env.action_space.low}"
     assert np.allclose(env.action_space.high, 1.0), \
         f"Expected action space high to be 1.0, got {env.action_space.high}"
+
+def test_robo_kitchen_training_task_generation():
+    """Test that we can generate training tasks for RoboKitchenEnv."""
+    # Create env without GUI for testing
+    env = RoboKitchenEnv(use_gui=False)
+    
+    # Set a small number of training tasks for testing
+    CFG.num_train_tasks = 1
+    
+    # Generate training tasks
+    train_tasks = env._generate_train_tasks()
+    
+    # Verify we got the expected number of tasks
+    assert len(train_tasks) == CFG.num_train_tasks
+    
+    # Verify task structure
+    task = train_tasks[0]
+    assert hasattr(task, "init_obs")
+    assert hasattr(task, "goal_description")
+    
+    # Verify observation structure
+    assert "state_info" in task.init_obs
+    assert "obs_images" in task.init_obs
+    
+    # Verify goal description matches selected task
+    assert task.goal_description == env.task_selected
+    
+    # Verify state info contains expected keys for a robosuite env
+    state_info = task.init_obs["state_info"]
+    # Print state info keys for debugging
+    print("\nState info keys:", list(state_info.keys()))
+    expected_keys = ["base_pos", "base_rot", "eef_pos", "eef_rot", "mount_pos", "mount_rot"]
+    
+    # Issue warning about state info keys being different from online generated data
+    warnings.warn("State info keys differ from those in online generated data", UserWarning)
+    
+    for key in expected_keys:
+        assert key in state_info, f"Missing expected key {key} in state_info"
