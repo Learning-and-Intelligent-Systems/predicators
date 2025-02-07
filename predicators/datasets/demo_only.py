@@ -7,8 +7,10 @@ import re
 from typing import Callable, List, Set
 
 import dill as pkl
+import h5py
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
@@ -21,12 +23,26 @@ from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
+from robocasa.utils.dataset_registry import get_ds_path
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                      known_options: Set[ParameterizedOption],
-                     annotate_with_gt_ops: bool) -> Dataset:
-    """Create offline datasets by collecting demos."""
+                     annotate_with_gt_ops: bool,
+                     robocasa_task: str = None) -> Dataset:
+    """Create offline datasets by collecting demos.
+    
+    Args:
+        env: The environment to load demonstrations for
+        train_tasks: List of training tasks
+        known_options: Set of known parameterized options
+        annotate_with_gt_ops: Whether to annotate with ground truth operators
+        robocasa_task: If provided, load demonstrations from robocasa dataset
+                      instead of collecting new ones
+    """
+    if robocasa_task is not None:
+        return create_demo_data_from_robocasa(env, train_tasks, known_options, robocasa_task)
+        
     assert CFG.demonstrator in ("oracle", "human")
     dataset_fname, dataset_fname_template = utils.create_dataset_filename_str(
         saving_ground_atoms=False)
@@ -296,3 +312,67 @@ def human_demonstrator_policy(env: BaseEnv, caption: str,
     # Revert to the previous backend.
     matplotlib.use(cur_backend)
     return container["action"]
+
+
+def create_demo_data_from_robocasa(env: BaseEnv, train_tasks: List[Task],
+                                 known_options: Set[ParameterizedOption],
+                                 task_name: str) -> Dataset:
+    """Create offline datasets by loading robocasa demonstrations.
+    
+    Args:
+        env: The environment to load demonstrations for
+        train_tasks: List of training tasks
+        known_options: Set of known parameterized options
+        task_name: Name of the robocasa task to load (e.g. 'PnPCounterToCab')
+    
+    Returns:
+        Dataset containing the loaded demonstrations
+    """
+    # Get path to robocasa dataset
+    dataset_path = get_ds_path(task_name, ds_type="human_raw")
+    
+    if not os.path.exists(dataset_path):
+        raise ValueError(f"Dataset not found at {dataset_path}")
+        
+    # Load HDF5 file
+    with h5py.File(dataset_path, "r") as f:
+        trajectories = []
+        
+        # Each demonstration is stored in a group like "demo_0", "demo_1", etc.
+        demos = list(f["data"].keys())
+        
+        for demo_idx, demo_key in enumerate(demos):
+            if demo_idx >= CFG.num_train_tasks:
+                break
+                
+            # Get demo data
+            demo = f[f"data/{demo_key}"]
+            
+            # Get states and actions
+            # Create list of State objects from state info at each timestep
+            states = []
+            first_key = next(iter(demo["datagen_info"]))
+            for t in range(len(demo["datagen_info"][first_key])):
+                state_info = {}
+                for key in demo["datagen_info"].keys():
+                    state_info[key] = demo["datagen_info"][key][t]
+                state = env.state_info_to_state(state_info)
+                states.append(state)
+            actions = demo["actions"][()]  # Get actions array
+            
+            # Convert actions to predicators Action objects
+            action_objs = []
+            for action in actions[:-1]:  # Skip the last action
+                # Create Action object - you may need to adjust this based on your action space
+                action_obj = Action(action)
+                action_objs.append(action_obj)
+            # Create LowLevelTrajectory
+            traj = LowLevelTrajectory(
+                _states=list(states),  # Convert to list if numpy array
+                _actions=action_objs,
+                _is_demo=True,
+                _train_task_idx=demo_idx
+            )
+            trajectories.append(traj)
+            
+    return Dataset(trajectories)

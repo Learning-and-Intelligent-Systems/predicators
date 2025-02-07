@@ -4,7 +4,7 @@ environment."""
 from typing import List, Set
 
 from predicators import utils
-from predicators.datasets.demo_only import create_demo_data
+from predicators.datasets.demo_only import create_demo_data, create_demo_data_from_robocasa
 from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.datasets.generate_atom_trajs_with_vlm import \
     create_ground_atom_data_from_generated_demos, \
@@ -24,6 +24,9 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
 
     Some or all of this data may be loaded from disk.
     """
+    if CFG.env == "robo_kitchen":
+        return create_demo_data_from_robocasa(env, train_tasks, known_options, CFG.robo_kitchen_task)
+
     if CFG.offline_data_method == "demo":
         return create_demo_data(env,
                                 train_tasks,

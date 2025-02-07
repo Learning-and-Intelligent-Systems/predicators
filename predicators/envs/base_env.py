@@ -3,7 +3,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import Callable, Collection, Dict, List, Optional, Set
+from typing import Callable, Collection, Dict, List, Optional, Set, Any
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -16,7 +16,6 @@ from predicators.settings import CFG
 from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Task, \
     Type, Video
-
 
 class BaseEnv(abc.ABC):
     """Base environment."""
@@ -33,6 +32,20 @@ class BaseEnv(abc.ABC):
         self._test_tasks: List[EnvironmentTask] = []
         # If the environment has a GUI, this determines whether to launch it.
         self._using_gui = use_gui
+
+    @classmethod
+    @abc.abstractmethod
+    def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
+        """Convert state info dictionary into a State object.
+        
+        Args:
+            state_info: Dictionary containing state information.
+            
+        Returns:
+            State object representing the state.
+        """
+        raise NotImplementedError("Override me!")
+
 
     @classmethod
     @abc.abstractmethod
