@@ -6,18 +6,30 @@
         "type": "python",
         "request": "launch",
         "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
-        "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--use_gui", "--bilevel_plan_without_sim", "True","--debug"],
+        "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--bilevel_plan_without_sim", "True","--debug", "--use_gui"],
         "console": "integratedTerminal",
-        "pythonPath": "/home/yifei/miniforge3/envs/robocasa/bin/python"
+        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
       },
       {
+        "name": "Debug Grammer Search Invention",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
+        "args": ["--env", "robo_kitchen", "--approach", "grammar_search_invention", "--seed", "0", "--bilevel_plan_without_sim", "True","--debug", "--use_gui", "--excluded_predicates", "all"],
+        "console": "integratedTerminal",
+        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
+      },
+      {
+
+    // python predicators/main.py --env cover --approach grammar_search_invention \
+    // --seed 0 --excluded_predicates all
         "name": "Python: Debug robocasa/teleop.py",
         "type": "python", 
         "request": "launch",
         "program": "${workspaceFolder}/robocasa/robocasa/demos/demo_teleop.py",
-        "args": ["--robot","PandaOmron","--task", "VeggieBoil", "--layout", "0", "--style", "0"],
+        "args": ["--robot","PandaOmron","--task", "OpenSingleDoor", "--layout", "0", "--style", "0"],
         "console": "integratedTerminal",
-        "pythonPath": "/home/yifei/miniforge3/envs/robocasa/bin/python"
+        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
       }
     ]
   }

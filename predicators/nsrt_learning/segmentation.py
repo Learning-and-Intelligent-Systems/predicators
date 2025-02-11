@@ -8,7 +8,7 @@ from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     Predicate, Segment, State
-
+from robocasa.scripts.playback_dataset import reset_to
 
 def segment_trajectory(
         ll_traj: LowLevelTrajectory,
@@ -56,35 +56,49 @@ def _segment_with_contact_changes(
     contacts and we look for changes in those contact predicates.
     """
 
-    if CFG.env == "stick_button":
-        keep_pred_names = {"Grasped", "Pressed"}
-    elif CFG.env in ("cover", "cover_multistep_options", "pybullet_cover"):
-        keep_pred_names = {"Covers", "HandEmpty", "Holding"}
-    elif CFG.env in ("blocks", "pybullet_blocks"):
-        keep_pred_names = {"Holding", "On", "OnTable"}
-    elif CFG.env == "doors":
-        keep_pred_names = {"TouchingDoor", "InRoom"}
-    elif CFG.env == "touch_point":
-        keep_pred_names = {"Touched"}
-    elif CFG.env == "coffee":
-        keep_pred_names = {"Holding", "HandEmpty", "MachineOn", "CupFilled"}
-    elif CFG.env == "exit_garage":
-        keep_pred_names = {"ObstacleCleared", "CarHasExited"}
+    if CFG.env == "robo_kitchen":
+        # For robo_kitchen, we'll evaluate InContact live using the simulator
+        keep_pred_names = {"InContact"}
+        env = get_or_create_env(CFG.env)
+        
+        all_keep_atoms = []
+        for raw_state in ll_traj._raw_robosuite_states:
+            # Reset simulator to current state
+            reset_to(env._env, {"states": raw_state})
+            # Now evaluate predicates using live simulator state
+            atoms = set()
+            for i, geom1 in enumerate(env.all_geoms):
+                for geom2 in env.all_geoms[i+1:]:
+                    if env._InContact_holds([geom1, geom2]):
+                        atoms.add(GroundAtom(keep_preds[0], [geom1, geom2]))
+            curr_atoms = atoms
+            all_keep_atoms.append(curr_atoms)
     else:
-        raise NotImplementedError("Contact-based segmentation not implemented "
-                                  f"for environment {CFG.env}.")
+        # Original code path for other environments
+        if CFG.env == "stick_button":
+            keep_pred_names = {"Grasped", "Pressed"}
+        elif CFG.env in ("cover", "cover_multistep_options", "pybullet_cover"):
+            keep_pred_names = {"Covers", "HandEmpty", "Holding"}
+        elif CFG.env in ("blocks", "pybullet_blocks"):
+            keep_pred_names = {"Holding", "On", "OnTable"}
+        elif CFG.env == "doors":
+            keep_pred_names = {"TouchingDoor", "InRoom"}
+        elif CFG.env == "touch_point":
+            keep_pred_names = {"Touched"}
+        elif CFG.env == "coffee":
+            keep_pred_names = {"Holding", "HandEmpty", "MachineOn", "CupFilled"}
+        elif CFG.env == "exit_garage":
+            keep_pred_names = {"ObstacleCleared", "CarHasExited"}
+        else:
+            raise NotImplementedError("Contact-based segmentation not implemented "
+                                    f"for environment {CFG.env}.")
 
-    # If some predicates are excluded, we need to load predicates from the
-    # environment in case contact-based ones are excluded. Note that this is
-    # not really leaking information because the same effect could be achieved
-    # by implementing environment-specific contact detection functions that use
-    # the low-level states only; this is just a more concise way to do that.
-    env = get_or_create_env(CFG.env)
-    keep_preds = {p for p in env.predicates if p.name in keep_pred_names}
-    assert len(keep_preds) == len(keep_pred_names)
-    all_keep_atoms = []
-    for state in ll_traj.states:
-        all_keep_atoms.append(utils.abstract(state, keep_preds))
+        env = get_or_create_env(CFG.env)
+        keep_preds = {p for p in env.predicates if p.name in keep_pred_names}
+        assert len(keep_preds) == len(keep_pred_names)
+        all_keep_atoms = []
+        for state in ll_traj.states:
+            all_keep_atoms.append(utils.abstract(state, keep_preds))
 
     def _switch_fn(t: int) -> bool:
         return all_keep_atoms[t] != all_keep_atoms[t + 1]

@@ -39,9 +39,9 @@ class GlobalSettings:
     test_task_json_dir = None
     # The method to use for segmentation. By default, segment using options.
     # If you are learning options, you should change this via the command line.
-    segmenter = "option_changes"
+    segmenter = "contacts"
     # The method to use for generating demonstrations: "oracle" or "human".
-    demonstrator = "oracle"
+    demonstrator = "human"
     # DPI for rendering the state. Increase this if video quality is poor.
     # Note that for unit testing, we use a much smaller value by default,
     # which is set in utils.reset_config(). If you want higher-quality videos

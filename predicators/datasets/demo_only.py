@@ -359,6 +359,7 @@ def create_demo_data_from_robocasa(env: BaseEnv, train_tasks: List[Task],
                 state = env.state_info_to_state(state_info)
                 states.append(state)
             actions = demo["actions"][()]  # Get actions array
+            raw_robosuite_states = demo["states"][()]
             
             # Convert actions to predicators Action objects
             action_objs = []
@@ -371,7 +372,8 @@ def create_demo_data_from_robocasa(env: BaseEnv, train_tasks: List[Task],
                 _states=list(states),  # Convert to list if numpy array
                 _actions=action_objs,
                 _is_demo=True,
-                _train_task_idx=demo_idx
+                _train_task_idx=demo_idx,
+                _raw_robosuite_states=raw_robosuite_states
             )
             trajectories.append(traj)
             
