@@ -79,7 +79,7 @@ ENVS:
       precondition_soft_intersection_threshold_percent: 0.8
       grammar_search_early_termination_heuristic_thresh: 2000
       vlm_double_check_output: True
-  burger_no_move_fatter_burger:
+  # burger_no_move_fatter_burger:
   #   NAME: "burger_no_move"
   #   FLAGS:
   #     burger_no_move_task_type: "fatter_burger"
