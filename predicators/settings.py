@@ -17,7 +17,7 @@ class GlobalSettings:
 
     """Unchanging settings."""
     # global parameters
-    num_train_tasks = 1 # in robocasa, either the max demo number or num_train_tasks will be used
+    num_train_tasks = 50 # in robocasa, either the max demo number or num_train_tasks will be used
     num_test_tasks = 1
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.

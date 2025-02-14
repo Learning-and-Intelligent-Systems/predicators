@@ -29,6 +29,8 @@ from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
     Object, ParameterizedOption, Predicate, Segment, State, Task, Type, \
     VLMPredicate
 
+from predicators.envs.robo_kitchen import RoboKitchenEnv
+
 ################################################################################
 #                          Programmatic classifiers                            #
 ################################################################################
@@ -808,9 +810,22 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             # Then, we only need to care about the initial and final
             # states in each segment, which we store into
             # self._state_sequence.
-            for traj in self.dataset.trajectories:
+            eef_obj = RoboKitchenEnv.object_name_to_object("eef")
+            handle_obj = RoboKitchenEnv.object_name_to_object("obj_handle")
+            for i, traj in enumerate(self.dataset.trajectories):
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
+                for seg_idx, seg in enumerate(seg_traj):
+                    if seg_idx > 0:
+                        break
+                    eef_traj = np.zeros((len(seg.states), 12))
+                    handle_traj = np.zeros((len(seg.states), 12))
+                    for t, state in enumerate(seg.states):
+                        eef_traj[t] = state[eef_obj]
+                        handle_traj[t] = state[handle_obj]
+                    # Save eef trajectory to file
+                    np.save(f"demo_{i}_eef_traj.npy", eef_traj)
+                    np.save(f"demo_{i}_handle_traj.npy", handle_traj)
                 state_seq = utils.segment_trajectory_to_start_end_state_sequence(  # pylint:disable=line-too-long
                     seg_traj)
                 self._state_sequences.append(state_seq)
