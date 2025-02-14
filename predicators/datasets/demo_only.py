@@ -369,11 +369,13 @@ def create_demo_data_from_robocasa(env: BaseEnv, train_tasks: List[Task],
                 action_objs.append(action_obj)
             # Create LowLevelTrajectory
             traj = LowLevelTrajectory(
-                _states=list(states),  # Convert to list if numpy array
+                _states=list(states),
                 _actions=action_objs,
                 _is_demo=True,
                 _train_task_idx=demo_idx,
-                _raw_robosuite_states=raw_robosuite_states
+                _raw_robosuite_states=raw_robosuite_states,
+                _model_file=demo.attrs["model_file"],
+                _ep_meta=demo.attrs.get("ep_meta", None)
             )
             trajectories.append(traj)
             

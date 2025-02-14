@@ -1206,7 +1206,9 @@ class LowLevelTrajectory:
     _actions: List[Action]
     _is_demo: bool = field(default=False)
     _train_task_idx: Optional[int] = field(default=None)
-    _raw_robosuite_states: Optional[Any] = field(default=None)
+    _raw_robosuite_states: Optional[Any] = field(default=None) # the following 3 for robocasa
+    _model_file: Optional[Any] = field(default=None)
+    _ep_meta: Optional[Any] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self._states) == len(self._actions) + 1

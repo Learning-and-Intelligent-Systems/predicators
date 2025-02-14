@@ -1,5 +1,12 @@
 # predicators_robocasa
 
+When running inside docker, this seems to work: ```export MUJOCO_GL=glfw && export PYOPENGL_PLATFORM=egl && cd /workspace/predicators_robocasa && python3 predicators/main.py --env robo_kitchen --approach grammar_search_invention --seed 0 --bilevel_plan_without_sim True --debug --excluded_predicates all```
+
+and this [link](https://github.com/Andrew-Luo1/Mujoco-Headless-Tutorial/tree/main?tab=readme-ov-file)
+
+[link](https://github.com/google-deepmind/mujoco/issues/572)
+
+
 ## Predicators_Robocasa Intsallation Instructions
 1. Follow instruction for robocasa (In step 4, use fork [here](https://github.com/shaoyifei96/robocasa.git)). Don't forget step 5 to download dataset.[here](https://robocasa.ai/docs/introduction/installation.html)
 1. Install this repo using the instructions below, also in the conda env (There should be nothing red appearing)

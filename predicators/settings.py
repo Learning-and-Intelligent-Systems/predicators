@@ -17,7 +17,7 @@ class GlobalSettings:
 
     """Unchanging settings."""
     # global parameters
-    num_train_tasks = 2 # in robocasa, either the max demo number or num_train_tasks will be used
+    num_train_tasks = 1 # in robocasa, either the max demo number or num_train_tasks will be used
     num_test_tasks = 1
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
@@ -56,7 +56,7 @@ class GlobalSettings:
     allow_exclude_goal_predicates = False
     # Normally, State.allclose() raises an error if the simulator state of
     # either of its arguments is not None.
-    allow_state_allclose_comparison_despite_simulator_state = False
+    allow_state_allclose_comparison_despite_simulator_state = True
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
