@@ -109,12 +109,15 @@ class RoboKitchenEnv(BaseEnv):
 
         self._pred_name_to_pred = self.create_predicates()
 
+
         # Set the selected task - default to OpenSingleDoor
         self.task_selected = CFG.robo_kitchen_task
         if self.task_selected not in self.tasks:
             print(colored(f"Warning: Task {self.task_selected} not found in available tasks. Defaulting to OpenSingleDoor", "yellow"))
             self.task_selected = "OpenSingleDoor"
         print(colored(f"Selected task: {self.task_selected}", "green"))
+
+        self.objects_of_interest = self.get_objects_of_interest()
 
         config = {
             "env_name": self.task_selected,
@@ -143,6 +146,14 @@ class RoboKitchenEnv(BaseEnv):
         for robot in self._env.robots:
             robot.print_action_info()
         
+    def get_objects_of_interest(self) -> List[Object]:
+        """Get the object of interest for the task."""
+        if self.task_selected == "OpenSingleDoor":
+            return [self.object_name_to_object("handle"), 
+                    self.object_name_to_object("door")]
+        # by default, there are robot and gripper objects
+        else:
+            raise ValueError(f"Task {self.task_selected} not supported")
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         """Create an ordered list of tasks for training from demos."""
@@ -221,6 +232,34 @@ class RoboKitchenEnv(BaseEnv):
             "state_info": self._env.reset(),
             "obs_images": []
         }
+
+    def get_object_level_contacts(self) -> set[Tuple[Object, Object]]:
+        """Get all contacts between objects in the environment, default to have robot and gripper, in addition to the objects of interest
+        this has to be a method not a class method since we need env access """
+
+        # only support panda robot for now
+        contacts = set()
+        robot_contacts = self._env.get_contacts(self._env.robots[0].robot_model.models[0])
+        gripper_contact = self._env.get_contacts(self._env.robots[0].robot_model.models[1])
+        # filter down to only include objects of interest
+
+        object_names = [obj.name for obj in self.objects_of_interest]
+        robot_obj = self.object_name_to_object("robot")
+        gripper_obj = self.object_name_to_object("gripper")
+
+        for contact in robot_contacts: # each contact is a string 
+            for obj_name in object_names:
+                if obj_name in contact:
+                    obj = self.object_name_to_object(obj_name)
+                    contacts.add((obj, robot_obj))
+        for contact in gripper_contact:
+            for obj_name in object_names:
+                if obj_name in contact:
+                    obj = self.object_name_to_object(obj_name)
+                    contacts.add((obj, gripper_obj))
+
+        return contacts
+
 
     @classmethod
     def get_name(cls) -> str:
@@ -404,7 +443,7 @@ class RoboKitchenEnv(BaseEnv):
             return Object(obj_name, cls.rich_object_type)
     
     @classmethod
-    def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
+    def state_info_to_state(cls, state_info: Dict[str, Any], contact_set: set[Tuple[Object, Object]] = None) -> State:
         state_dict = {}
         for key, val in state_info.items():
             if key.endswith("_angle"):
@@ -434,8 +473,43 @@ class RoboKitchenEnv(BaseEnv):
                 }
         state = utils.create_state_from_dict(state_dict)
         state.simulator_state = {}
+        state.items_in_contact = contact_set # when defaults, it means Not populated, when empty means no contact
         return state
 
+
+    @classmethod
+    def Open_holds(cls,
+                   state: State,
+                   objects: Sequence[Object],
+                   thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
+        obj = objects[0]
+        if obj.is_instance(cls.hinge_door_type):
+            return state.data[obj][0] > cls.hinge_open_thresh
+        return False
+
+    @classmethod
+    def Closed_holds(cls,
+                     state: State,
+                     objects: Sequence[Object],
+                     thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
+        # Can't do not Open_holds() because of thresh_pad logic.
+        obj = objects[0]
+        if obj.is_instance(cls.hinge_door_type):
+           return state.data[obj][0] > cls.hinge_open_thresh
+            
+        return False
+
+
+
+    @classmethod
+    def _InContact_holds(cls, 
+                         state: State, 
+                         objects: Sequence[Object]) -> bool:
+        """Check if two objects are in contact using robosuite's contact checking."""
+        obj1, obj2 = objects
+        return (obj1, obj2) in state.items_in_contact or (obj2, obj1) in state.items_in_contact
     # @classmethod
     # def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
     #                      on_or_off: str) -> bool:
@@ -556,68 +630,7 @@ class RoboKitchenEnv(BaseEnv):
     #         return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
     #     return False
 
-    @classmethod
-    def Open_holds(cls,
-                   state: State,
-                   objects: Sequence[Object],
-                   thresh_pad: float = 0.0) -> bool:
-        """Made public for use in ground-truth options."""
-        obj = objects[0]
-        if obj.is_instance(cls.hinge_door_type):
-            return state.data[obj][0] > cls.hinge_open_thresh
-        return False
-
-    @classmethod
-    def Closed_holds(cls,
-                     state: State,
-                     objects: Sequence[Object],
-                     thresh_pad: float = 0.0) -> bool:
-        """Made public for use in ground-truth options."""
-        # Can't do not Open_holds() because of thresh_pad logic.
-        obj = objects[0]
-        if obj.is_instance(cls.hinge_door_type):
-           return state.data[obj][0] > cls.hinge_open_thresh
-            
-        return False
-
-    def _InContact_holds(self, objects: Sequence[Object]) -> bool:
-        """Check if two objects are in contact using robosuite's contact checking."""
-
-        #TODO: This is currently broken since this has to be called with a proper environment. The state alone does not have the information.
-        obj1, obj2 = objects
-
-        # Get the corresponding names from the objects
-        name1 = obj1.name
-        name2 = obj2.name
-
-        # Check if names exist in the environment
-        # [env._env.robots[0].name] + list(env._env.fixtures.keys()) + list(env._env.objects.keys())
-        assert name1 in [self._env_raw.robots[0].robot_model.name, self._env_raw.robots[0].gripper["right"].name] + list(self._env_raw.fixtures.keys()) + list(self._env_raw.objects.keys()), f"Object 1 name {name1} not found in environment"
-        assert name2 in [self._env_raw.robots[0].robot_model.name, self._env_raw.robots[0].gripper["right"].name] + list(self._env_raw.fixtures.keys()) + list(self._env_raw.objects.keys()), f"Object 2 name {name2} not found in environment"
-        # all_entity_names = [env._env.robots[0].robot_model.name, env._env.robots[0].gripper["right"].name] + list(env._env.fixtures.keys()) + list(env._env.objects.keys())
-
-        # Get the corresponding objects from env_raw
-        if name1 == self._env_raw.robots[0].robot_model.name:
-            obj1_raw = self._env_raw.robots[0].robot_model
-        elif name1 == self._env_raw.robots[0].gripper["right"].name:
-            obj1_raw = self._env_raw.robots[0].gripper["right"]
-        elif name1 in list(self._env_raw.fixtures.keys()):
-            obj1_raw = self._env_raw.fixtures[name1]
-        else:
-            obj1_raw = self._env_raw.objects[name1]
-
-        if name2 == self._env_raw.robots[0].robot_model.name:
-            obj2_raw = self._env_raw.robots[0].robot_model
-        elif name2 == self._env_raw.robots[0].gripper["right"].name:
-            obj2_raw = self._env_raw.robots[0].gripper["right"]
-        elif name2 in list(self._env_raw.fixtures.keys()):
-            obj2_raw = self._env_raw.fixtures[name2]
-        else:
-            obj2_raw = self._env_raw.objects[name2]
-
-        
-        return self._env.check_contact(obj1_raw, obj2_raw)
-    # @classmethod
+     # @classmethod
     # def _BurnerAhead_holds(cls, state: State,
     #                        objects: Sequence[Object]) -> bool:
     #     """Static predicate useful for deciding between pushing or pulling the

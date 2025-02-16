@@ -123,6 +123,7 @@ class State:
     # Some environments will need to store additional simulator state, so
     # this field is provided.
     simulator_state: Optional[Any] = None
+    items_in_contact: Optional[set[Tuple[Object, Object]]] = None
 
     def __post_init__(self) -> None:
         # Check feature vector dimensions.

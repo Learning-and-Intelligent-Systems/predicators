@@ -9,6 +9,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     Predicate, Segment, State
 from robocasa.scripts.playback_dataset import reset_to
+from predicators.envs.robo_kitchen import RoboKitchenEnv
 
 def segment_trajectory(
         ll_traj: LowLevelTrajectory,
@@ -58,56 +59,18 @@ def _segment_with_contact_changes(
 
     if CFG.env == "robo_kitchen":
         # For robo_kitchen, we'll evaluate InContact live using the simulator
-        keep_pred_names = {"InContact"}
-        env = get_or_create_env(CFG.env)
-        keep_preds = {p for p in env.predicates if p.name in keep_pred_names}
-        assert len(keep_preds) == 1
-        keep_pred = keep_preds.pop()
+        keep_pred_names = "InContact"
+        keep_pred =  RoboKitchenEnv.create_predicates()[keep_pred_names]
         
         all_keep_atoms = []
 
-    
         # Handle initial state with model and metadata
-        initial_state = {
-            "states": ll_traj._raw_robosuite_states[0],
-            "model": ll_traj._model_file,
-            "ep_meta": ll_traj._ep_meta
-        }
-        reset_to(env._env, initial_state)
-        print("Evaluating contacts...")
-        if env._env.viewer is None:
-            env._env.initialize_renderer()
-        env._env.viewer.update()
-        # Evaluate initial state contacts
-        atoms = set()
-        # all_entity_names = [env._env.robots[0].robot_model.name, env._env.robots[0].gripper["right"].name] + list(env._env.fixtures.keys()) + list(env._env.objects.keys())
-
-        # initial state contact evaluation
-        # for i, entity1 in enumerate(all_entity_names):
-        #     obj1 = env.object_name_to_object(entity1)
-        #     for entity2 in all_entity_names[i+1:]:
-        #         obj2 = env.object_name_to_object(entity2)
-        contact_set = env._env.get_contacts(env._env.robots[0].gripper["right"])
-        obj1 = env.object_name_to_object(env._env.robots[0].gripper["right"].name)
-        for obj2_name in contact_set:
-            obj2 = env.object_name_to_object(obj2_name)
-            # if env._InContact_holds([obj1, obj2]): # this step is unnecessary
-            atoms.add(GroundAtom(keep_pred, [obj1, obj2]))
-        all_keep_atoms.append(atoms)
-
-        # Handle remaining states
-        for i, raw_state in enumerate(ll_traj._raw_robosuite_states[1:], 1):
-            print(f"Progress: {i+1}/{len(ll_traj._raw_robosuite_states)}")
-            # Reset simulator to current state
-            reset_to(env._env, {"states": raw_state})
-            env._env.viewer.update()
-            # Now evaluate predicates using live simulator state
+        for state in ll_traj.states:
+            contact_set = state.items_in_contact
+            # Get initial state contacts
             atoms = set()
-            contact_set = env._env.get_contacts(env._env.robots[0].gripper["right"])
-            obj1 = env.object_name_to_object(env._env.robots[0].gripper["right"].name)
-            for obj2_name in contact_set:
-                obj2 = env.object_name_to_object(obj2_name)
-                # if env._InContact_holds([obj1, obj2]): # this fails becuase door and handle are not fixtures, not objects, and not robots
+            for contact in contact_set:
+                obj1, obj2 = contact
                 atoms.add(GroundAtom(keep_pred, [obj1, obj2]))
             all_keep_atoms.append(atoms)
     else:

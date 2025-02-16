@@ -17,6 +17,11 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.cogman import CogMan, run_episode_and_get_states
 from predicators.envs import BaseEnv
+
+from predicators.envs.robo_kitchen import RoboKitchenEnv
+from robocasa.scripts.playback_dataset import reset_to
+
+
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.perception import create_perceiver
@@ -314,7 +319,7 @@ def human_demonstrator_policy(env: BaseEnv, caption: str,
     return container["action"]
 
 
-def create_demo_data_from_robocasa(env: BaseEnv, train_tasks: List[Task],
+def create_demo_data_from_robocasa(env: RoboKitchenEnv, train_tasks: List[Task],
                                  known_options: Set[ParameterizedOption],
                                  task_name: str) -> Dataset:
     """Create offline datasets by loading robocasa demonstrations.
@@ -352,15 +357,42 @@ def create_demo_data_from_robocasa(env: BaseEnv, train_tasks: List[Task],
             # Create list of State objects from state info at each timestep
             states = []
             first_key = next(iter(demo["datagen_info"]))
+            # Process each timestep
             for t in range(len(demo["datagen_info"][first_key])):
+                # Get basic state info
                 state_info = {}
                 for key in demo["datagen_info"].keys():
                     state_info[key] = demo["datagen_info"][key][t]
-                state = env.state_info_to_state(state_info)
+
+                # Reset simulator to current state
+                if t == 0:
+                    reset_state = {
+                        "states": demo["states"][t],
+                        "model": demo.attrs["model_file"],
+                        "ep_meta": demo.attrs.get("ep_meta", None)
+                    }
+                else:
+                    reset_state = {
+                        "states": demo["states"][t]
+                    }
+                reset_to(env._env, reset_state)
+                
+                if env._env.viewer is None:
+                    env._env.initialize_renderer()
+                if CFG.robo_kitchen_viz_debug:
+                    env._env.viewer.update()
+
+                # Get contact information
+                contact_set = env.get_object_level_contacts()
+
+                # print(contact_set)
+
+                # Create state object
+                state = env.state_info_to_state(state_info, contact_set)
                 states.append(state)
+
             actions = demo["actions"][()]  # Get actions array
             raw_robosuite_states = demo["states"][()]
-            
             # Convert actions to predicators Action objects
             action_objs = []
             for action in actions[:-1]:  # Skip the last action
