@@ -95,8 +95,6 @@ We are currently using Detic + Segmentation Anything to provide text-conditioned
 
 We currently use REST interface from the [DETIC SAM BDAI repo](https://github.com/bdaiinstitute/detic-sam/).
 
-Note that BDAI is currently transitioning to using `torchserve`, so we likely need to update the client code a bit. 
-
 The pipeline is as follows:
 - Set up the repo
   - See the instructions in the above-linked repo. Note that you need to use the branch listed above.
