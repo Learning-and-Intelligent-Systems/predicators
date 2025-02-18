@@ -2582,7 +2582,9 @@ def query_vlm_for_atom_vals(
         prev_states_imgs_history = [
             s.simulator_state["images"] for s in prev_states
         ]
-        if "cropped_images" in prev_states[0].simulator_state:
+        # import ipdb; ipdb.set_trace()
+        if len(prev_states
+               ) > 0 and "cropped_images" in prev_states[0].simulator_state:
             prev_states_imgs_history = [
                 s.simulator_state["cropped_images"] for s in prev_states
             ]

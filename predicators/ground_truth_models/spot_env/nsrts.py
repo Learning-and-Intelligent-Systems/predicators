@@ -285,11 +285,11 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
-            "spot_vlm_test_env", "spot_cube_env", "spot_soda_floor_env",
-            "spot_soda_table_env", "spot_soda_bucket_env",
-            "spot_soda_chair_env", "spot_main_sweep_env",
-            "spot_ball_and_cup_sticky_table_env", "spot_brush_shelf_env",
-            "lis_spot_block_floor_env"
+            "spot_vlm_cup_table_env", "spot_vlm_dustpan_test_env",
+            "spot_cube_env", "spot_soda_floor_env", "spot_soda_table_env",
+            "spot_soda_bucket_env", "spot_soda_chair_env",
+            "spot_main_sweep_env", "spot_ball_and_cup_sticky_table_env",
+            "spot_brush_shelf_env", "lis_spot_block_floor_env"
         }
 
     @staticmethod

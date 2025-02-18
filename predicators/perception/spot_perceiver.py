@@ -639,21 +639,24 @@ class SpotMinimalPerceiver(BasePerceiver):
                      goal_description: GoalDescription) -> Set[GroundAtom]:
         del state  # not used
         # Unfortunate hack to deal with the fact that the state is actually
-        # not yet set. Hopefully one day other cleanups will enable cleaning.
+        # not yet set. This is an artefact of the way we do Spot envs where
+        # we pass around dummy initial states when creating the train and
+        # test tasks...
+        # Hopefully one day other cleanups will enable cleaning.
         assert self._curr_env is not None
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
-        # VLMOn = pred_name_to_pred["VLMOn"]
         Inside = pred_name_to_pred["Inside"]
         Holding = pred_name_to_pred["Holding"]
         HandEmpty = pred_name_to_pred["HandEmpty"]
+        VLMOn = pred_name_to_pred["VLMOn"]
 
-        if goal_description == "put the cup in the pan":
+        if goal_description == "get the cup onto the table!":
             robot = Object("robot", _robot_type)
             cup = Object("cup", _movable_object_type)
-            pan = Object("pan", _container_type)
+            table = Object("cardboard_table", _immovable_object_type)
             goal = {
                 GroundAtom(HandEmpty, [robot]),
-                # GroundAtom(VLMOn, [cup, pan])
+                GroundAtom(VLMOn, [cup, table])
             }
             return goal
         if goal_description == "put the mess in the dustpan":
@@ -665,16 +668,6 @@ class SpotMinimalPerceiver(BasePerceiver):
                 GroundAtom(Holding, [robot, dustpan])
             }
             return goal
-
-        # if goal_description == "put the mess in the dustpan":
-        #     robot = Object("robot", _robot_type)
-        #     dustpan = Object("dustpan", _dustpan_type)
-        #     wrappers = Object("wrappers", _wrappers_type)
-        #     goal = {
-        #         # GroundAtom(Inside, [wrappers, dustpan]),
-        #         GroundAtom(Holding, [robot, dustpan])
-        #     }
-        #     return goal
 
         raise NotImplementedError("Unrecognized goal description")
 
@@ -700,8 +693,14 @@ class SpotMinimalPerceiver(BasePerceiver):
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
+        # First, if this is the first time we're getting an
+        # observation, then update the ordered list of known objects.
+        if self._waiting_for_observation:
+            assert len(self._ordered_objects) == 0
+            self._ordered_objects = sorted(observation.all_objects)
         self._waiting_for_observation = False
         self._robot = observation.robot
+
         img_objects = observation.rgbd_images  # RGBDImage objects
         img_names = [v.camera_name for _, v in img_objects.items()]
         imgs = [v.rotated_rgb for _, v in img_objects.items()]
@@ -820,7 +819,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         str_vlm_response = '\n'.join(reconstructed_all_vlm_responses)
         self._vlm_label_history.append(str_vlm_response)
         self._state_history.append(self._curr_state.copy())
-
         return self._curr_state.copy()
 
     def _create_state(self) -> State:
@@ -828,16 +826,6 @@ class SpotMinimalPerceiver(BasePerceiver):
             return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
-        # table = Object("table", _movable_object_type)
-        # cup = Object("cup", _movable_object_type)
-        # pan = Object("pan", _container_type)
-        wrappers = Object("wrappers", _wrappers_type)
-        dustpan = Object("dustpan", _dustpan_type)
-        broom = Object("broom", _broom_type)
-        # bread = Object("bread", _movable_object_type)
-        # toaster = Object("toaster", _immovable_object_type)
-        # microwave = Object("microwave", _movable_object_type)
-        # napkin = Object("napkin", _movable_object_type)
         state_dict = {
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
@@ -849,202 +837,39 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qy": 0,
                 "qz": 0,
             },
-            # table: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 0,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # },
-            # cup: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width": 0,
-            #     "length": 0,
-            #     "object_id": 1,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # },
-            # napkin: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 2,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # },
-            # microwave: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 2,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # },
-            # bread: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 2,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # },
-            # toaster: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 1,
-            #     "flat_top_surface": 1
-            # },
-            # pan: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 2,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # },
-            wrappers: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width": 0,
-                "length": 0,
-                "object_id": 2,
-                "placeable": 1,
-                "held": 0,
-                "lost": 0,
-                "in_hand_view": 0,
-                "in_view": 1,
-                "is_sweeper": 0
-            },
-            dustpan: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width": 0,
-                "length": 0,
-                "object_id": 2,
-                "placeable": 1,
-                "held": 0,
-                "lost": 0,
-                "in_hand_view": 0,
-                "in_view": 1,
-                "is_sweeper": 0
-            },
-            broom: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width": 0,
-                "length": 0,
-                "object_id": 2,
-                "placeable": 1,
-                "held": 0,
-                "lost": 0,
-                "in_hand_view": 0,
-                "in_view": 1,
-                "is_sweeper": 0
-            }
         }
+        # Add a 'dummy' state for each of the objects we know about.
+        for obj in self._ordered_objects:
+            state_dict[obj] = {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width": 0,
+                "length": 0,
+                "object_id": 2,
+            }
+            if obj.type.name == "movable":
+                state_dict[obj].update({
+                    "placeable": 1,
+                    "held": 0,
+                    "lost": 0,
+                    "in_hand_view": 0,
+                    "in_view": 0,
+                    "is_sweeper": 0,
+                })
+            elif obj.type.name == "immovable":
+                state_dict[obj].update({"has_flat_top_surface": 1})
+            else:
+                raise ValueError(
+                    f"Dummy state construction for type {obj.type} not implemented yet."
+                )
+        # Complete the dummy state; to be populated with additional info!
         state_dict = {k: list(v.values()) for k, v in state_dict.items()}
         state = State(state_dict)
         state.simulator_state = {}

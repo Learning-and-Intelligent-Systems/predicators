@@ -1032,7 +1032,8 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
-            "spot_vlm_test_env",
+            "spot_vlm_dustpan_test_env",
+            "spot_vlm_cup_table_env",
             "spot_cube_env",
             "spot_soda_floor_env",
             "spot_soda_table_env",
