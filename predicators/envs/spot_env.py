@@ -2465,9 +2465,6 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
     it?
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("No dry task for VLMPredicateEnvs.")
@@ -2566,19 +2563,20 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         self, rgbd_images: Dict[str, RGBDImage]
     ) -> Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]:
         """A simple minimal version of the `detect_objects` method that we
-        import from object_detection.py. This is more minimal and can be used
-        to construct simple observations specifically for this 'mapless'
-        environment.
+        import from object_detection.py.
 
-        TODO: move this method into object_detection, and also
-        probably make it easy for other env variants to use it?
+        This is more minimal and can be used to construct simple
+        observations specifically for this 'mapless' environment.
         """
+        # TODO: move this method into object_detection, and also
+        # probably make it easy for other env variants to use it?
         object_ids = self._detection_id_to_obj.keys()
         object_id_to_img_detections = _query_detic_sam2(
             object_ids, rgbd_images)
-        # This ^ is currently a mapping of object_id -> camera_name -> SegmentedBoundingBox.
-        # We want to do our annotations by camera image, so let's turn this into a
-        # mapping of camera_name -> object_id -> SegmentedBoundingBox.
+        # This ^ is currently a mapping of object_id -> camera_name ->
+        # SegmentedBoundingBox.
+        # We want to do our annotations by camera image, so let's turn this
+        # into a mapping of camera_name -> object_id -> SegmentedBoundingBox.
         detections = {k: [] for k in rgbd_images.keys()}
         for object_id, d in object_id_to_img_detections.items():
             for camera_name, seg_bb in d.items():
