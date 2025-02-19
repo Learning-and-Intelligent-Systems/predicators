@@ -647,5 +647,5 @@ def real_robot_sweeping_nsrt_test() -> None:
 
 if __name__ == "__main__":
     real_robot_cube_env_test()
-    # real_robot_drafting_table_placement_test()
-    # real_robot_sweeping_nsrt_test()
+    real_robot_drafting_table_placement_test()
+    real_robot_sweeping_nsrt_test()
