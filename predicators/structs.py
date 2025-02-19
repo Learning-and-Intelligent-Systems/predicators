@@ -16,8 +16,6 @@ from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
 
-import predicators.pretrained_model_interface
-import predicators.utils as utils  # pylint: disable=consider-using-from-import
 from predicators.settings import CFG
 
 
@@ -494,7 +492,8 @@ class Task:
         if "abstract_state" in state.simulator_state:
             abstract_state = state.simulator_state["abstract_state"]
             return self.goal.issubset(abstract_state)
-        from predicators.utils import query_vlm_for_atom_vals
+        from predicators.utils import \
+            query_vlm_for_atom_vals  # pylint:disable=import-outside-toplevel
         vlm_atoms = set(atom for atom in self.goal
                         if isinstance(atom.predicate, VLMPredicate))
         for atom in self.goal:

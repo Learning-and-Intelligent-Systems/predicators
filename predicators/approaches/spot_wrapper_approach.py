@@ -101,8 +101,10 @@ class SpotWrapperApproach(BaseApproachWrapper):
                     cur_task, timeout)
                 self._base_approach_has_control = True
                 # Need to call this once here to fix off-by-one issue.
-                atom_seq = self._base_approach.get_execution_monitoring_info()
-                # TODO: consider reinstating the line below.
+                _ = self._base_approach.get_execution_monitoring_info()
+                # NOTE: might be worth reinstating the above line to check for
+                # weird issues that might come up.
+                # atom_seq = self._base_approach.get_execution_monitoring_info()
                 # assert all(a.holds(state) for a in atom_seq[0])
             # Use the base policy.
             return base_approach_policy(state)

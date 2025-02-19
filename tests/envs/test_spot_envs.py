@@ -25,13 +25,6 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
-def test_spot_vlm_debug():
-    utils.reset_config({
-        "env": "spot_vlm_test_env",
-    })
-    pass
-
-
 def test_spot_env_dry_run():
     """Dry run tests (do not require access to robot)."""
     utils.reset_config({
@@ -273,9 +266,6 @@ def real_robot_cube_env_test() -> None:
         args.get("test_task_json_dir", None),
     })
     rng = np.random.default_rng(123)
-    import os
-    os.environ["BOSDYN_CLIENT_USERNAME"] = "user"
-    os.environ["BOSDYN_CLIENT_PASSWORD"] = "bbbdddaaaiii"
     env = SpotCubeEnv()
     perceiver = SpotPerceiver()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,

@@ -1516,8 +1516,6 @@ _Stained = utils.create_vlm_predicate(
 _Messy = utils.create_vlm_predicate("Messy", [_movable_object_type],
                                     lambda o: _get_vlm_query_str("Messy", o))
 
-# long = "Is the dustpan oriented such that a single sweeping motion with a broom would move the mess into the dustpan?"
-# long = "Touching(dustpan, mess)"
 _Touching = utils.create_vlm_predicate(
     "Touching", [_dustpan_type, _wrappers_type],
     lambda o: _get_vlm_query_str("Touching", o))
@@ -2467,6 +2465,9 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
     it?
     """
 
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("No dry task for VLMPredicateEnvs.")
@@ -2503,15 +2504,20 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         object_detections_per_camera = self.detect_objects(rgbd_images)
 
         # NOTE: uncomment for debugging via images.
-        # artifacts = {"language": {"rgbds": rgbd_images, "object_id_to_img_detections": ret}}
+        # artifacts = {
+        #     "language": {
+        #         "rgbds": rgbd_images,
+        #         "object_id_to_img_detections": ret
+        #     }
+        # }
         # detections_outfile = Path(".") / "object_detection_artifacts.png"
         # no_detections_outfile = Path(".") / "no_detection_artifacts.png"
-        # visualize_all_artifacts(artifacts, detections_outfile, no_detections_outfile)
+        # visualize_all_artifacts(artifacts, detections_outfile,
+        #                         no_detections_outfile)
         # # Draw object bounding box on images.
         # rgbds = artifacts["language"]["rgbds"]
         # detections = artifacts["language"]["object_id_to_img_detections"]
-        # flat_detections: List[Tuple[RGBDImage,
-        #                             LanguageObjectDetectionID,
+        # flat_detections: List[Tuple[RGBDImage, LanguageObjectDetectionID,
         #                             SegmentedBoundingBox]] = []
         # for obj_id, img_detections in detections.items():
         #     for camera, seg_bb in img_detections.items():
@@ -2537,11 +2543,14 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         #     # text_height = font.getsize("hg")[1]
         #     text_mask = font.getmask(text)
         #     text_width, text_height = text_mask.size
-        #     text_bbox = [(x0, y0 - text_height - 2), (x0 + text_width + 2, y0)]
+        #     text_bbox = [(x0, y0 - text_height - 2),
+        #                   (x0 + text_width + 2, y0)]
         #     draw.rectangle(text_bbox, fill='green')
-        #     draw.text((x0 + 1, y0 - text_height - 1), text, fill='white', font=font)
-
-        # import pdb; pdb.set_trace()
+        #     draw.text((x0 + 1, y0 - text_height - 1),
+        #               text,
+        #               fill='white',
+        #               font=font)
+        # import ipdb; ipdb.set_trace()
 
         obs = _TruncatedSpotObservation(rgbd_images,
                                         self._get_task_object_set(),

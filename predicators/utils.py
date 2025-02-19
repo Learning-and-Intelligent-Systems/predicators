@@ -2551,11 +2551,10 @@ def get_prompt_for_vlm_state_labelling(
             "before the skill was executed: \n"
             curr_prompt += label_history[-1]
         return (curr_prompt, curr_prompt_imgs)
-    else:
-        # NOTE: we rip out only the first image from each trajectory
-        # which is fine for most domains, but will be problematic for
-        # situations in which there is more than one image per state.
-        return (prompt, imgs_history[-1])
+    # NOTE: we rip out only the first image from each trajectory
+    # which is fine for most domains, but will be problematic for
+    # situations in which there is more than one image per state.
+    return (prompt, imgs_history[-1])
 
 
 def query_vlm_for_atom_vals(
@@ -2625,28 +2624,20 @@ def query_vlm_for_atom_vals(
                 true_atoms.add(vlm_atoms[i])
     else:
         all_vlm_responses = vlm_output_str.strip().split("\n")
-        # NOTE: this assumption is likely too brittle; if this is breaking, feel
-        # free to remove/adjust this and change the below parsing loop accordingly!
+        # NOTE: this assumption is likely too brittle; if this is breaking,
+        # feel free to remove/adjust this and change the below parsing
+        # loop accordingly!
         assert len(atom_queries_list) == len(all_vlm_responses)
         for i, (atom_query, curr_vlm_output_line) in enumerate(
                 zip(atom_queries_list, all_vlm_responses)):
             assert atom_query + ":" in curr_vlm_output_line
             assert "." in curr_vlm_output_line
-            period_idx = curr_vlm_output_line.find(".")
-            # value = curr_vlm_output_line[len(atom_query + ":"):period_idx].lower().strip()
+            # period_idx = curr_vlm_output_line.find(".")
+            # value = curr_vlm_output_line[len(atom_query + ":"):
+            # period_idx].lower().strip()
             value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
             if value == "true":
                 true_atoms.add(vlm_atoms[i])
-
-    # breakpoint()
-    # Add the text of the VLM's response to the state, to be used in the future!
-    # REMOVE THIS -> AND PUT IT IN THE PERCEIVER
-    # Perceiver calls utils.abstract once, and puts it in the state history.
-    # According to a flag, anywhere else we normally call utils.abstract, we
-    # instead just pull the abstract state from the state simulator state field that has it already.
-    # The appending of vlm atom history is currently done in query_vlm_for_atom_vals() in utils.py,
-    # and utils.ground calls that.
-    # state.simulator_state["vlm_atoms_history"].append(all_vlm_responses)
     return true_atoms
 
 

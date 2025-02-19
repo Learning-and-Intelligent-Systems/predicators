@@ -8,7 +8,6 @@ from bosdyn.client.frame_helpers import BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
-from scipy import ndimage
 
 from predicators.spot_utils.perception.perception_structs import RGBDImage, \
     RGBDImageWithContext
@@ -126,25 +125,15 @@ def capture_images_without_context(
     camera_names: Optional[Collection[str]] = None,
     quality_percent: int = 100,
 ) -> Dict[str, RGBDImage]:
-    """Build an image request and get the responses.
+    """A variant of the above function that doesn't use the map to try to get
+    contexts for the returned images.
 
     If no camera names are provided, all RGB cameras are used.
     """
-    # global _LAST_CAPTURED_IMAGES  # pylint: disable=global-statement
-
     if camera_names is None:
         camera_names = set(RGB_TO_DEPTH_CAMERAS)
-
     image_client = robot.ensure_client(ImageClient.default_service_name)
-
     rgbds: Dict[str, RGBDImage] = {}
-
-    # # Get the world->robot transform so we can store world->camera transforms
-    # # in the RGBDWithContexts.
-    # if relocalize:
-    #     localizer.localize()
-    # world_tform_body = localizer.get_last_robot_pose()
-    # body_tform_world = world_tform_body.inverse()
 
     # Package all the requests together.
     img_reqs: image_pb2.ImageRequest = []
@@ -174,30 +163,13 @@ def capture_images_without_context(
         rgb_img_resp = name_to_response[camera_name]
         depth_img_resp = name_to_response[RGB_TO_DEPTH_CAMERAS[camera_name]]
         rgb_img = _image_response_to_image(rgb_img_resp)
-        # rgb_img = ndimage.rotate(rgb_img, ROTATION_ANGLE[camera_name], reshape=False)
         depth_img = _image_response_to_image(depth_img_resp)
-        # # Create transform.
-        # camera_tform_body = get_a_tform_b(
-        #     rgb_img_resp.shot.transforms_snapshot,
-        #     rgb_img_resp.shot.frame_name_image_sensor, BODY_FRAME_NAME)
-        # camera_tform_world = camera_tform_body * body_tform_world
-        # world_tform_camera = camera_tform_world.inverse()
-        # Extract other context.
         rot = ROTATION_ANGLE[camera_name]
         depth_scale = depth_img_resp.source.depth_scale
-        # transforms_snapshot = rgb_img_resp.shot.transforms_snapshot
-        # frame_name_image_sensor = rgb_img_resp.shot.frame_name_image_sensor
         camera_model = rgb_img_resp.source.pinhole
-        # Finish RGBDImageWithContext.
-        # rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
-        #                             world_tform_camera, depth_scale,
-        #                             transforms_snapshot,
-        #                             frame_name_image_sensor, camera_model)
         rgbd = RGBDImage(rgb_img, depth_img, rot, camera_name, depth_scale,
                          camera_model)
         rgbds[camera_name] = rgbd
-
-    # _LAST_CAPTURED_IMAGES = rgbds
 
     return rgbds
 

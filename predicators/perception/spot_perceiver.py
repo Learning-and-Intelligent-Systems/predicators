@@ -17,12 +17,8 @@ from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     _PartialPerceptionState, _SpotObservation, in_general_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
-from predicators.spot_utils.perception.object_detection import \
-    AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
-    LanguageObjectDetectionID, ObjectDetectionID, _query_detic_sam2, \
-    detect_objects, visualize_all_artifacts
-from predicators.spot_utils.utils import _broom_type, _container_type, \
-    _dustpan_type, _immovable_object_type, _movable_object_type, _robot_type, \
+from predicators.spot_utils.utils import _container_type, _dustpan_type, \
+    _immovable_object_type, _movable_object_type, _robot_type, \
     _wrappers_type, get_allowed_map_regions, load_spot_metadata, \
     object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \

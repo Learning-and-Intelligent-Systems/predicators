@@ -911,6 +911,7 @@ def _create_teleop_policy_with_name(
         robot, lease_client = get_robot_only()
 
         def _teleop(robot: Robot, lease_client: LeaseClient):
+            del robot  # unused.
             prompt = "Press (y) when you are done with teleop."
             while True:
                 response = utils.prompt_user(prompt).strip()
@@ -925,7 +926,6 @@ def _create_teleop_policy_with_name(
         fn_args = (robot, lease_client)
         sim_fn = lambda _: None
         sim_fn_args = ()
-        name = name
         action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args,
                                                 sim_fn, sim_fn_args)
         return utils.create_spot_env_action(action_extra_info)
