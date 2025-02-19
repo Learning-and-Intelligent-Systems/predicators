@@ -382,7 +382,8 @@ class SpotRearrangementEnv(BaseEnv):
                                                nonpercept_atoms)
 
         if action_name in [
-                "MoveToReachObject", "MoveToReadySweep", "MoveToBodyViewObject"
+                "MoveToReachObject", "TeleopMoveToReadySweep",
+                "MoveToBodyViewObject"
         ]:
             robot_rel_se2_pose = action_args[1]
             return _dry_simulate_move_to_reach_obj(obs, robot_rel_se2_pose,
@@ -446,7 +447,7 @@ class SpotRearrangementEnv(BaseEnv):
             return _dry_simulate_pick_and_dump_container(
                 obs, objs_inside, nonpercept_atoms, self._noise_rng)
 
-        if action_name == "DropNotPlaceableObject":
+        if action_name == "TeleopDropNotPlaceableObject":
             return _dry_simulate_drop_not_placeable_object(
                 obs, nonpercept_atoms)
 
@@ -1654,7 +1655,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
-    # DropNotPlaceableObject
+    # TeleopDropNotPlaceableObject
     robot = Variable("?robot", _robot_type)
     held = Variable("?held", _movable_object_type)
     parameters = [robot, held]
@@ -1670,7 +1671,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Holding, [robot, held]),
     }
     ignore_effs = set()
-    yield STRIPSOperator("DropNotPlaceableObject", parameters, preconds,
+    yield STRIPSOperator("TeleopDropNotPlaceableObject", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
     # DropObjectInside
@@ -1766,7 +1767,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("DragToBlockObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
-    # MoveToReadySweep
+    # TeleopMoveToReadySweep
     robot = Variable("?robot", _robot_type)
     container = Variable("?container", _container_type)
     target = Variable("?target", _movable_object_type)
@@ -1781,8 +1782,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     del_effs = set()
     ignore_effs = {_Reachable, _InView, _InHandView}
-    yield STRIPSOperator("MoveToReadySweep", parameters, preconds, add_effs,
-                         del_effs, ignore_effs)
+    yield STRIPSOperator("TeleopMoveToReadySweep", parameters, preconds,
+                         add_effs, del_effs, ignore_effs)
 
     # SweepTwoObjectsIntoContainer
     robot = Variable("?robot", _robot_type)
@@ -2787,8 +2788,8 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
             LiftedAtom(_NotHolding, [robot, dustpan]),
         }
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick1", parameters, preconds, add_effs, del_effs,
-                             ignore_effs)
+        yield STRIPSOperator("TeleopPick1", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
         # Place(robot, dustpan, mess)
         robot = Variable("?robot", _robot_type)
@@ -2820,8 +2821,8 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
             LiftedAtom(_NotHolding, [robot, broom]),
         }
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick2", parameters, preconds, add_effs, del_effs,
-                             ignore_effs)
+        yield STRIPSOperator("TeleopPick2", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
         # Sweep(robot, broom, mess, dustpan)
         robot = Variable("?robot", _robot_type)
@@ -2869,7 +2870,8 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
         self._spot_object = Object("robot", _robot_type)
         op_to_name = {o.name: o for o in self._create_operators()}
         op_names_to_keep = {
-            "Pick1", "PlaceNextTo", "Pick2", "Sweep", "PlaceOnFloor"
+            "TeleopPick1", "PlaceNextTo", "TeleopPick2", "Sweep",
+            "PlaceOnFloor"
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
@@ -3237,8 +3239,8 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             "PrepareContainerForSweeping",
             "PickAndDumpContainer",
             "PickAndDumpTwoFromContainer",
-            "DropNotPlaceableObject",
-            "MoveToReadySweep",
+            "TeleopDropNotPlaceableObject",
+            "TeleopMoveToReadySweep",
             "PickObjectToDrag",
             "DropObjectInside",
         }

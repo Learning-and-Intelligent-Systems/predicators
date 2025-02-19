@@ -963,9 +963,9 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty
-    "Pick1": Box(0, 1, (0, )),  # empty
+    "TeleopPick1": Box(0, 1, (0, )),  # empty
     "PlaceNextTo": Box(0, 1, (0, )),  # empty
-    "Pick2": Box(0, 1, (0, )),  # empty
+    "TeleopPick2": Box(0, 1, (0, )),  # empty
     "Sweep": Box(0, 1, (0, )),  # empty
     "PlaceOnFloor": Box(0, 1, (0, ))  # empty
 }
@@ -991,9 +991,9 @@ _OPERATOR_NAME_TO_POLICY = {
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
     "DropNotPlaceableObject": _drop_not_placeable_object_policy,
     "MoveToReadySweep": _move_to_ready_sweep_policy,
-    "Pick1": _create_teleop_policy_with_name("Pick1"),
+    "TeleopPick1": _create_teleop_policy_with_name("TeleopPick1"),
     "PlaceNextTo": _create_teleop_policy_with_name("PlaceNextTo"),
-    "Pick2": _create_teleop_policy_with_name("Pick2"),
+    "TeleopPick2": _create_teleop_policy_with_name("TeleopPick2"),
     "Sweep": _create_teleop_policy_with_name("Sweep"),
     "PlaceOnFloor": _create_teleop_policy_with_name("PlaceOnFloor")
 }

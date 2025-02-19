@@ -2266,8 +2266,8 @@ def test_operator_application():
     preconditions3 = {pred2([cup_var, plate_var])}
     op4 = STRIPSOperator("Place", parameters, preconditions3, add_effects2,
                          delete_effects2, set())
-    op5 = STRIPSOperator("Pick2", parameters, preconditions1, add_effects1,
-                         delete_effects1, set())
+    op5 = STRIPSOperator("TeleopPick2", parameters, preconditions1,
+                         add_effects1, delete_effects1, set())
     ground_ops = (set(utils.all_ground_operators(op3, objects))
                   | set(utils.all_ground_operators(op4, objects))
                   | set(utils.all_ground_operators(op5, objects)))
