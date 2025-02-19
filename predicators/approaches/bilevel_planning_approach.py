@@ -58,8 +58,6 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        # utils.abstract(task.init, preds, self._vlm)
-        # utils.abstract(task.init, preds, self._vlm)
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
@@ -72,9 +70,6 @@ class BilevelPlanningApproach(BaseApproach):
             # logging.debug("Current Task Plan:")
             # for act in nsrt_plan:
             #     logging.debug(act)
-            logging.info("Current Task Plan:")
-            for n in nsrt_plan:
-                logging.info(f"{n.name}, {n.objects}")
 
         # Run full bilevel planning.
         else:
