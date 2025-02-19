@@ -404,7 +404,7 @@ def test_option(state):
                                                policy, initiable, terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
             "ParameterizedOption(name='Pick', types=[Type(name='type1')])")
-    parameterized_option2 = ParameterizedOption("TeleopPick2", [type1],
+    parameterized_option2 = ParameterizedOption("Pick2", [type1],
                                                 params_space, policy,
                                                 initiable, terminal)
     assert parameterized_option2 > parameterized_option
