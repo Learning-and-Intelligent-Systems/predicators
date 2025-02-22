@@ -340,15 +340,17 @@ def create_demo_data_from_robocasa(env: RoboKitchenEnv, train_tasks: List[Task],
         raise ValueError(f"Dataset not found at {dataset_path}")
         
     # Load HDF5 file
-    with h5py.File(dataset_path, "r") as f:
+    with h5py.File(dataset_path, "r") as f:        
         trajectories = []
         
         # Each demonstration is stored in a group like "demo_0", "demo_1", etc.
         demos = list(f["data"].keys())
         
         for demo_idx, demo_key in enumerate(demos):
+            # Show progress
             if demo_idx >= CFG.num_train_tasks:
                 break
+            logging.info(f"Processing demo {demo_idx+1} / {min(CFG.num_train_tasks, len(demos))}")
                 
             # Get demo data
             demo = f[f"data/{demo_key}"]
@@ -377,19 +379,61 @@ def create_demo_data_from_robocasa(env: RoboKitchenEnv, train_tasks: List[Task],
                     }
                 reset_to(env._env, reset_state)
                 
-                if env._env.viewer is None:
-                    env._env.initialize_renderer()
                 if CFG.robo_kitchen_viz_debug:
+                    if env._env.viewer is None:
+                        env._env.initialize_renderer()
                     env._env.viewer.update()
 
                 # Get contact information
                 contact_set = env.get_object_level_contacts()
 
                 # print(contact_set)
-
+                
                 # Create state object
                 state = env.state_info_to_state(state_info, contact_set)
                 states.append(state)
+            
+            # Smooth contact sets using a moving window
+            window_size = CFG.robo_kitchen_contact_smoothing_window  # Number of timesteps to look at
+            
+            # Store original contacts to prevent smoothing from affecting later operations
+            original_contacts = [state.items_in_contact.copy() for state in states]
+            
+            for t in range(len(states)):
+                # Get contact sets from window using original contacts
+                window_contacts = []
+                
+                # For points near start, use shifted window that fits
+                if t < window_size//2:
+                    window_start = 0
+                    window_end = window_size
+                # For points near end, use shifted window that fits 
+                elif t >= len(states) - window_size//2:
+                    window_start = len(states) - window_size
+                    window_end = len(states)
+                # For middle points use centered window
+                else:
+                    window_start = t - window_size//2
+                    window_end = t + window_size//2 + 1
+                
+                # Get contacts in window
+                for w in range(window_start, window_end):
+                    window_contacts.append(original_contacts[w])
+                
+                # For each possible contact pair, use mode over window
+                all_pairs = set()
+                for contact_set in window_contacts:
+                    all_pairs.update(contact_set)
+                
+                smoothed_contacts = set()
+                for pair in all_pairs:
+                    # Count occurrences of this pair in window
+                    count = sum(1 for contact_set in window_contacts if pair in contact_set)
+                    # Add to smoothed set if pair appears in majority of window
+                    if count > window_size//2:
+                        smoothed_contacts.add(pair)
+                # Update contact set for this timestep
+                states[t].items_in_contact = smoothed_contacts
 
             actions = demo["actions"][()]  # Get actions array
             raw_robosuite_states = demo["states"][()]

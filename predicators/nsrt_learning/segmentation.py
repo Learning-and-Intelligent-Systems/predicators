@@ -73,6 +73,7 @@ def _segment_with_contact_changes(
                 obj1, obj2 = contact
                 atoms.add(GroundAtom(keep_pred, [obj1, obj2]))
             all_keep_atoms.append(atoms)
+        include_last_segment = True
     else:
         # Original code path for other environments
         if CFG.env == "stick_button":
@@ -92,6 +93,7 @@ def _segment_with_contact_changes(
         else:
             raise NotImplementedError("Contact-based segmentation not implemented "
                                     f"for environment {CFG.env}.")
+        include_last_segment = False
 
         env = get_or_create_env(CFG.env)
         keep_preds = {p for p in env.predicates if p.name in keep_pred_names}
@@ -104,7 +106,7 @@ def _segment_with_contact_changes(
         return all_keep_atoms[t] != all_keep_atoms[t + 1]
 
     return _segment_with_switch_function(ll_traj, predicates, atom_seq,
-                                         _switch_fn)
+                                         _switch_fn, include_last_segment)
 
 
 def _segment_with_option_changes(
@@ -190,7 +192,8 @@ def _segment_with_oracle(ll_traj: LowLevelTrajectory,
 def _segment_with_switch_function(
         ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
         atom_seq: Optional[List[Set[GroundAtom]]],
-        switch_fn: Callable[[int], bool]) -> List[Segment]:
+        switch_fn: Callable[[int], bool],
+        include_last_segment: bool = False) -> List[Segment]:
     """Helper for other segmentation methods.
 
     The switch_fn takes in a timestep and returns True if the trajectory
@@ -206,11 +209,14 @@ def _segment_with_switch_function(
     else:
         s0 = ll_traj.states[0]
         current_segment_init_atoms = utils.abstract(s0, predicates)
+    
+    t_last_switch = -1
     for t in range(len(ll_traj.actions)):
         current_segment_states.append(ll_traj.states[t])
         current_segment_actions.append(ll_traj.actions[t])
         if switch_fn(t):
             # Include the final state as the end of this segment.
+            t_last_switch = t
             current_segment_states.append(ll_traj.states[t + 1])
             current_segment_traj = LowLevelTrajectory(current_segment_states,
                                                       current_segment_actions)
@@ -234,6 +240,22 @@ def _segment_with_switch_function(
             current_segment_states = []
             current_segment_actions = []
             current_segment_init_atoms = current_segment_final_atoms
+    
+    # robocasa needs last segment to learn
+    if include_last_segment and t_last_switch != len(ll_traj.actions) - 1:
+        current_segment_states = []
+        current_segment_actions = []
+        current_final_atoms = [] # not changed so mark as empty
+        
+        for t in range(t_last_switch + 1, len(ll_traj.actions)):
+            current_segment_states.append(ll_traj.states[t])
+            current_segment_actions.append(ll_traj.actions[t])
+        current_segment_states.append(ll_traj.states[-1])
+        current_segment_traj = LowLevelTrajectory(current_segment_states,
+                                                  current_segment_actions)
+        segments.append(Segment(current_segment_traj,
+                                  current_segment_init_atoms,
+                                  current_final_atoms))
     # Don't include the last segment because it didn't result in a switch.
     # E.g., with option_changes, the option may not have terminated.
     return segments

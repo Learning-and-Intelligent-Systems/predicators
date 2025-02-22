@@ -815,17 +815,18 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             for i, traj in enumerate(self.dataset.trajectories):
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
-                for seg_idx, seg in enumerate(seg_traj):
-                    if seg_idx > 0:
-                        break
-                    eef_traj = np.zeros((len(seg.states), 12))
-                    handle_traj = np.zeros((len(seg.states), 12))
-                    for t, state in enumerate(seg.states):
-                        eef_traj[t] = state[eef_obj]
-                        handle_traj[t] = state[handle_obj]
-                    # Save eef trajectory to file
-                    np.save(f"demo_{i}_eef_traj.npy", eef_traj)
-                    np.save(f"demo_{i}_handle_traj.npy", handle_traj)
+                if CFG.robo_kitchen_save_traj:
+                    for seg_idx, seg in enumerate(seg_traj):
+                        eef_traj = np.zeros((len(seg.states), 12))
+                        handle_traj = np.zeros((len(seg.states), 12))
+                        for t, state in enumerate(seg.states):
+                            eef_traj[t] = state[eef_obj]
+                            handle_traj[t] = state[handle_obj]
+                        # Save eef trajectory to file with padded demo and segment numbers
+                        demo_num = str(i).zfill(2)
+                        seg_num = str(seg_idx).zfill(2)
+                        np.save(f"demo_{demo_num}_seg_{seg_num}_eef_traj.npy", eef_traj)
+                        np.save(f"demo_{demo_num}_seg_{seg_num}_handle_traj.npy", handle_traj)
                 state_seq = utils.segment_trajectory_to_start_end_state_sequence(  # pylint:disable=line-too-long
                     seg_traj)
                 self._state_sequences.append(state_seq)
