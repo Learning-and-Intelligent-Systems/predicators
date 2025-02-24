@@ -39,7 +39,7 @@ class RoboKitchenEnv(BaseEnv):
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
     # Types (similar to original kitchen)
     # object_type = Type("object", ["x", "y", "z"])
-    rich_object_type = Type("rich_object_type", ["x", "y", "z", "qw", "qx", "qy", "qz"])
+    rich_object_type = Type("rich_object_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
     hinge_door_type = Type("hinge_door_type", ["angle"])
     # on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
     # hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
@@ -71,8 +71,9 @@ class RoboKitchenEnv(BaseEnv):
         super().__init__(use_gui)
 
         if self._using_gui:
-            assert not CFG.make_test_videos or CFG.make_failure_videos, \
-                "Turn off --use_gui to make videos in robo kitchen env"
+            pass
+            # assert not CFG.make_test_videos or CFG.make_failure_videos, \
+            #     "Turn off --use_gui to make videos in robo kitchen env"
 
         robot_type = "PandaOmron"
         # Create robosuite environment
@@ -257,7 +258,7 @@ class RoboKitchenEnv(BaseEnv):
                 if obj_name in contact:
                     obj = self.object_name_to_object(obj_name)
                     contacts.add((obj, gripper_obj))
-
+        print(f"contacts: {contacts}")
         return contacts
 
 
@@ -450,7 +451,7 @@ class RoboKitchenEnv(BaseEnv):
                 obj_name = key
                 obj = cls.object_name_to_object(obj_name)
                 state_dict[obj] = {
-                    "angle": val #currently only support 1 door, double door dont work
+                    "angle": val #currently only support 1 door, double door doesn't work
                 }
             # elif key.endswith("_rot"): # This is deprecated since we want to use same representation as online
             #     obj_name = key[:-4]  # Remove _pos
@@ -478,10 +479,10 @@ class RoboKitchenEnv(BaseEnv):
                     "x": pos_val[0],
                     "y": pos_val[1],
                     "z": pos_val[2],
-                    "qw": val[0],
-                    "qx": val[1],
-                    "qy": val[2],
-                    "qz": val[3],
+                    "qx": val[0],
+                    "qy": val[1],
+                    "qz": val[2],
+                    "qw": val[3],
                 }
 
                           

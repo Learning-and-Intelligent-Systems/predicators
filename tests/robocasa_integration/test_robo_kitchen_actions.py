@@ -20,7 +20,7 @@ def get_eef_pos(state_info):
 def test_action_conversion():
     """Test that predicators actions are correctly converted to robocasa actions."""
     # Create environment
-    env = RoboKitchenEnv(use_gui=True)
+    env = RoboKitchenEnv() # This is a predicator env
     
     # Reset environment
     obs = env.reset("test", 0)
