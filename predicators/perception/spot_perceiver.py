@@ -841,7 +841,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                     "is_sweeper": 0,
                 })
             elif obj.type.name == "immovable":
-                state_dict[obj].update({"has_flat_top_surface": 1})
+                state_dict[obj].update({"flat_top_surface": 1})
             else:
                 raise ValueError(
                     f"Dummy state construction for type {obj.type}" + \
