@@ -55,8 +55,6 @@ class SpotLocalizer:
         self._robot_pose = math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat())
         # Initialize the robot's position in the map.
         robot_state = get_robot_state(self._robot)
-        z_position = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map[
-            "gpe"].parent_tform_child.position.z
         current_odom_tform_body = get_odom_tform_body(
             robot_state.kinematic_state.transforms_snapshot).to_proto()
         localization = nav_pb2.Localization()
@@ -74,6 +72,7 @@ class SpotLocalizer:
                     raise LocalizationFailure(msg)
                 logging.warning("Localization failed once, retrying.")
                 time.sleep(LOCALIZATION_RETRY_WAIT_TIME)
+
         # Run localize once to start.
         self.localize()
 
