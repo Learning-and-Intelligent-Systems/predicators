@@ -24,7 +24,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
-    LanguageObjectDetectionID, ObjectDetectionID, _query_detic_sam2, \
+    LanguageObjectDetectionID, ObjectDetectionID, _query_detic_sam, \
     detect_objects, visualize_all_artifacts
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
     brush_prompt, bucket_prompt, football_prompt, train_toy_prompt
@@ -2566,7 +2566,7 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         # TODO: move this method into object_detection, and also
         # probably make it easy for other env variants to use it?
         object_ids = self._detection_id_to_obj.keys()
-        object_id_to_img_detections = _query_detic_sam2(
+        object_id_to_img_detections = _query_detic_sam(
             object_ids, rgbd_images)
         # This ^ is currently a mapping of object_id -> camera_name ->
         # SegmentedBoundingBox.
