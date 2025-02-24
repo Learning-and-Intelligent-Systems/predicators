@@ -908,7 +908,7 @@ def _create_teleop_policy_with_name(
         nonlocal name
         del state, memory, params
 
-        robot, lease_client = get_robot(use_localizer=False)
+        robot, _, lease_client = get_robot(use_localizer=False)
 
         def _teleop(robot: Robot, lease_client: LeaseClient):
             del robot  # unused.
@@ -919,7 +919,7 @@ def _create_teleop_policy_with_name(
                     break
                 logging.info("Invalid input. Press (y) when y")
             # Take back control.
-            robot, lease_client = get_robot(use_localizer=False)
+            robot, _, lease_client = get_robot(use_localizer=False)
             lease_client.take()
 
         fn = _teleop

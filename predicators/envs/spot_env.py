@@ -184,6 +184,7 @@ def get_robot(
     lease_keepalive = LeaseKeepAlive(lease_client,
                                      must_acquire=True,
                                      return_at_exit=True)
+    localizer = None
     assert path.exists()
     if use_localizer:
         localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
@@ -2449,6 +2450,35 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
     it?
     """
 
+    def __init__(self, use_gui: bool = True) -> None:  #pylint:disable=super-init-not-called
+        robot, lease_client = get_robot(use_localizer=False)
+        self._robot = robot
+        self._lease_client = lease_client
+        self._strips_operators: Set[STRIPSOperator] = set()
+        # Used to do [something] when the agent thinks the goal is reached
+        # but the human says it is not.
+        self._current_task_goal_reached = False
+        # Used when we want to doa special check for a specific
+        # action.
+        self._last_action: Optional[Action] = None
+        # Create constant objects.
+        self._spot_object = Object("robot", _robot_type)
+        op_to_name = {o.name: o for o in self._create_operators()}
+        self._strips_operators = {
+            op_to_name[o]
+            for o in self.op_names_to_keep()
+        }
+        self._train_tasks = []
+        self._test_tasks = []
+
+    def op_names_to_keep(self) -> Set[str]:
+        """Return the names of the operators we want to keep."""
+        raise NotImplementedError("Implement in subclass.")
+
+    def _create_operators(self) -> Iterator[STRIPSOperator]:
+        """Create the STRIPS operators for this environment."""
+        raise NotImplementedError("Implement in subclass.")
+
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("No dry task for VLMPredicateEnvs.")
@@ -2699,24 +2729,9 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
         yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds,
                              add_effs, del_effs, ignore_effs)
 
-    def __init__(self, use_gui: bool = True) -> None:
-        robot, lease_client = get_robot(use_localizer=False)
-        self._robot = robot
-        self._lease_client = lease_client
-        self._strips_operators: Set[STRIPSOperator] = set()
-        # Used to do [something] when the agent thinks the goal is reached
-        # but the human says it is not.
-        self._current_task_goal_reached = False
-        # Used when we want to doa special check for a specific
-        # action.
-        self._last_action: Optional[Action] = None
-        # Create constant objects.
-        self._spot_object = Object("robot", _robot_type)
-        op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {"PickObjectFromTop", "PlaceObjectOnTop"}
-        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
-        self._train_tasks = []
-        self._test_tasks = []
+    def op_names_to_keep(self) -> Set[str]:
+        """Return the names of the operators we want to keep."""
+        return {"PickObjectFromTop", "PlaceObjectOnTop"}
 
     def _generate_goal_description(self) -> GoalDescription:
         return "get the cup onto the table!"
@@ -2835,27 +2850,12 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
         yield STRIPSOperator("PlaceOnFloor", parameters, preconds, add_effs,
                              del_effs, ignore_effs)
 
-    def __init__(self, use_gui: bool = True) -> None:
-        robot, lease_client = get_robot(use_localizer=False)
-        self._robot = robot
-        self._lease_client = lease_client
-        self._strips_operators: Set[STRIPSOperator] = set()
-        # Used to do [something] when the agent thinks the goal is reached
-        # but the human says it is not.
-        self._current_task_goal_reached = False
-        # Used when we want to doa special check for a specific
-        # action.
-        self._last_action: Optional[Action] = None
-        # Create constant objects.
-        self._spot_object = Object("robot", _robot_type)
-        op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {
+    def op_names_to_keep(self) -> Set[str]:
+        """Return the names of the operators we want to keep."""
+        return {
             "TeleopPick1", "PlaceNextTo", "TeleopPick2", "Sweep",
             "PlaceOnFloor"
         }
-        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
-        self._train_tasks = []
-        self._test_tasks = []
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the mess in the dustpan"
