@@ -2566,8 +2566,7 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         # TODO: move this method into object_detection, and also
         # probably make it easy for other env variants to use it?
         object_ids = self._detection_id_to_obj.keys()
-        object_id_to_img_detections = _query_detic_sam(
-            object_ids, rgbd_images)
+        object_id_to_img_detections = _query_detic_sam(object_ids, rgbd_images)
         # This ^ is currently a mapping of object_id -> camera_name ->
         # SegmentedBoundingBox.
         # We want to do our annotations by camera image, so let's turn this
