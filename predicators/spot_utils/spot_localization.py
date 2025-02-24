@@ -57,25 +57,25 @@ class SpotLocalizer:
         robot_state = get_robot_state(self._robot)
         z_position = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map[
             "gpe"].parent_tform_child.position.z
-        # current_odom_tform_body = get_odom_tform_body(
-        #     robot_state.kinematic_state.transforms_snapshot).to_proto()
-        # localization = nav_pb2.Localization()
-        # for r in range(NUM_LOCALIZATION_RETRIES + 1):
-        #     try:
-        #         self.graph_nav_client.set_localization(
-        #             initial_guess_localization=localization,
-        #             ko_tform_body=current_odom_tform_body)
-        #         break
-        #     except (ResponseError, TimedOutError) as e:
-        #         # Retry or fail.
-        #         if r == NUM_LOCALIZATION_RETRIES:
-        #             msg = f"Localization failed permanently: {e}."
-        #             logging.warning(msg)
-        #             raise LocalizationFailure(msg)
-        #         logging.warning("Localization failed once, retrying.")
-        #         time.sleep(LOCALIZATION_RETRY_WAIT_TIME)
-        # # Run localize once to start.
-        # self.localize()
+        current_odom_tform_body = get_odom_tform_body(
+            robot_state.kinematic_state.transforms_snapshot).to_proto()
+        localization = nav_pb2.Localization()
+        for r in range(NUM_LOCALIZATION_RETRIES + 1):
+            try:
+                self.graph_nav_client.set_localization(
+                    initial_guess_localization=localization,
+                    ko_tform_body=current_odom_tform_body)
+                break
+            except (ResponseError, TimedOutError) as e:
+                # Retry or fail.
+                if r == NUM_LOCALIZATION_RETRIES:
+                    msg = f"Localization failed permanently: {e}."
+                    logging.warning(msg)
+                    raise LocalizationFailure(msg)
+                logging.warning("Localization failed once, retrying.")
+                time.sleep(LOCALIZATION_RETRY_WAIT_TIME)
+        # Run localize once to start.
+        self.localize()
 
     def _upload_graph_and_snapshots(self) -> None:
         """Upload the graph and snapshots to the robot."""
@@ -134,23 +134,23 @@ class SpotLocalizer:
         It's good practice to call this periodically to avoid drift
         issues. April tags need to be in view.
         """
-        # try:
-        #     localization_state = self.graph_nav_client.get_localization_state()
-        #     transform = localization_state.localization.seed_tform_body
-        #     if str(transform) == "":
-        #         raise LocalizationFailure("Received empty localization state.")
-        # except (ResponseError, TimedOutError, LocalizationFailure) as e:
-        #     # Retry or fail.
-        #     if num_retries <= 0:
-        #         msg = f"Localization failed permanently: {e}."
-        #         logging.warning(msg)
-        #         raise LocalizationFailure(msg)
-        #     logging.warning("Localization failed once, retrying.")
-        #     time.sleep(retry_wait_time)
-        #     return self.localize(num_retries=num_retries - 1,
-        #                          retry_wait_time=retry_wait_time)
-        # logging.info("Localization succeeded.")
-        # self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
+        try:
+            localization_state = self.graph_nav_client.get_localization_state()
+            transform = localization_state.localization.seed_tform_body
+            if str(transform) == "":
+                raise LocalizationFailure("Received empty localization state.")
+        except (ResponseError, TimedOutError, LocalizationFailure) as e:
+            # Retry or fail.
+            if num_retries <= 0:
+                msg = f"Localization failed permanently: {e}."
+                logging.warning(msg)
+                raise LocalizationFailure(msg)
+            logging.warning("Localization failed once, retrying.")
+            time.sleep(retry_wait_time)
+            return self.localize(num_retries=num_retries - 1,
+                                 retry_wait_time=retry_wait_time)
+        logging.info("Localization succeeded.")
+        self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
         return None
 
 

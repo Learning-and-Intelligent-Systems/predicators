@@ -2581,7 +2581,6 @@ def query_vlm_for_atom_vals(
         prev_states_imgs_history = [
             s.simulator_state["images"] for s in prev_states
         ]
-        # import ipdb; ipdb.set_trace()
         if len(prev_states
                ) > 0 and "cropped_images" in prev_states[0].simulator_state:
             prev_states_imgs_history = [
@@ -2610,9 +2609,8 @@ def query_vlm_for_atom_vals(
                                         num_completions=1)
     assert len(vlm_output) == 1
     vlm_output_str = vlm_output[0]
-    print(f"VLM output: \n{vlm_output_str}")
-
-    # ALTERNATIVE WAY TO PARSE
+    logging.info(f"VLM output: \n{vlm_output_str}")
+    # Parse out stuff.
     if len(label_history) > 0:
         truth_values = re.findall(r'\* (.*): (True|False)', vlm_output_str)
         for i, (atom_query,

@@ -618,8 +618,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
             ax_row[2].imshow(rgbd.depth, cmap='Greys_r', vmin=0, vmax=10000)
 
             # Bounding box.
-            # ax_row[3].imshow(rgbd.rgb)
-            ax_row[3].imshow(rgbd.rotated_rgb)
+            ax_row[3].imshow(rgbd.rgb)
             box = seg_bb.bounding_box
             x0, y0 = box[0], box[1]
             w, h = box[2] - box[0], box[3] - box[1]
@@ -631,7 +630,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
                               facecolor=(0, 0, 0, 0),
                               lw=1))
 
-            # ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
+            ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
 
             # Labels.
             abbreviated_name = obj_id.language_id

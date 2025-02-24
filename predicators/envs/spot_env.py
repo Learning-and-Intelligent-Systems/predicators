@@ -102,12 +102,6 @@ class _TruncatedSpotObservation:
     robot: Object
     # Status of the robot gripper.
     gripper_open_percentage: float
-    # # Robot SE3 Pose
-    # robot_pos: math_helpers.SE3Pose
-    # # Ground atoms without ground-truth classifiers
-    # # A placeholder until all predicates have classifiers
-    # nonpercept_atoms: Set[GroundAtom]
-    # nonpercept_predicates: Set[Predicate]
     # Object detections per camera in self.rgbd_images.
     object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID,
                                                        SegmentedBoundingBox]]]
@@ -1448,13 +1442,13 @@ _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
 _TopAbove = Predicate("TopAbove", [_base_object_type, _base_object_type],
                       _top_above_classifier)
-# _Inside = Predicate("Inside", [_movable_object_type, _container_type],
-#                     _inside_classifier)
+_Inside = Predicate("Inside", [_movable_object_type, _container_type],
+                    _inside_classifier)
 _FitsInXY = Predicate("FitsInXY", [_movable_object_type, _base_object_type],
                       _fits_in_xy_classifier)
 # NOTE: use this predicate instead if you want to disable inside checking.
-# _FakeInside = Predicate(_Inside.name, _Inside.types,
-#                         _create_dummy_predicate_classifier(_Inside))
+_FakeInside = Predicate(_Inside.name, _Inside.types,
+                        _create_dummy_predicate_classifier(_Inside))
 _NotInsideAnyContainer = Predicate("NotInsideAnyContainer",
                                    [_movable_object_type],
                                    _not_inside_any_container_classifier)

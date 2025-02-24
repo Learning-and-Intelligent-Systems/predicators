@@ -583,7 +583,12 @@ class SpotPerceiver(BasePerceiver):
 
 
 class SpotMinimalPerceiver(BasePerceiver):
-    """A perceiver for spot envs with minimal functionality."""
+    """A perceiver for spot envs with minimal functionality; more lightweight
+    than the full SpotPerceiver, and useful for testing simple functionality.
+
+    Some code duplication w.r.t the above class, but not too much to do
+    anything about.
+    """
 
     camera_name_to_annotation = {
         'hand_color_image': "Hand Camera Image",
@@ -604,20 +609,12 @@ class SpotMinimalPerceiver(BasePerceiver):
 
     def __init__(self) -> None:
         super().__init__()
-        # self._known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
-        # self._objects_in_view: Set[Object] = set()
-        # self._objects_in_hand_view: Set[Object] = set()
-        # self._objects_in_any_view_except_back: Set[Object] = set()
         self._robot: Optional[Object] = None
-        # self._nonpercept_atoms: Set[GroundAtom] = set()
-        # self._nonpercept_predicates: Set[Predicate] = set()
-        # self._percept_predicates: Set[Predicate] = set()
         self._prev_action: Optional[Action] = None
         self._held_object: Optional[Object] = None
         self._gripper_open_percentage = 0.0
         self._robot_pos: math_helpers.SE3Pose = math_helpers.SE3Pose(
             0, 0, 0, math_helpers.Quat())
-        # self._lost_objects: Set[Object] = set()
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         self._ordered_objects: List[Object] = []  # list of all known objects

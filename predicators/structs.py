@@ -492,6 +492,9 @@ class Task:
         if "abstract_state" in state.simulator_state:
             abstract_state = state.simulator_state["abstract_state"]
             return self.goal.issubset(abstract_state)
+        # NOTE: we have to do this to avoid circular imports... It's certainly
+        # ugly, but we weren't able to find a cleaner way that didn't involve
+        # a large amount of unnecessary refactoring.
         from predicators.utils import \
             query_vlm_for_atom_vals  # pylint:disable=import-outside-toplevel
         vlm_atoms = set(atom for atom in self.goal
