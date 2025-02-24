@@ -2359,12 +2359,37 @@ def create_llm_by_name(
     return OpenAILLM(model_name)
 
 
+class _DummyVLM(VisionLanguageModel):
+
+    def get_id(self):
+        return "dummy"
+
+    def _sample_completions(self,
+                            prompt,
+                            imgs,
+                            temperature,
+                            seed,
+                            stop_token=None,
+                            num_completions=1):
+        del imgs  # unused.
+        completions = []
+        for _ in range(num_completions):
+            completion = (f"Prompt: {prompt}. Seed: {seed}. "
+                          f"Temp: {temperature:.1f}. Stop: {stop_token}.")
+            completions.append(completion)
+        return completions
+
+
 def create_vlm_by_name(
         model_name: str) -> VisionLanguageModel:  # pragma: no cover
     """Create particular vlm using a provided name."""
     if "gemini" in model_name:
         return GoogleGeminiVLM(model_name)
-    return OpenAIVLM(model_name)
+    elif "gpt" in model_name:
+        return OpenAIVLM(model_name)
+    else:
+        assert model_name == "dummy"
+        return _DummyVLM()
 
 
 def parse_model_output_into_option_plan(
