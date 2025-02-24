@@ -489,7 +489,7 @@ class Task:
 
     def goal_holds(self, state: State, vlm: Optional[Any] = None) -> bool:
         """Return whether the goal of this task holds in the given state."""
-        if "abstract_state" in state.simulator_state:
+        if state.simulator_state is not None and "abstract_state" in state.simulator_state:
             abstract_state = state.simulator_state["abstract_state"]
             return self.goal.issubset(abstract_state)
         # NOTE: we have to do this to avoid circular imports... It's certainly

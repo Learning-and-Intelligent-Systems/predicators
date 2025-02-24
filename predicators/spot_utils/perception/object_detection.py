@@ -41,7 +41,7 @@ from predicators.spot_utils.perception.object_specific_grasp_selection import \
 from predicators.spot_utils.perception.perception_structs import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, PythonicObjectDetectionID, \
-    RGBDImageWithContext, SegmentedBoundingBox
+    RGBDImage, RGBDImageWithContext, SegmentedBoundingBox
 from predicators.spot_utils.utils import get_april_tag_transform, \
     get_graph_nav_dir
 from predicators.utils import rotate_point_in_image
@@ -259,7 +259,7 @@ def detect_objects_from_language(
 
 def _query_detic_sam(
     object_ids: Collection[LanguageObjectDetectionID],
-    rgbds: Dict[str, RGBDImageWithContext],
+    rgbds: Dict[str, RGBDImageWithContext] | Dict[str, RGBDImage],
     max_server_retries: int = 5,
     detection_threshold: float = CFG.spot_vision_detection_threshold
 ) -> Dict[ObjectDetectionID, Dict[str, SegmentedBoundingBox]]:

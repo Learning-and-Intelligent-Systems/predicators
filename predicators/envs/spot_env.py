@@ -90,7 +90,7 @@ class _SpotObservation:
 class _TruncatedSpotObservation:
     """An observation for a SpotEnv."""
     # Camera name to image
-    rgbd_images: Dict[str, RGBDImageWithContext]
+    rgbd_images: Dict[str, RGBDImage]
     all_objects: Set[Object]
     # Objects in the environment; NOTE that we might not need this.
     objects_in_view: Set[Object]
@@ -105,7 +105,7 @@ class _TruncatedSpotObservation:
     # Object detections per camera in self.rgbd_images.
     object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID,
                                                        SegmentedBoundingBox]]]
-    executed_skill: Optional[_Option] = None
+    executed_skill: Optional[Action] = None
 
 
 class _PartialPerceptionState(State):
@@ -161,7 +161,7 @@ def _create_dummy_predicate_classifier(
 
 @functools.lru_cache(maxsize=None)
 def get_robot(
-    use_localizer=True
+    use_localizer: bool = True
 ) -> Tuple[Optional[Robot], Optional[SpotLocalizer], Optional[LeaseClient]]:
     """Create the robot only once.
 
@@ -2509,7 +2509,6 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         # import ipdb; ipdb.set_trace()
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)
-        objects_in_view = []
 
         # Perform object detection.
         object_detections_per_camera = self.detect_objects(rgbd_images)
@@ -2564,9 +2563,8 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         # import ipdb; ipdb.set_trace()
 
         obs = _TruncatedSpotObservation(rgbd_images,
-                                        self._get_task_object_set(),
-                                        set(objects_in_view), set(), set(),
-                                        self._spot_object,
+                                        self._get_task_object_set(), set(),
+                                        set(), set(), self._spot_object,
                                         gripper_open_percentage,
                                         object_detections_per_camera, None)
         goal_description = self._generate_goal_description()
@@ -2582,13 +2580,23 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         This is more minimal and can be used to construct simple
         observations specifically for this 'mapless' environment.
         """
-        object_ids = self._detection_id_to_obj.keys()
-        object_id_to_img_detections = _query_detic_sam(object_ids, rgbd_images)
+        object_ids = list(self._detection_id_to_obj.keys())
+        # For now, we assume that all object ids are LanguageObjectDetectionIDs.
+        for obj_id in object_ids:
+            assert isinstance(
+                obj_id, LanguageObjectDetectionID
+            ), "Only LanguageObjectDetectionIDs are supported."
+        object_id_to_img_detections = _query_detic_sam(
+            object_ids, rgbd_images)  # type: ignore
         # This ^ is currently a mapping of object_id -> camera_name ->
         # SegmentedBoundingBox.
         # We want to do our annotations by camera image, so let's turn this
         # into a mapping of camera_name -> object_id -> SegmentedBoundingBox.
-        detections = {k: [] for k in rgbd_images.keys()}
+        detections: Dict[str, List[Tuple[ObjectDetectionID,
+                                         SegmentedBoundingBox]]] = {
+                                             k: []
+                                             for k in rgbd_images.keys()
+                                         }
         for object_id, d in object_id_to_img_detections.items():
             for camera_name, seg_bb in d.items():
                 detections[camera_name].append((object_id, seg_bb))
@@ -2614,6 +2622,7 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
 
     def step(self, action: Action) -> Observation:
         assert self._robot is not None
+        assert action.extra_info is not None
         action_name = action.extra_info.action_name
         # Special case: the action is "done", indicating that the robot
         # believes it has finished the task. Used for goal checking.
@@ -2652,13 +2661,11 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         rgbd_images = capture_images_without_context(self._robot)
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)
-        objects_in_view = []
         # Perform object detection.
         object_detections_per_camera = self.detect_objects(rgbd_images)
         obs = _TruncatedSpotObservation(rgbd_images,
-                                        self._get_task_object_set(),
-                                        set(objects_in_view), set(), set(),
-                                        self._spot_object,
+                                        self._get_task_object_set(), set(),
+                                        set(), set(), self._spot_object,
                                         gripper_open_percentage,
                                         object_detections_per_camera, action)
         return obs
@@ -2709,7 +2716,7 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
         }
-        ignore_effs: Set[LiftedAtom] = set()
+        ignore_effs: Set[Predicate] = set()
         yield STRIPSOperator("PickObjectFromTop", parameters, preconds,
                              add_effs, del_effs, ignore_effs)
 
@@ -2718,14 +2725,14 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
         obj = Variable("?object", _movable_object_type)
         surf = Variable("?surf", _immovable_object_type)
         parameters = [robot, obj, surf]
-        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
-        add_effs: Set[LiftedAtom] = {
+        preconds = {LiftedAtom(_Holding, [robot, obj])}
+        add_effs = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, surf])
         }
-        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
-        ignore_effs: Set[LiftedAtom] = set()
+        del_effs = {LiftedAtom(_Holding, [robot, obj])}
+        ignore_effs = set()
         yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds,
                              add_effs, del_effs, ignore_effs)
 
@@ -2782,7 +2789,7 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, dustpan]),
         }
-        ignore_effs: Set[LiftedAtom] = set()
+        ignore_effs: Set[Predicate] = set()
         yield STRIPSOperator("TeleopPick1", parameters, preconds, add_effs,
                              del_effs, ignore_effs)
 
@@ -2791,14 +2798,14 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
         dustpan = Variable("?dustpan", _dustpan_type)
         mess = Variable("?mess", _wrappers_type)
         parameters = [robot, dustpan, mess]
-        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
-        add_effs: Set[LiftedAtom] = {
+        preconds = {LiftedAtom(_Holding, [robot, dustpan])}
+        add_effs = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, dustpan]),
             LiftedAtom(_Touching, [dustpan, mess])
         }
-        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
-        ignore_effs: Set[LiftedAtom] = set()
+        del_effs = {LiftedAtom(_Holding, [robot, dustpan])}
+        ignore_effs = set()
         yield STRIPSOperator("PlaceNextTo", parameters, preconds, add_effs,
                              del_effs, ignore_effs)
 
@@ -2806,16 +2813,16 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
         robot = Variable("?robot", _robot_type)
         broom = Variable("?broom", _broom_type)
         parameters = [robot, broom]
-        preconds: Set[LiftedAtom] = {
+        preconds = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, broom]),
         }
-        add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
-        del_effs: Set[LiftedAtom] = {
+        add_effs = {LiftedAtom(_Holding, [robot, broom])}
+        del_effs = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, broom]),
         }
-        ignore_effs: Set[LiftedAtom] = set()
+        ignore_effs = set()
         yield STRIPSOperator("TeleopPick2", parameters, preconds, add_effs,
                              del_effs, ignore_effs)
 
@@ -2825,14 +2832,14 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
         mess = Variable("?mess", _wrappers_type)
         dustpan = Variable("?dustpan", _dustpan_type)
         parameters = [robot, broom, mess, dustpan]
-        preconds: Set[LiftedAtom] = {
+        preconds = {
             LiftedAtom(_Holding, [robot, broom]),
             LiftedAtom(_NotHolding, [robot, dustpan]),
             LiftedAtom(_Touching, [dustpan, mess])
         }
-        add_effs: Set[LiftedAtom] = {LiftedAtom(_Inside, [mess, dustpan])}
-        del_effs: Set[LiftedAtom] = set()
-        ignore_effs: Set[LiftedAtom] = set()
+        add_effs = {LiftedAtom(_Inside, [mess, dustpan])}
+        del_effs = set()
+        ignore_effs = set()
         yield STRIPSOperator("Sweep", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
 
@@ -2840,13 +2847,13 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
         robot = Variable("?robot", _robot_type)
         broom = Variable("?broom", _broom_type)
         parameters = [robot, broom]
-        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
-        add_effs: Set[LiftedAtom] = {
+        preconds = {LiftedAtom(_Holding, [robot, broom])}
+        add_effs = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, broom]),
         }
-        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
-        ignore_effs: Set[LiftedAtom] = set()
+        del_effs = {LiftedAtom(_Holding, [robot, broom])}
+        ignore_effs = set()
         yield STRIPSOperator("PlaceOnFloor", parameters, preconds, add_effs,
                              del_effs, ignore_effs)
 

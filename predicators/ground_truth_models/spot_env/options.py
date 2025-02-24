@@ -910,7 +910,7 @@ def _create_teleop_policy_with_name(
 
         robot, _, lease_client = get_robot(use_localizer=False)
 
-        def _teleop(robot: Robot, lease_client: LeaseClient):
+        def _teleop(robot: Robot, lease_client: LeaseClient) -> None:
             del robot  # unused.
             prompt = "Press (y) when you are done with teleop."
             while True:

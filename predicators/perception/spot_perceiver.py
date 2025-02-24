@@ -619,9 +619,9 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._waiting_for_observation = True
         self._ordered_objects: List[Object] = []  # list of all known objects
         self._state_history: List[State] = []
-        self._executed_skill_history: List[_Option] = []
+        self._executed_skill_history: List[Optional[_Option]] = []
         self._vlm_label_history: List[str] = []
-        self._curr_state = None
+        self._curr_state: Optional[State] = None
 
     def _create_goal(self, state: State,
                      goal_description: GoalDescription) -> Set[GroundAtom]:
@@ -692,7 +692,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         img_objects = observation.rgbd_images  # RGBDImage objects
         img_names = [v.camera_name for _, v in img_objects.items()]
         imgs = [v.rotated_rgb for _, v in img_objects.items()]
-        pil_imgs = [PIL.Image.fromarray(img) for img in imgs]
+        pil_imgs = [PIL.Image.fromarray(img) for img in imgs]  # type: ignore
         # Annotate images with detected objects (names + bounding box)
         # and camera name.
         object_detections_per_camera = observation.object_detections_per_camera
@@ -710,7 +710,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 draw.rectangle([(x0, y0), (x1, y1)], outline='green', width=2)
                 text = f"{obj_id.language_id}"
                 font = utils.get_scaled_default_font(draw, 3)
-                text_mask = font.getmask(text)
+                text_mask = font.getmask(text)  # type: ignore
                 text_width, text_height = text_mask.size
                 text_bbox = [(x0, y0 - 1.5 * text_height),
                              (x0 + text_width + 1, y0)]
@@ -739,6 +739,7 @@ class SpotMinimalPerceiver(BasePerceiver):
 
         # This state is a default/empty. We have to set the attributes
         # of the objects and set the simulator state properly.
+        assert self._curr_state.simulator_state is not None
         self._curr_state.simulator_state["images"] = annotated_imgs
         # At the first timestep, these histories will be empty due to
         # self.reset(). But at every timestep that isn't the first one,
@@ -783,9 +784,9 @@ class SpotMinimalPerceiver(BasePerceiver):
             for choice in utils.get_object_combinations(
                     list(state_copy), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
-        vlm_atoms = sorted(vlm_atoms)
+        vlm_atoms_list = sorted(vlm_atoms)
         reconstructed_all_vlm_responses = []
-        for atom in vlm_atoms:
+        for atom in vlm_atoms_list:
             if atom in abstract_state:
                 truth_value = 'True'
             else:
@@ -847,8 +848,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                         "not implemented yet."
                 )
         # Complete the dummy state; to be populated with additional info!
-        state_dict = {k: list(v.values()) for k, v in state_dict.items()}
-        state = State(state_dict)
+        state = utils.create_state_from_dict(state_dict)
         state.simulator_state = {}
         state.simulator_state["images"] = []
         state.simulator_state["state_history"] = []

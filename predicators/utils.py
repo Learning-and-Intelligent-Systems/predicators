@@ -2499,7 +2499,7 @@ def get_prompt_for_vlm_state_labelling(
         prompt_type: str, atoms_list: List[str], label_history: List[str],
         imgs_history: List[List[PIL.Image.Image]],
         cropped_imgs_history: List[List[PIL.Image.Image]],
-        skill_history: List[Action]) -> Tuple[str, List[PIL.Image.Image]]:
+        skill_history: List[_Option]) -> Tuple[str, List[PIL.Image.Image]]:
     """Prompt for generating labels for an entire trajectory. Similar to the
     above prompting method, this outputs a list of prompts to label the state
     at each timestep of traj with atom values).
@@ -2647,8 +2647,11 @@ def abstract(state: State,
 
     Duplicate arguments in predicates are allowed.
     """
-    if "abstract_state" in state.simulator_state:
-        return state.simulator_state["abstract_state"]
+    try:
+        if state.simulator_state is not None and "abstract_state" in state.simulator_state:
+            return state.simulator_state["abstract_state"]
+    except AttributeError:
+        pass
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
     # Next, classify all non-VLM predicates.
