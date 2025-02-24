@@ -2361,7 +2361,7 @@ def create_llm_by_name(
 
 class _DummyVLM(VisionLanguageModel):
 
-    def get_id(self) -> str:
+    def get_id(self) -> str:  # pragma: no cover
         """Return a unique identifier for this VLM."""
         return "dummy"
 
