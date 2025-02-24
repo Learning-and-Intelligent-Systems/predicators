@@ -2648,7 +2648,8 @@ def abstract(state: State,
     Duplicate arguments in predicates are allowed.
     """
     try:
-        if state.simulator_state is not None and "abstract_state" in state.simulator_state:
+        if state.simulator_state is not None and "abstract_state" in \
+            state.simulator_state:
             return state.simulator_state["abstract_state"]
     except AttributeError:
         pass

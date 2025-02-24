@@ -49,7 +49,7 @@ from predicators.spot_utils.utils import _base_object_type, _broom_type, \
     update_pbrspot_robot_conf, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable, _Option
+    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable
 
 ###############################################################################
 #                                Base Class                                   #
