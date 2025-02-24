@@ -2451,7 +2451,7 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
     """
 
     def __init__(self, use_gui: bool = True) -> None:  #pylint:disable=super-init-not-called
-        robot, lease_client = get_robot(use_localizer=False)
+        robot, _, lease_client = get_robot(use_localizer=False)
         self._robot = robot
         self._lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
