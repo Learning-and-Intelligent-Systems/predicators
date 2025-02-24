@@ -276,7 +276,7 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
             temperature=temperature)
         response = self._model.generate_content(
             [prompt], generation_config=generation_config)  # type: ignore
-        response.resolve()
+        response.resolve()  # type: ignore
         return [response.text]
 
     def get_id(self) -> str:
@@ -306,9 +306,9 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
             candidate_count=num_completions,
             temperature=temperature)
         response = self._model.generate_content(
-            [prompt] + imgs,
+            [prompt] + imgs,  # type: ignore
             generation_config=generation_config)  # type: ignore
-        response.resolve()
+        response.resolve()  # type: ignore
         return [response.text]
 
     def get_id(self) -> str:
