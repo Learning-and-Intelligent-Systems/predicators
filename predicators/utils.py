@@ -2625,7 +2625,8 @@ def query_vlm_for_atom_vals(
         # NOTE: this assumption is likely too brittle; if this is breaking,
         # feel free to remove/adjust this and change the below parsing
         # loop accordingly!
-        assert len(atom_queries_list) == len(all_vlm_responses)
+        if len(atom_queries_list) != len(all_vlm_responses):
+            return true_atoms
         for i, (atom_query, curr_vlm_output_line) in enumerate(
                 zip(atom_queries_list, all_vlm_responses)):
             assert atom_query + ":" in curr_vlm_output_line
@@ -2651,7 +2652,7 @@ def abstract(state: State,
         if state.simulator_state is not None and "abstract_state" in \
             state.simulator_state:
             return state.simulator_state["abstract_state"]
-    except AttributeError:
+    except (AttributeError, TypeError):
         pass
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))

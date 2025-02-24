@@ -366,8 +366,7 @@ class SpotRearrangementEnv(BaseEnv):
                                                nonpercept_atoms)
 
         if action_name in [
-                "MoveToReachObject", "TeleopMoveToReadySweep",
-                "MoveToBodyViewObject"
+                "MoveToReachObject", "MoveToReadySweep", "MoveToBodyViewObject"
         ]:
             robot_rel_se2_pose = action_args[1]
             return _dry_simulate_move_to_reach_obj(obs, robot_rel_se2_pose,
@@ -431,7 +430,7 @@ class SpotRearrangementEnv(BaseEnv):
             return _dry_simulate_pick_and_dump_container(
                 obs, objs_inside, nonpercept_atoms, self._noise_rng)
 
-        if action_name == "TeleopDropNotPlaceableObject":
+        if action_name == "DropNotPlaceableObject":
             return _dry_simulate_drop_not_placeable_object(
                 obs, nonpercept_atoms)
 
@@ -1481,39 +1480,38 @@ def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
         str(obj.name) for obj in objects) + ")"  # pragma: no cover
 
 
-_VLMOn = utils.create_vlm_predicate("VLMOn",
-                                    [_movable_object_type, _base_object_type],
-                                    lambda o: _get_vlm_query_str("VLMOn", o))
-_Upright = utils.create_vlm_predicate(
-    "Upright", [_movable_object_type],
-    lambda o: _get_vlm_query_str("Upright", o))
-_Toasted = utils.create_vlm_predicate(
-    "Toasted", [_movable_object_type],
-    lambda o: _get_vlm_query_str("Toasted", o))
-_VLMIn = utils.create_vlm_predicate(
-    "VLMIn", [_movable_object_type, _immovable_object_type],
-    lambda o: _get_vlm_query_str("In", o))
-_Open = utils.create_vlm_predicate("Open", [_movable_object_type],
-                                   lambda o: _get_vlm_query_str("Open", o))
-_Stained = utils.create_vlm_predicate(
-    "Stained", [_movable_object_type],
-    lambda o: _get_vlm_query_str("Stained", o))
-_Messy = utils.create_vlm_predicate("Messy", [_movable_object_type],
-                                    lambda o: _get_vlm_query_str("Messy", o))
+# _VLMOn = utils.create_vlm_predicate("VLMOn",
+#                                     [_movable_object_type, _base_object_type],
+#                                     lambda o: _get_vlm_query_str("VLMOn", o))
+# _Upright = utils.create_vlm_predicate(
+#     "Upright", [_movable_object_type],
+#     lambda o: _get_vlm_query_str("Upright", o))
+# _Toasted = utils.create_vlm_predicate(
+#     "Toasted", [_movable_object_type],
+#     lambda o: _get_vlm_query_str("Toasted", o))
+# _VLMIn = utils.create_vlm_predicate(
+#     "VLMIn", [_movable_object_type, _immovable_object_type],
+#     lambda o: _get_vlm_query_str("In", o))
+# _Open = utils.create_vlm_predicate("Open", [_movable_object_type],
+#                                    lambda o: _get_vlm_query_str("Open", o))
+# _Stained = utils.create_vlm_predicate(
+#     "Stained", [_movable_object_type],
+#     lambda o: _get_vlm_query_str("Stained", o))
+# _Messy = utils.create_vlm_predicate("Messy", [_movable_object_type],
+#                                     lambda o: _get_vlm_query_str("Messy", o))
 
-_Touching = utils.create_vlm_predicate(
-    "Touching", [_dustpan_type, _wrappers_type],
-    lambda o: _get_vlm_query_str("Touching", o))
-_Inside = utils.create_vlm_predicate("Inside", [_wrappers_type, _dustpan_type],
-                                     lambda o: _get_vlm_query_str("Inside", o))
+# _Touching = utils.create_vlm_predicate(
+#     "Touching", [_dustpan_type, _wrappers_type],
+#     lambda o: _get_vlm_query_str("Touching", o))
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _NotInsideAnyContainer, _FitsInXY, _HandEmpty,
     _Holding, _NotHolding, _InHandView, _InView, _Reachable, _Blocking,
     _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable, _IsNotPlaceable,
     _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
-    _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
-    _Stained, _Messy, _Touching, _Inside
+    _IsSemanticallyGreaterThan, _Inside
+    # _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
+    # _Stained, _Messy, _Touching,
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -1639,7 +1637,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
-    # TeleopDropNotPlaceableObject
+    # DropNotPlaceableObject
     robot = Variable("?robot", _robot_type)
     held = Variable("?held", _movable_object_type)
     parameters = [robot, held]
@@ -1655,7 +1653,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Holding, [robot, held]),
     }
     ignore_effs = set()
-    yield STRIPSOperator("TeleopDropNotPlaceableObject", parameters, preconds,
+    yield STRIPSOperator("DropNotPlaceableObject", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
     # DropObjectInside
@@ -1751,7 +1749,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("DragToBlockObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
-    # TeleopMoveToReadySweep
+    # MoveToReadySweep
     robot = Variable("?robot", _robot_type)
     container = Variable("?container", _container_type)
     target = Variable("?target", _movable_object_type)
@@ -1766,8 +1764,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     del_effs = set()
     ignore_effs = {_Reachable, _InView, _InHandView}
-    yield STRIPSOperator("TeleopMoveToReadySweep", parameters, preconds,
-                         add_effs, del_effs, ignore_effs)
+    yield STRIPSOperator("MoveToReadySweep", parameters, preconds, add_effs,
+                         del_effs, ignore_effs)
 
     # SweepTwoObjectsIntoContainer
     robot = Variable("?robot", _robot_type)
@@ -3226,8 +3224,8 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             "PrepareContainerForSweeping",
             "PickAndDumpContainer",
             "PickAndDumpTwoFromContainer",
-            "TeleopDropNotPlaceableObject",
-            "TeleopMoveToReadySweep",
+            "DropNotPlaceableObject",
+            "MoveToReadySweep",
             "PickObjectToDrag",
             "DropObjectInside",
         }
