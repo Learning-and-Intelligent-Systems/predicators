@@ -9,6 +9,7 @@ __pycache__
 *.csv
 *.zip
 *.so
+*.mypy_cache
 build
 dist
 pylint_recursive.py

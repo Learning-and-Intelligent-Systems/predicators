@@ -285,6 +285,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
+            "spot_vlm_cup_table_env", "spot_vlm_dustpan_test_env",
             "spot_cube_env", "spot_soda_floor_env", "spot_soda_table_env",
             "spot_soda_bucket_env", "spot_soda_chair_env",
             "spot_main_sweep_env", "spot_ball_and_cup_sticky_table_env",
@@ -320,6 +321,11 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "PrepareContainerForSweeping": _prepare_sweeping_sampler,
             "DropNotPlaceableObject": utils.null_sampler,
             "MoveToReadySweep": utils.null_sampler,
+            "TeleopPick1": utils.null_sampler,
+            "PlaceNextTo": utils.null_sampler,
+            "TeleopPick2": utils.null_sampler,
+            "Sweep": utils.null_sampler,
+            "PlaceOnFloor": utils.null_sampler
         }
 
         # If we're doing proper bilevel planning with a simulator, then

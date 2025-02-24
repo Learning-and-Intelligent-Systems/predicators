@@ -7,8 +7,10 @@ from typing import Dict, List, Optional, Set
 
 import imageio.v2 as iio
 import numpy as np
+import PIL
 from bosdyn.client import math_helpers
 from matplotlib import pyplot as plt
+from PIL import ImageDraw
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
@@ -17,12 +19,13 @@ from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     _PartialPerceptionState, _SpotObservation, in_general_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
-from predicators.spot_utils.utils import _container_type, \
+from predicators.spot_utils.utils import _container_type, _dustpan_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
-    get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
+    _wrappers_type, get_allowed_map_regions, load_spot_metadata, \
+    object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, Task, Video
+    SpotActionExtraInfo, State, Task, Video, VLMPredicate, _Option
 
 
 class SpotPerceiver(BasePerceiver):
@@ -577,3 +580,278 @@ class SpotPerceiver(BasePerceiver):
         logging.info(f"Wrote out to {outfile}")
         plt.close()
         return [img]
+
+
+class SpotMinimalPerceiver(BasePerceiver):
+    """A perceiver for spot envs with minimal functionality; more lightweight
+    than the full SpotPerceiver, and useful for testing simple functionality.
+
+    Some code duplication w.r.t the above class, but not too much to do
+    anything about.
+    """
+
+    camera_name_to_annotation = {
+        'hand_color_image': "Hand Camera Image",
+        'back_fisheye_image': "Back Camera Image",
+        'frontleft_fisheye_image': "Front Left Camera Image",
+        'frontright_fisheye_image': "Front Right Camera Image",
+        'left_fisheye_image': "Left Camera Image",
+        'right_fisheye_image': "Right Camera Image"
+    }
+
+    def render_mental_images(self, observation: Observation,
+                             env_task: EnvironmentTask) -> Video:
+        raise NotImplementedError()
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_minimal_perceiver"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._robot: Optional[Object] = None
+        self._prev_action: Optional[Action] = None
+        self._held_object: Optional[Object] = None
+        self._gripper_open_percentage = 0.0
+        self._robot_pos: math_helpers.SE3Pose = math_helpers.SE3Pose(
+            0, 0, 0, math_helpers.Quat())
+        self._curr_env: Optional[BaseEnv] = None
+        self._waiting_for_observation = True
+        self._ordered_objects: List[Object] = []  # list of all known objects
+        self._state_history: List[State] = []
+        self._executed_skill_history: List[Optional[_Option]] = []
+        self._vlm_label_history: List[str] = []
+        self._curr_state: Optional[State] = None
+
+    def _create_goal(self, state: State,
+                     goal_description: GoalDescription) -> Set[GroundAtom]:
+        del state  # not used
+        # Unfortunate hack to deal with the fact that the state is actually
+        # not yet set. This is an artefact of the way we do Spot envs where
+        # we pass around dummy initial states when creating the train and
+        # test tasks...
+        # Hopefully one day other cleanups will enable cleaning.
+        assert self._curr_env is not None
+        pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
+        Inside = pred_name_to_pred["Inside"]
+        Holding = pred_name_to_pred["Holding"]
+        HandEmpty = pred_name_to_pred["HandEmpty"]
+        VLMOn = pred_name_to_pred["VLMOn"]
+
+        if goal_description == "get the cup onto the table!":
+            robot = Object("robot", _robot_type)
+            cup = Object("cup", _movable_object_type)
+            table = Object("cardboard_table", _immovable_object_type)
+            goal = {
+                GroundAtom(HandEmpty, [robot]),
+                GroundAtom(VLMOn, [cup, table])
+            }
+            return goal
+        if goal_description == "put the mess in the dustpan":
+            robot = Object("robot", _robot_type)
+            dustpan = Object("dustpan", _dustpan_type)
+            wrappers = Object("wrappers", _wrappers_type)
+            goal = {
+                GroundAtom(Inside, [wrappers, dustpan]),
+                GroundAtom(Holding, [robot, dustpan])
+            }
+            return goal
+
+        raise NotImplementedError("Unrecognized goal description")
+
+    def update_perceiver_with_action(self, action: Action) -> None:
+        # NOTE: we need to keep track of the previous action
+        # because the step function (where we need knowledge
+        # of the previous action) occurs *after* the action
+        # has already been taken.
+        self._prev_action = action
+
+    def reset(self, env_task: EnvironmentTask) -> Task:
+        self._curr_env = get_or_create_env(CFG.env)
+        state = self._create_state()
+        self._curr_state = state
+        goal = self._create_goal(state, env_task.goal_description)
+
+        # Reset run-specific things.
+        self._state_history = []
+        self._executed_skill_history = []
+        self._vlm_label_history = []
+        self._prev_action = None
+
+        return Task(state, goal)
+
+    def step(self, observation: Observation) -> State:
+        # First, if this is the first time we're getting an
+        # observation, then update the ordered list of known objects.
+        if self._waiting_for_observation:
+            assert len(self._ordered_objects) == 0
+            self._ordered_objects = sorted(observation.all_objects)
+        self._waiting_for_observation = False
+        self._robot = observation.robot
+
+        img_objects = observation.rgbd_images  # RGBDImage objects
+        img_names = [v.camera_name for _, v in img_objects.items()]
+        imgs = [v.rotated_rgb for _, v in img_objects.items()]
+        pil_imgs = [PIL.Image.fromarray(img) for img in imgs]  # type: ignore
+        # Annotate images with detected objects (names + bounding box)
+        # and camera name.
+        object_detections_per_camera = observation.object_detections_per_camera
+        for i, camera_name in enumerate(img_names):
+            draw = ImageDraw.Draw(pil_imgs[i])
+            # Annotate with camera name.
+            font = utils.get_scaled_default_font(draw, 4)
+            _ = utils.add_text_to_draw_img(
+                draw, (0, 0), self.camera_name_to_annotation[camera_name],
+                font)
+            # Annotate with object detections.
+            detections = object_detections_per_camera[camera_name]
+            for obj_id, seg_bb in detections:
+                x0, y0, x1, y1 = seg_bb.bounding_box
+                draw.rectangle([(x0, y0), (x1, y1)], outline='green', width=2)
+                text = f"{obj_id.language_id}"
+                font = utils.get_scaled_default_font(draw, 3)
+                text_mask = font.getmask(text)  # type: ignore
+                text_width, text_height = text_mask.size
+                text_bbox = [(x0, y0 - 1.5 * text_height),
+                             (x0 + text_width + 1, y0)]
+                draw.rectangle(text_bbox, fill='green')
+                draw.text((x0 + 1, y0 - 1.5 * text_height),
+                          text,
+                          fill='white',
+                          font=font)
+        annotated_imgs = [np.array(img) for img in pil_imgs]
+        self._gripper_open_percentage = observation.gripper_open_percentage
+
+        self._curr_state = self._create_state()
+        if observation.executed_skill is not None:
+            if "Pick" in observation.executed_skill.extra_info.action_name:
+                for obj in observation.executed_skill.extra_info.\
+                        operator_objects:
+                    if not obj.is_instance(_robot_type):
+                        # Turn the held feature on
+                        self._curr_state.set(obj, "held", 1.0)
+            if "Place" in observation.executed_skill.extra_info.action_name:
+                for obj in observation.executed_skill.extra_info.\
+                        operator_objects:
+                    if not obj.is_instance(_robot_type):
+                        # Turn the held feature off
+                        self._curr_state.set(obj, "held", 0.0)
+
+        # This state is a default/empty. We have to set the attributes
+        # of the objects and set the simulator state properly.
+        assert self._curr_state.simulator_state is not None
+        self._curr_state.simulator_state["images"] = annotated_imgs
+        # At the first timestep, these histories will be empty due to
+        # self.reset(). But at every timestep that isn't the first one,
+        # they will be non-empty.
+        self._curr_state.simulator_state["state_history"] = list(
+            self._state_history)
+        # We do this here so the call to `utils.abstract()` a few lines later
+        # has the skill that was just run.
+        executed_skill = None
+
+        if observation.executed_skill is not None:
+            if observation.executed_skill.extra_info.action_name == "done":
+                # Just return the default state
+                return DefaultState
+            executed_skill = observation.executed_skill.get_option()
+        self._executed_skill_history.append(
+            executed_skill)  # None in first timestep.
+        self._curr_state.simulator_state["skill_history"] = list(
+            self._executed_skill_history)
+        self._curr_state.simulator_state["vlm_label_history"] = list(
+            self._vlm_label_history)
+
+        # Add to histories.
+        # A bit of extra work is required to build the VLM label history.
+        # We want to keep `utils.abstract()` as straightforward as possible,
+        # so we'll "rebuild" the VLM labels from the abstract state
+        # returned by `utils.abstract()`. And since we call this function,
+        # we might as well store the abstract state as a part of the simulator
+        # state so that we don't need to recompute it later in the approach or
+        # in planning.
+        assert self._curr_env is not None
+        preds = self._curr_env.predicates
+        state_copy = self._curr_state.copy()
+        abstract_state = utils.abstract(state_copy, preds)
+        self._curr_state.simulator_state["abstract_state"] = abstract_state
+        # Compute all the VLM atoms. `utils.abstract()` only returns the ones
+        # that are True. The remaining ones are the ones that are False.
+        vlm_preds = set(pred for pred in preds
+                        if isinstance(pred, VLMPredicate))
+        vlm_atoms = set()
+        for pred in vlm_preds:
+            for choice in utils.get_object_combinations(
+                    list(state_copy), pred.types):
+                vlm_atoms.add(GroundAtom(pred, choice))
+        vlm_atoms_list = sorted(vlm_atoms)
+        reconstructed_all_vlm_responses = []
+        for atom in vlm_atoms_list:
+            if atom in abstract_state:
+                truth_value = 'True'
+            else:
+                truth_value = 'False'
+            atom_label = f"* {atom.get_vlm_query_str()}: {truth_value}"
+            reconstructed_all_vlm_responses.append(atom_label)
+        str_vlm_response = '\n'.join(reconstructed_all_vlm_responses)
+        self._vlm_label_history.append(str_vlm_response)
+        self._state_history.append(self._curr_state.copy())
+        return self._curr_state.copy()
+
+    def _create_state(self) -> State:
+        if self._waiting_for_observation:
+            return DefaultState
+        # Build the continuous part of the state.
+        assert self._robot is not None
+        state_dict = {
+            self._robot: {
+                "gripper_open_percentage": self._gripper_open_percentage,
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+            },
+        }
+        # Add a 'dummy' state for each of the objects we know about.
+        for obj in self._ordered_objects:
+            state_dict[obj] = {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width": 0,
+                "length": 0,
+                "object_id": 2,
+            }
+            if obj.type.name == "movable":
+                state_dict[obj].update({
+                    "placeable": 1,
+                    "held": 0,
+                    "lost": 0,
+                    "in_hand_view": 0,
+                    "in_view": 0,
+                    "is_sweeper": 0,
+                })
+            elif obj.type.name == "immovable":
+                state_dict[obj].update({"flat_top_surface": 1})
+            else:
+                raise ValueError(
+                    f"Dummy state construction for type {obj.type}" + \
+                        "not implemented yet."
+                )
+        # Complete the dummy state; to be populated with additional info!
+        state = utils.create_state_from_dict(state_dict)
+        state.simulator_state = {}
+        state.simulator_state["images"] = []
+        state.simulator_state["state_history"] = []
+        state.simulator_state["skill_history"] = []
+        state.simulator_state["vlm_atoms_history"] = []
+        return state

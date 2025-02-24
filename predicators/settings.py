@@ -435,8 +435,9 @@ class GlobalSettings:
     override_json_with_input = False  # Only works with SpotEnv for now
 
     # parameters for vision language models
-    # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
-    vlm_model_name = "gemini-pro-vision"
+    # gemini-1.5-pro-latest, gemini-1.5-pro-flash gpt-4-turbo, gpt-4o
+    # NOTE: we need to create a dummy vlm so that tests on CI pass.
+    vlm_model_name = "dummy"
     vlm_temperature = 0.0
     vlm_num_completions = 1
     vlm_include_cropped_images = False

@@ -104,7 +104,6 @@ def _generate_prompt_for_scene_labelling(
             traj.actions[:i])
 
 
-#
 def _sample_vlm_atom_proposals_from_trajectories(
         trajectories: List[ImageOptionTrajectory],
         vlm: VisionLanguageModel,

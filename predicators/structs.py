@@ -16,8 +16,6 @@ from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
 
-import predicators.pretrained_model_interface
-import predicators.utils as utils  # pylint: disable=consider-using-from-import
 from predicators.settings import CFG
 
 
@@ -489,20 +487,27 @@ class Task:
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
-    def goal_holds(
-        self,
-        state: State,
-        vlm: Optional[
-            predicators.pretrained_model_interface.VisionLanguageModel] = None
-    ) -> bool:
+    def goal_holds(self, state: State, vlm: Optional[Any] = None) -> bool:
         """Return whether the goal of this task holds in the given state."""
+        try:  # pragma: no cover
+            if state.simulator_state is not None and "abstract_state" in \
+                state.simulator_state:
+                abstract_state = state.simulator_state["abstract_state"]
+                return self.goal.issubset(abstract_state)
+        except TypeError:
+            pass
+        # NOTE: we have to do this to avoid circular imports... It's certainly
+        # ugly, but we weren't able to find a cleaner way that didn't involve
+        # a large amount of unnecessary refactoring.
+        from predicators.utils import \
+            query_vlm_for_atom_vals  # pylint:disable=import-outside-toplevel
         vlm_atoms = set(atom for atom in self.goal
                         if isinstance(atom.predicate, VLMPredicate))
         for atom in self.goal:
             if atom not in vlm_atoms:
                 if not atom.holds(state):
                     return False
-        true_vlm_atoms = utils.query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+        true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
         return len(true_vlm_atoms) == len(vlm_atoms)
 
     def replace_goal_with_alt_goal(self) -> Task:
