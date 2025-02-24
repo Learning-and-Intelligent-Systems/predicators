@@ -16,7 +16,7 @@ from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     SpotRearrangementEnv, _get_sweeping_surface_for_container, \
     get_detection_id_for_object, get_robot, \
-    get_robot_gripper_open_percentage, get_robot_only, get_simulated_object, \
+    get_robot_gripper_open_percentage, get_simulated_object, \
     get_simulated_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
@@ -908,7 +908,7 @@ def _create_teleop_policy_with_name(
         nonlocal name
         del state, memory, params
 
-        robot, lease_client = get_robot_only()
+        robot, lease_client = get_robot(use_localizer=False)
 
         def _teleop(robot: Robot, lease_client: LeaseClient):
             del robot  # unused.
@@ -919,7 +919,7 @@ def _create_teleop_policy_with_name(
                     break
                 logging.info("Invalid input. Press (y) when y")
             # Take back control.
-            robot, lease_client = get_robot_only()
+            robot, lease_client = get_robot(use_localizer=False)
             lease_client.take()
 
         fn = _teleop

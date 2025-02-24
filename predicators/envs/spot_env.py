@@ -161,10 +161,14 @@ def _create_dummy_predicate_classifier(
 
 @functools.lru_cache(maxsize=None)
 def get_robot(
+    use_localizer=True
 ) -> Tuple[Optional[Robot], Optional[SpotLocalizer], Optional[LeaseClient]]:
     """Create the robot only once.
 
-    If we are doing a dry run, return dummy Nones for each component.
+    If we're using a map, we set the `use_localizer` argument to True,
+    otherwise (for instance in the SpotMinimalVLMPredicateEnv) we set it
+    to `False`. If we are doing a dry run, return dummy Nones for each
+    component.
     """
     if CFG.spot_run_dry:
         return None, None, None
@@ -181,24 +185,9 @@ def get_robot(
                                      must_acquire=True,
                                      return_at_exit=True)
     assert path.exists()
-    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
-    # localizer = None
+    if use_localizer:
+        localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
     return robot, localizer, lease_client
-
-
-@functools.lru_cache(maxsize=None)
-def get_robot_only() -> Tuple[Optional[Robot], Optional[LeaseClient]]:
-    hostname = CFG.spot_robot_ip
-    sdk = create_standard_sdk("PredicatorsClient-")
-    robot = sdk.create_robot(hostname)
-    authenticate(robot)
-    verify_estop(robot)
-    lease_client = robot.ensure_client(LeaseClient.default_service_name)
-    lease_client.take()
-    lease_keepalive = LeaseKeepAlive(lease_client,
-                                     must_acquire=True,
-                                     return_at_exit=True)
-    return robot, lease_client
 
 
 @functools.lru_cache(maxsize=None)
@@ -2563,8 +2552,6 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
         This is more minimal and can be used to construct simple
         observations specifically for this 'mapless' environment.
         """
-        # TODO: move this method into object_detection, and also
-        # probably make it easy for other env variants to use it?
         object_ids = self._detection_id_to_obj.keys()
         object_id_to_img_detections = _query_detic_sam(object_ids, rgbd_images)
         # This ^ is currently a mapping of object_id -> camera_name ->
@@ -2713,7 +2700,7 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
                              add_effs, del_effs, ignore_effs)
 
     def __init__(self, use_gui: bool = True) -> None:
-        robot, lease_client = get_robot_only()
+        robot, lease_client = get_robot(use_localizer=False)
         self._robot = robot
         self._lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
@@ -2849,7 +2836,7 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
                              del_effs, ignore_effs)
 
     def __init__(self, use_gui: bool = True) -> None:
-        robot, lease_client = get_robot_only()
+        robot, lease_client = get_robot(use_localizer=False)
         self._robot = robot
         self._lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
