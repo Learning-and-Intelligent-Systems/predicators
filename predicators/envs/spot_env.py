@@ -1480,29 +1480,29 @@ def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
         str(obj.name) for obj in objects) + ")"  # pragma: no cover
 
 
-# _VLMOn = utils.create_vlm_predicate("VLMOn",
-#                                     [_movable_object_type, _base_object_type],
-#                                     lambda o: _get_vlm_query_str("VLMOn", o))
-# _Upright = utils.create_vlm_predicate(
-#     "Upright", [_movable_object_type],
-#     lambda o: _get_vlm_query_str("Upright", o))
-# _Toasted = utils.create_vlm_predicate(
-#     "Toasted", [_movable_object_type],
-#     lambda o: _get_vlm_query_str("Toasted", o))
-# _VLMIn = utils.create_vlm_predicate(
-#     "VLMIn", [_movable_object_type, _immovable_object_type],
-#     lambda o: _get_vlm_query_str("In", o))
-# _Open = utils.create_vlm_predicate("Open", [_movable_object_type],
-#                                    lambda o: _get_vlm_query_str("Open", o))
-# _Stained = utils.create_vlm_predicate(
-#     "Stained", [_movable_object_type],
-#     lambda o: _get_vlm_query_str("Stained", o))
-# _Messy = utils.create_vlm_predicate("Messy", [_movable_object_type],
-#                                     lambda o: _get_vlm_query_str("Messy", o))
+_VLMOn = utils.create_vlm_predicate("VLMOn",
+                                    [_movable_object_type, _base_object_type],
+                                    lambda o: _get_vlm_query_str("VLMOn", o))
+_Upright = utils.create_vlm_predicate(
+    "Upright", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Upright", o))
+_Toasted = utils.create_vlm_predicate(
+    "Toasted", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Toasted", o))
+_VLMIn = utils.create_vlm_predicate(
+    "VLMIn", [_movable_object_type, _immovable_object_type],
+    lambda o: _get_vlm_query_str("In", o))
+_Open = utils.create_vlm_predicate("Open", [_movable_object_type],
+                                   lambda o: _get_vlm_query_str("Open", o))
+_Stained = utils.create_vlm_predicate(
+    "Stained", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Stained", o))
+_Messy = utils.create_vlm_predicate("Messy", [_movable_object_type],
+                                    lambda o: _get_vlm_query_str("Messy", o))
 
-# _Touching = utils.create_vlm_predicate(
-#     "Touching", [_dustpan_type, _wrappers_type],
-#     lambda o: _get_vlm_query_str("Touching", o))
+_Touching = utils.create_vlm_predicate(
+    "Touching", [_dustpan_type, _wrappers_type],
+    lambda o: _get_vlm_query_str("Touching", o))
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _NotInsideAnyContainer, _FitsInXY, _HandEmpty,
@@ -1510,8 +1510,16 @@ _ALL_PREDICATES = {
     _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable, _IsNotPlaceable,
     _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
     _IsSemanticallyGreaterThan, _Inside
-    # _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
-    # _Stained, _Messy, _Touching,
+}
+_VLM_PREDICATES = {
+    _VLMOn,
+    _Upright,
+    _Toasted,
+    _VLMIn,
+    _Open,
+    _Stained,
+    _Messy,
+    _Touching,
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -2675,7 +2683,7 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return set(p for p in _ALL_PREDICATES if p.name in
+        return set(p for p in _ALL_PREDICATES | _VLM_PREDICATES if p.name in
                    ["Holding", "HandEmpty", "NotHolding", "Inside", "VLMOn"])
 
     @property
@@ -2749,7 +2757,7 @@ class DustpanSweepingTestEnv(SpotMinimalVLMPredicateEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return set(
-            p for p in _ALL_PREDICATES if p.name in
+            p for p in _ALL_PREDICATES | _VLM_PREDICATES if p.name in
             ["Holding", "HandEmpty", "NotHolding", "Touching", "Inside"])
 
     @property
