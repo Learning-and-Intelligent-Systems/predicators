@@ -359,40 +359,66 @@ def create_demo_data_from_robocasa(env: RoboKitchenEnv, train_tasks: List[Task],
             # Create list of State objects from state info at each timestep
             states = []
             first_key = next(iter(demo["datagen_info"]))
-            # Process each timestep
-            for t in range(len(demo["datagen_info"][first_key])):
-                # Get basic state info
-                state_info = {}
-                for key in demo["datagen_info"].keys():
-                    state_info[key] = demo["datagen_info"][key][t]
+            actions = demo["actions"][()]  # Get actions array
+            raw_robosuite_states = demo["states"][()]
 
-                # Reset simulator to current state
-                if t == 0:
-                    reset_state = {
-                        "states": demo["states"][t],
-                        "model": demo.attrs["model_file"],
-                        "ep_meta": demo.attrs.get("ep_meta", None)
-                    }
-                else:
-                    reset_state = {
-                        "states": demo["states"][t]
-                    }
-                reset_to(env._env, reset_state)
+            # Reset to initial state
+            reset_state = {
+                "states": demo["states"][0],
+                "model": demo.attrs["model_file"],
+                "ep_meta": demo.attrs.get("ep_meta", None)
+            }
+            reset_to(env._env, reset_state)
+
+            # Get initial state info
+            # state_info = {}
+            # for key in demo["datagen_info"].keys():
+            #     state_info[key] = demo["datagen_info"][key][0]
+            
+            # Get contact information for initial state
+            # contact_set = env.get_object_level_contacts()
+            
+            # # Create and store initial state
+            # state = env.state_info_to_state(state_info, contact_set)
+            # states.append(state)
+
+            #since we would like observation at each timestep, let us skip the resetted state, start with t=1
+
+            # Process each timestep by executing actions
+
+            # num actions = num states -1
+            # state 0 we reset to initial state, so first state to save is 
+            # states 0 1 2 3 4 5 
+            # actions 0 1 2 3 4 5
+            # need to remove action 0 and action 5, remove states 0
+            # in the dataset, the number of states is longer for some reason, so run actions to the end
+            
+            for t in range(len(raw_robosuite_states)-1):  # -1 since we skip last action
+                # Execute action in environment
+                obs, _, _, _ = env._env.step(actions[t])
+
+                # Get state info for next timestep
+                # state_info = {}
+                # for key in demo["datagen_info"].keys():
+                #     state_info[key] = demo["datagen_info"][key][t+1]
+
+                # Get contact information
+                contact_set = env.get_object_level_contacts()
                 
                 if CFG.robo_kitchen_viz_debug:
                     if env._env.viewer is None:
                         env._env.initialize_renderer()
                     env._env.viewer.update()
 
-                # Get contact information
-                contact_set = env.get_object_level_contacts()
-
-                # print(contact_set)
-                
                 # Create state object
-                state = env.state_info_to_state(state_info, contact_set)
+                state = RoboKitchenEnv.state_info_to_state(obs, contact_set) # state here is the predicator state
                 states.append(state)
-            
+
+                # Optional: Check if execution matches recorded trajectory
+                state_playback = np.array(env._env.sim.get_state().flatten())
+                if not np.all(np.abs(demo["states"][t+1] - state_playback) < 0.1):
+                    err = np.linalg.norm(demo["states"][t+1] - state_playback)
+                    logging.warning(f"Playback diverged by {err} at step {t}")
             # Smooth contact sets using a moving window
             window_size = CFG.robo_kitchen_contact_smoothing_window  # Number of timesteps to look at
             
@@ -435,11 +461,9 @@ def create_demo_data_from_robocasa(env: RoboKitchenEnv, train_tasks: List[Task],
                 # Update contact set for this timestep
                 states[t].items_in_contact = smoothed_contacts
 
-            actions = demo["actions"][()]  # Get actions array
-            raw_robosuite_states = demo["states"][()]
             # Convert actions to predicators Action objects
             action_objs = []
-            for action in actions[:-1]:  # Skip the last action
+            for action in actions[1:-1]:  # Skip first and last action
                 # Create Action object - you may need to adjust this based on your action space
                 action_obj = Action(action)
                 action_objs.append(action_obj)

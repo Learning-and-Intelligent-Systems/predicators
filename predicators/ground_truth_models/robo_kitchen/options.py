@@ -130,6 +130,9 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             
             arr = np.array([dx, dy, dz, drot[0], drot[1], drot[2], 0.0],
                            dtype=np.float32)
+            # in standard handle.quat,(1 0 0 0) what should the gripper pose be? (0.7 0 0.7 0) Get difference (3d)
+            # get handle pose (live) + difference = grippable gripper pose
+            # ask controller to track grippable gripper pose (action)
             action_mag = np.linalg.norm(arr)
             if action_mag > cls.max_delta_mag:
                 scale = cls.max_delta_mag / action_mag

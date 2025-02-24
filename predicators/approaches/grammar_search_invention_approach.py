@@ -810,15 +810,15 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             # Then, we only need to care about the initial and final
             # states in each segment, which we store into
             # self._state_sequence.
-            eef_obj = RoboKitchenEnv.object_name_to_object("eef")
-            handle_obj = RoboKitchenEnv.object_name_to_object("obj_handle")
+            eef_obj = RoboKitchenEnv.object_name_to_object("robot0_eef")
+            handle_obj = RoboKitchenEnv.object_name_to_object("door_obj")
             for i, traj in enumerate(self.dataset.trajectories):
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
                 if CFG.robo_kitchen_save_traj:
                     for seg_idx, seg in enumerate(seg_traj):
-                        eef_traj = np.zeros((len(seg.states), 12))
-                        handle_traj = np.zeros((len(seg.states), 12))
+                        eef_traj = np.zeros((len(seg.states), 7))
+                        handle_traj = np.zeros((len(seg.states), 7))
                         for t, state in enumerate(seg.states):
                             eef_traj[t] = state[eef_obj]
                             handle_traj[t] = state[handle_obj]

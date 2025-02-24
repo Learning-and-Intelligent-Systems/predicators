@@ -39,7 +39,7 @@ class RoboKitchenEnv(BaseEnv):
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
     # Types (similar to original kitchen)
     # object_type = Type("object", ["x", "y", "z"])
-    rich_object_type = Type("rich_object_type", ["x", "y", "z", "R00", "R01", "R02", "R10", "R11", "R12", "R20", "R21", "R22"])
+    rich_object_type = Type("rich_object_type", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     hinge_door_type = Type("hinge_door_type", ["angle"])
     # on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
     # hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
@@ -337,7 +337,7 @@ class RoboKitchenEnv(BaseEnv):
         # env_action[10] is zero (no torso movement)
         # env_action[11] is zero (extra dimension)
 
-        # Execute action in environment
+        # Execute action in environment (Robosuite:Mujoco Env)
         obs, _, _, _ = self._env.step(env_action)
         obs = {
             "state_info": obs,
@@ -452,25 +452,39 @@ class RoboKitchenEnv(BaseEnv):
                 state_dict[obj] = {
                     "angle": val #currently only support 1 door, double door dont work
                 }
-            if not key.endswith("_rot"): #joint_pos does end with pos but does not have _quat 
-                continue
-            obj_name = key[:-4]  # Remove _pos
-            pos_val = state_info[key[:-4] + "_pos"]
-            obj = cls.object_name_to_object(obj_name)
-            state_dict[obj] = {
+            # elif key.endswith("_rot"): # This is deprecated since we want to use same representation as online
+            #     obj_name = key[:-4]  # Remove _pos
+            #     pos_val = state_info[key[:-4] + "_pos"]
+            #     obj = cls.object_name_to_object(obj_name)
+            #     state_dict[obj] = {
+            #             "x": pos_val[0],
+            #             "y": pos_val[1],
+            #             "z": pos_val[2],
+            #             "R00": val[0,0],
+            #             "R01": val[0,1],
+            #             "R02": val[0,2],
+            #             "R10": val[1,0],
+            #             "R11": val[1,1],
+            #             "R12": val[1,2],
+            #             "R20": val[2,0],
+            #             "R21": val[2,1],
+            #             "R22": val[2,2],
+            #         }
+            elif key.endswith("_quat"):
+                obj_name = key[:-5]  # Remove _pos
+                pos_val = state_info[key[:-5] + "_pos"]
+                obj = cls.object_name_to_object(obj_name)
+                state_dict[obj] = {
                     "x": pos_val[0],
                     "y": pos_val[1],
                     "z": pos_val[2],
-                    "R00": val[0,0],
-                    "R01": val[0,1],
-                    "R02": val[0,2],
-                    "R10": val[1,0],
-                    "R11": val[1,1],
-                    "R12": val[1,2],
-                    "R20": val[2,0],
-                    "R21": val[2,1],
-                    "R22": val[2,2],
+                    "qw": val[0],
+                    "qx": val[1],
+                    "qy": val[2],
+                    "qz": val[3],
                 }
+
+                          
         state = utils.create_state_from_dict(state_dict)
         state.simulator_state = {}
         state.items_in_contact = contact_set # when defaults, it means Not populated, when empty means no contact
