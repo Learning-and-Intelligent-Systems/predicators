@@ -41,7 +41,7 @@ from predicators.spot_utils.perception.object_specific_grasp_selection import \
 from predicators.spot_utils.perception.perception_structs import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, PythonicObjectDetectionID, \
-    RGBDImage, RGBDImageWithContext, SegmentedBoundingBox
+    RGBDImageWithContext, SegmentedBoundingBox
 from predicators.spot_utils.utils import get_april_tag_transform, \
     get_graph_nav_dir
 from predicators.utils import rotate_point_in_image
