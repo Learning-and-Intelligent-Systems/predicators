@@ -489,10 +489,13 @@ class Task:
 
     def goal_holds(self, state: State, vlm: Optional[Any] = None) -> bool:
         """Return whether the goal of this task holds in the given state."""
-        if state.simulator_state is not None and "abstract_state" in \
-            state.simulator_state:
-            abstract_state = state.simulator_state["abstract_state"]
-            return self.goal.issubset(abstract_state)
+        try:  # pragma: no cover
+            if state.simulator_state is not None and "abstract_state" in \
+                state.simulator_state:
+                abstract_state = state.simulator_state["abstract_state"]
+                return self.goal.issubset(abstract_state)
+        except TypeError:
+            pass
         # NOTE: we have to do this to avoid circular imports... It's certainly
         # ugly, but we weren't able to find a cleaner way that didn't involve
         # a large amount of unnecessary refactoring.

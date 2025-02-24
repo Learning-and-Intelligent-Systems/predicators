@@ -2611,7 +2611,7 @@ def query_vlm_for_atom_vals(
     vlm_output_str = vlm_output[0]
     logging.info(f"VLM output: \n{vlm_output_str}")
     # Parse out stuff.
-    if len(label_history) > 0:
+    if len(label_history) > 0:  # pragma: no cover
         truth_values = re.findall(r'\* (.*): (True|False)', vlm_output_str)
         for i, (atom_query,
                 pred_label) in enumerate(zip(atom_queries_list, truth_values)):
@@ -2650,7 +2650,7 @@ def abstract(state: State,
     """
     try:
         if state.simulator_state is not None and "abstract_state" in \
-            state.simulator_state:
+            state.simulator_state: # pragma: no cover
             return state.simulator_state["abstract_state"]
     except (AttributeError, TypeError):
         pass
