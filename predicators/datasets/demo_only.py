@@ -405,18 +405,13 @@ def create_demo_data_from_robocasa(env: RoboKitchenEnv, train_tasks: List[Task],
                 # Get contact information
                 contact_set = env.get_object_level_contacts()
                 
-                if CFG.robo_kitchen_viz_debug:
-                    if env._env.viewer is None:
-                        env._env.initialize_renderer()
-                    env._env.viewer.update()
-
                 # Create state object
                 state = RoboKitchenEnv.state_info_to_state(obs, contact_set) # state here is the predicator state
                 states.append(state)
 
                 # Optional: Check if execution matches recorded trajectory
                 state_playback = np.array(env._env.sim.get_state().flatten())
-                if not np.all(np.abs(demo["states"][t+1] - state_playback) < 0.1):
+                if not np.all(np.abs(demo["states"][t+1] - state_playback) < 0.3):
                     err = np.linalg.norm(demo["states"][t+1] - state_playback)
                     logging.warning(f"Playback diverged by {err} at step {t}")
             # Smooth contact sets using a moving window

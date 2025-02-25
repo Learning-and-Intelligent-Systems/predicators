@@ -240,27 +240,36 @@ class RoboKitchenEnv(BaseEnv):
 
         # only support panda robot for now
         contacts = set()
-        robot_contacts = self._env.get_contacts(self._env.robots[0].robot_model.models[0])
+        # robot_contacts = self._env.get_contacts(self._env.robots[0].robot_model.models[0])
         gripper_contact = self._env.get_contacts(self._env.robots[0].robot_model.models[1])
         # filter down to only include objects of interest
 
         object_names = [obj.name for obj in self.objects_of_interest]
-        robot_obj = self.object_name_to_object("robot")
+        # robot_obj = self.object_name_to_object("robot")
         gripper_obj = self.object_name_to_object("gripper")
 
-        for contact in robot_contacts: # each contact is a string 
-            for obj_name in object_names:
-                if obj_name in contact:
-                    obj = self.object_name_to_object(obj_name)
-                    contacts.add((obj, robot_obj))
+        # for contact in robot_contacts: # each contact is a string 
+        #     for obj_name in object_names:
+        #         if obj_name in contact:
+        #             obj = self.object_name_to_object(obj_name)
+        #             contacts.add((obj, robot_obj))
         for contact in gripper_contact:
             for obj_name in object_names:
                 if obj_name in contact:
                     obj = self.object_name_to_object(obj_name)
                     contacts.add((obj, gripper_obj))
-        print(f"contacts: {contacts}")
+        # Filter out gripper-door contact if gripper-handle contact exists
+        contacts = self._filter_door_handle_contacts(contacts, gripper_obj)
         return contacts
 
+    def _filter_door_handle_contacts(self, contacts: set[Tuple[Object, Object]], gripper_obj: Object) -> set[Tuple[Object, Object]]:
+        """Filter out gripper-door contact if gripper-handle contact exists."""
+        handle_obj = self.object_name_to_object("handle")
+        door_obj = self.object_name_to_object("door")
+        gripper_handle_contact = (handle_obj, gripper_obj) in contacts or (gripper_obj, handle_obj) in contacts
+        if gripper_handle_contact:
+            contacts = {c for c in contacts if door_obj not in c}
+        return contacts
 
     @classmethod
     def get_name(cls) -> str:

@@ -819,14 +819,17 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
                     for seg_idx, seg in enumerate(seg_traj):
                         eef_traj = np.zeros((len(seg.states), 7))
                         handle_traj = np.zeros((len(seg.states), 7))
+                        contact_traj = []
                         for t, state in enumerate(seg.states):
                             eef_traj[t] = state[eef_obj]
                             handle_traj[t] = state[handle_obj]
+                            contact_traj.append({(obj1.name, obj2.name) for obj1, obj2 in state.items_in_contact})
                         # Save eef trajectory to file with padded demo and segment numbers
                         demo_num = str(i).zfill(2)
                         seg_num = str(seg_idx).zfill(2)
                         np.save(f"demo_{demo_num}_seg_{seg_num}_eef_traj.npy", eef_traj)
                         np.save(f"demo_{demo_num}_seg_{seg_num}_handle_traj.npy", handle_traj)
+                        np.save(f"demo_{demo_num}_seg_{seg_num}_contact_traj.npy", contact_traj)
                 state_seq = utils.segment_trajectory_to_start_end_state_sequence(  # pylint:disable=line-too-long
                     seg_traj)
                 self._state_sequences.append(state_seq)
