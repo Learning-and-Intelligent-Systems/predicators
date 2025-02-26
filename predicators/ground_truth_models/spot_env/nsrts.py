@@ -322,6 +322,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "DropNotPlaceableObject": utils.null_sampler,
             "MoveToReadySweep": utils.null_sampler,
             "TeleopPick1": utils.null_sampler,
+            "TeleopPlace": utils.null_sampler,
             "PlaceNextTo": utils.null_sampler,
             "TeleopPick2": utils.null_sampler,
             "Sweep": utils.null_sampler,

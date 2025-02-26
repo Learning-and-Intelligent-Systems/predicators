@@ -2723,8 +2723,8 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
             LiftedAtom(_NotHolding, [robot, obj]),
         }
         ignore_effs: Set[Predicate] = set()
-        yield STRIPSOperator("PickObjectFromTop", parameters, preconds,
-                             add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("TeleopPick1", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
         # Place object
         robot = Variable("?robot", _robot_type)
@@ -2739,8 +2739,8 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
         }
         del_effs = {LiftedAtom(_Holding, [robot, obj])}
         ignore_effs = set()
-        yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds,
-                             add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("TeleopPlace1", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
     def op_names_to_keep(self) -> Set[str]:
         """Return the names of the operators we want to keep."""
