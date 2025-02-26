@@ -229,9 +229,17 @@ class RoboKitchenEnv(BaseEnv):
         if CFG.robo_kitchen_randomize_init_state:
             pass # do randomization
         
+        # Reset the environment
+        obs = self._env.reset()
+        
+        # Get contact information
+        contact_set = self.get_object_level_contacts()
+        
+        # Return observation with contact info
         return {
-            "state_info": self._env.reset(),
-            "obs_images": []
+            "state_info": obs,
+            "obs_images": [],
+            "contact_set": contact_set
         }
 
     def get_object_level_contacts(self) -> set[Tuple[Object, Object]]:
@@ -349,12 +357,16 @@ class RoboKitchenEnv(BaseEnv):
 
         # Execute action in environment (Robosuite:Mujoco Env)
         obs, _, _, _ = self._env.step(env_action)
-        obs = {
+
+        contact_set = self.get_object_level_contacts()
+
+        observation = {
             "state_info": obs,
-            "obs_images": []
+            "obs_images": [],
+            "contact_set": contact_set
         }
         
-        self._current_observation = obs
+        self._current_observation = observation
         return self._copy_observation(self._current_observation)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
@@ -363,16 +375,23 @@ class RoboKitchenEnv(BaseEnv):
         # self._current_task = self.get_task(train_or_test, task_idx)
         # seed = utils.get_task_seed(train_or_test, task_idx)
         # Add warning that task-specific reset not implemented
-        warnings.warn("reset task not implemented for robo_kitchen")
+        # warnings.warn("reset task not implemented for robo_kitchen")
 
         # Reset robosuite env
+         # Reset robosuite env
         obs = self._env.reset()
-        obs = {
+        
+        # Get contact information
+        contact_set = self.get_object_level_contacts()
+        
+        # Create observation with contact info
+        observation = {
             "state_info": obs,
-            "obs_images": []
+            "obs_images": [],
+            "contact_set": contact_set
         }
         
-        self._current_observation = obs
+        self._current_observation = observation
         return self._copy_observation(self._current_observation)
 
     def render(self, action: Optional[Action] = None, # this renders the robot observation, not the viewer??
@@ -462,24 +481,6 @@ class RoboKitchenEnv(BaseEnv):
                 state_dict[obj] = {
                     "angle": val #currently only support 1 door, double door doesn't work
                 }
-            # elif key.endswith("_rot"): # This is deprecated since we want to use same representation as online
-            #     obj_name = key[:-4]  # Remove _pos
-            #     pos_val = state_info[key[:-4] + "_pos"]
-            #     obj = cls.object_name_to_object(obj_name)
-            #     state_dict[obj] = {
-            #             "x": pos_val[0],
-            #             "y": pos_val[1],
-            #             "z": pos_val[2],
-            #             "R00": val[0,0],
-            #             "R01": val[0,1],
-            #             "R02": val[0,2],
-            #             "R10": val[1,0],
-            #             "R11": val[1,1],
-            #             "R12": val[1,2],
-            #             "R20": val[2,0],
-            #             "R21": val[2,1],
-            #             "R22": val[2,2],
-            #         }
             elif key.endswith("_quat"):
                 obj_name = key[:-5]  # Remove _pos
                 pos_val = state_info[key[:-5] + "_pos"]

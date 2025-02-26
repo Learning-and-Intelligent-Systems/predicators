@@ -62,7 +62,11 @@ class RoboKitchenPerceiver(BasePerceiver):
         return self._observation_to_state(observation)
 
     def _observation_to_state(self, obs: Observation) -> State:
-        state = RoboKitchenEnv.state_info_to_state(obs["state_info"])
+        # Get contact set from observation, or use empty set if not provided
+        contact_set = obs.get("contact_set", set())
+        
+        # Convert state_info to state, passing in the contact set
+        state = RoboKitchenEnv.state_info_to_state(obs["state_info"], contact_set)
 
         assert state.simulator_state is not None
         state.simulator_state["images"] = obs["obs_images"]
