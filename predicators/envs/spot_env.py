@@ -1482,7 +1482,7 @@ def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
 
 _VLMOn = utils.create_vlm_predicate("VLMOn",
                                     [_movable_object_type, _base_object_type],
-                                    lambda o: _get_vlm_query_str("VLMOn", o))
+                                    lambda o: _get_vlm_query_str("OnTopOf", o))
 _Upright = utils.create_vlm_predicate(
     "Upright", [_movable_object_type],
     lambda o: _get_vlm_query_str("Upright", o))
@@ -2641,9 +2641,14 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
                 if response == "y":
                     self._current_task_goal_reached = True
                     break
-                if response == "n":
-                    self._current_task_goal_reached = False
-                    break
+                # If the answer is no, just stay in an infinite loop;
+                # nothing is going to change anyways unless the robot's
+                # state changes.
+                # NOTE: this is a bit of a hack; we should probably
+                # have a better way to handle this later.
+                # if response == "n":
+                #     self._current_task_goal_reached = False
+                #     break
                 logging.info("Invalid input, must be either 'y' or 'n'")
             return _TruncatedSpotObservation(
                 self._current_observation.rgbd_images,
@@ -2665,6 +2670,16 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
                 logging.warning("WARNING: the following retryable error "
                                 f"was encountered. Trying again.\n{e}")
         rgbd_images = capture_images_without_context(self._robot)
+
+        camera_names = [
+            'frontleft_fisheye_image', 'frontright_fisheye_image',
+            'hand_color_image', 'back_fisheye_image', 'left_fisheye_image',
+            'right_fisheye_image'
+        ]
+        for camera_name in camera_names:
+            assert camera_name in rgbd_images, \
+                f"Missing image from {camera_name}"
+
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)
         # Perform object detection.
@@ -2699,7 +2714,7 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
         objects = {
-            Object("cup", _movable_object_type),
+            Object("yellow_toy_cup", _movable_object_type),
             Object("cardboard_table", _immovable_object_type),
         }
         for o in objects:
@@ -2711,8 +2726,7 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
         # Pick object
         robot = Variable("?robot", _robot_type)
         obj = Variable("?object", _movable_object_type)
-        table = Variable("?table", _movable_object_type)
-        parameters = [robot, obj, table]
+        parameters = [robot, obj]
         preconds: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
@@ -2723,8 +2737,8 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
             LiftedAtom(_NotHolding, [robot, obj]),
         }
         ignore_effs: Set[Predicate] = set()
-        yield STRIPSOperator("PickObjectFromTop", parameters, preconds,
-                             add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("TeleopPick1", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
         # Place object
         robot = Variable("?robot", _robot_type)
@@ -2739,12 +2753,12 @@ class SimpleVLMCupEnv(SpotMinimalVLMPredicateEnv):
         }
         del_effs = {LiftedAtom(_Holding, [robot, obj])}
         ignore_effs = set()
-        yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds,
-                             add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("TeleopPlace1", parameters, preconds, add_effs,
+                             del_effs, ignore_effs)
 
     def op_names_to_keep(self) -> Set[str]:
         """Return the names of the operators we want to keep."""
-        return {"PickObjectFromTop", "PlaceObjectOnTop"}
+        return {"TeleopPick1", "TeleopPlace1"}
 
     def _generate_goal_description(self) -> GoalDescription:
         return "get the cup onto the table!"

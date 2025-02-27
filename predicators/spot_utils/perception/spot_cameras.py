@@ -170,7 +170,6 @@ def capture_images_without_context(
         rgbd = RGBDImage(rgb_img, depth_img, rot, camera_name, depth_scale,
                          camera_model)
         rgbds[camera_name] = rgbd
-
     return rgbds
 
 

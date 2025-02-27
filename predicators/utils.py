@@ -2562,7 +2562,30 @@ def get_prompt_for_vlm_state_labelling(
         # Now, we use actual difference-based prompting for the second timestep
         # and beyond.
         curr_prompt = prompt[:]
-        curr_prompt_imgs = [imgs_history[-2][0], imgs_history[-1][0]]
+
+        # Note that each element of imgs_history might have multiple
+        # images embedded inside; thus we need to get all of these.
+        curr_prompt_imgs = []
+        assert len(imgs_history[-2]) == len(imgs_history[-1])
+        for prev_img, curr_img in zip(imgs_history[-2], imgs_history[-1]):
+            if "spot" in CFG.env:  # pragma: no cover
+                # For spot envs, we need to label each of the images with
+                # "before" and "after".
+                draw_prev = ImageDraw.Draw(prev_img)
+                prev_img_shape = prev_img.size[:2]
+                draw_curr = ImageDraw.Draw(curr_img)
+                curr_img_shape = curr_img.size[:2]
+                font = get_scaled_default_font(draw_prev, 4)
+                prev_img_font_loc = (int(prev_img_shape[0] * 0.9),
+                                     int(prev_img_shape[1] * 0.9))
+                curr_img_font_loc = (int(curr_img_shape[0] * 0.9),
+                                     int(curr_img_shape[1] * 0.9))
+                _ = add_text_to_draw_img(draw_prev, prev_img_font_loc,
+                                         "Before", font)
+                _ = add_text_to_draw_img(draw_curr, curr_img_font_loc, "After",
+                                         font)
+            curr_prompt_imgs.extend([prev_img, curr_img])
+
         if CFG.vlm_include_cropped_images:
             if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
                 curr_prompt_imgs.extend(
@@ -2627,10 +2650,8 @@ def query_vlm_for_atom_vals(
     # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
-    vlm_input_imgs = \
-        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
     vlm_output = vlm.sample_completions(vlm_query_str,
-                                        vlm_input_imgs,
+                                        imgs,
                                         0.0,
                                         seed=CFG.seed,
                                         num_completions=1)

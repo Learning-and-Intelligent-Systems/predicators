@@ -966,6 +966,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "TeleopPick1": Box(0, 1, (0, )),  # empty
     "PlaceNextTo": Box(0, 1, (0, )),  # empty
     "TeleopPick2": Box(0, 1, (0, )),  # empty
+    "TeleopPlace1": Box(0, 1, (0, )),  # empty
     "Sweep": Box(0, 1, (0, )),  # empty
     "PlaceOnFloor": Box(0, 1, (0, ))  # empty
 }
@@ -993,7 +994,9 @@ _OPERATOR_NAME_TO_POLICY = {
     "MoveToReadySweep": _move_to_ready_sweep_policy,
     "TeleopPick1": _create_teleop_policy_with_name("TeleopPick1"),
     "PlaceNextTo": _create_teleop_policy_with_name("PlaceNextTo"),
+    "TeleopPlace": _create_teleop_policy_with_name("TeleopPlace"),
     "TeleopPick2": _create_teleop_policy_with_name("TeleopPick2"),
+    "TeleopPlace1": _create_teleop_policy_with_name("TeleopPlace1"),
     "Sweep": _create_teleop_policy_with_name("Sweep"),
     "PlaceOnFloor": _create_teleop_policy_with_name("PlaceOnFloor")
 }
