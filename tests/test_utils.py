@@ -6,6 +6,7 @@ from typing import Type as TypingType
 
 import matplotlib.pyplot as plt
 import numpy as np
+import PIL.Image
 import pytest
 from gym.spaces import Box
 
@@ -1128,7 +1129,7 @@ def test_abstract():
                             lambda o: "is_fishy")
     vlm_state = state.copy()
     vlm_state.simulator_state = {
-        "images": [np.zeros((30, 30, 3), dtype=np.uint8)]
+        "images": [PIL.Image.fromarray(np.zeros((30, 30, 3), dtype=np.uint8))]
     }
     vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred], _DummyVLM())
     assert len(vlm_atoms_set) == 1

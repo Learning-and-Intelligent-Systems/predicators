@@ -2576,10 +2576,10 @@ def get_prompt_for_vlm_state_labelling(
                 draw_curr = ImageDraw.Draw(curr_img)
                 curr_img_shape = curr_img.size[:2]
                 font = get_scaled_default_font(draw_prev, 4)
-                prev_img_font_loc = (prev_img_shape[0] * 0.9,
-                                     prev_img_shape[1] * 0.9)
-                curr_img_font_loc = (curr_img_shape[0] * 0.9,
-                                     curr_img_shape[1] * 0.9)
+                prev_img_font_loc = (int(prev_img_shape[0] * 0.9),
+                                     int(prev_img_shape[1] * 0.9))
+                curr_img_font_loc = (int(curr_img_shape[0] * 0.9),
+                                     int(curr_img_shape[1] * 0.9))
                 _ = add_text_to_draw_img(draw_prev, prev_img_font_loc,
                                          "Before", font)
                 _ = add_text_to_draw_img(draw_curr, curr_img_font_loc, "After",
