@@ -1210,7 +1210,9 @@ def run_task_plan_once(
                 objects)
         except AssertionError:
             raise PlanningFailure(
-                "Heuristic creation failed! Common culprit in spot environment is that goal atoms use objects named differently than initial objects"
+                "Heuristic creation failed! Common culprit in spot " +\
+                "environment is that goal atoms use objects named " +\
+                "differently than initial objects"
             )
         duration = time.perf_counter() - start_time
         timeout -= duration

@@ -2677,7 +2677,8 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
             'right_fisheye_image'
         ]
         for camera_name in camera_names:
-            assert camera_name in rgbd_images, f"Missing image from {camera_name}"
+            assert camera_name in rgbd_images, \
+                f"Missing image from {camera_name}"
 
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)

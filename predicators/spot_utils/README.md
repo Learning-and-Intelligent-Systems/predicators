@@ -2,28 +2,35 @@
 
 ## How to run your own Spot environment
 
-> Last Updated: 04/11/2024
+> Last Updated: 02/27/2025
 
 **Steps:**
 - Set up the codebase, perception pipeline, and Spot
   - You need to have access to a GPU server for the perception pipeline (e.g., the Detic-SAM pipeline)
   - You need to connect to Spot (through WiFi or ethernet cable). The Spot at LIS uses its own WiFi AP mode and is on IP `192.168.80.3`.
   - To connect to both Spot and GPU server, our current solution is to use WiFi for Spot and ethernet cable for the GPU server.
-- Create a new map of the environment: See the `Mapping` section.
+- If you want the spot to autonomously execute movement skills, then create a new map of the environment: See the `Mapping` section.
   - Prepare the metadata file: See the `Prepare Metadata` section.
+- Otherwise, you can run a ''minimal'' environment where a human is asked to teleop the skills instead of having spot execute them automatically. This can be helpful for debugging new functionality, etc.
 - Implement your task
 - Start actual run. Examples:
 ```
-# template
-python predicators/main.py --spot_robot_ip <spot_ip> --spot_graph_nav_map <map_name> --env <env_name>
+# template with map (autonomous spot skills)
+python predicators/main.py --spot_robot_ip <spot_ip> --spot_graph_nav_map <map_name> --env <env_name> --approach "spot_wrapper[oracle]"
 
-# an example to run LIS Spot
+# template without map (human teleop skills)
+python predicators/main.py --env <env_name> --approach "spot_wrapper[oracle]" --spot_robot_ip <spot_ip> --perceiver spot_minimal_perceiver 
+
+# an example to run LIS Spot with a room map
 python predicators/main.py --spot_robot_ip 192.168.80.3 --spot_graph_nav_map b45-621 --env lis_spot_block_floor_env --approach spot_wrapper[oracle] --bilevel_plan_without_sim True --seed 0
+
+# an example to run LIS spot without a map
+python predicators/main.py --env spot_vlm_cup_table_env --approach "spot_wrapper[oracle]" --seed 0 --num_train_tasks 0 --num_test_tasks 1 --spot_robot_ip 192.168.80.3 --perceiver spot_minimal_perceiver --bilevel_plan_without_sim True --vlm_test_time_atom_label_prompt_type img_option_diffs_label_history --vlm_model_name gpt-4o --execution_monitor expected_atoms
 ```
 
 ### Implement Your Task
 
-To create a simple task before you can run, you only need to:
+To create a simple task (that uses a map) before you can run, you only need to:
 
 - Create a new environment in `envs/spot_envs.py`
   - In `spot_env.py`, subclass the `SpotRearrangementEnv` and define the necessary methods needed to override.
@@ -34,6 +41,7 @@ To create a simple task before you can run, you only need to:
   - Add environment name into `SpotEnvsGroundTruthOptionFactory` in `ground_truth_models/spot_env/options.py`
 - If you want, define a new `goal_description` string. Then, go to the _`create_goal` function of `spot_perceiver.py` and follow the example to convert a goal description string into an actual set of atoms needed to implement the goal.
 
+To create a new task without using a map (and using human teleop skills), take a look at the `SimpleVLMCupEnv` in `spot_env.py` and make something similar.
 
 
 ## Mapping
