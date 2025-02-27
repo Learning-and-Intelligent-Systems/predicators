@@ -640,7 +640,7 @@ class SpotMinimalPerceiver(BasePerceiver):
 
         if goal_description == "get the cup onto the table!":
             robot = Object("robot", _robot_type)
-            cup = Object("cup", _movable_object_type)
+            cup = Object("yellow_toy_cup", _movable_object_type)
             table = Object("cardboard_table", _immovable_object_type)
             goal = {
                 GroundAtom(HandEmpty, [robot]),
@@ -707,6 +707,8 @@ class SpotMinimalPerceiver(BasePerceiver):
             detections = object_detections_per_camera[camera_name]
             for obj_id, seg_bb in detections:
                 x0, y0, x1, y1 = seg_bb.bounding_box
+                x0, x1 = sorted([x0, x1])
+                y0, y1 = sorted([y0, y1])
                 draw.rectangle([(x0, y0), (x1, y1)], outline='green', width=2)
                 text = f"{obj_id.language_id}"
                 font = utils.get_scaled_default_font(draw, 3)
@@ -733,7 +735,7 @@ class SpotMinimalPerceiver(BasePerceiver):
             if "Place" in observation.executed_skill.extra_info.action_name:
                 for obj in observation.executed_skill.extra_info.\
                         operator_objects:
-                    if not obj.is_instance(_robot_type):
+                    if obj.is_instance(_movable_object_type):
                         # Turn the held feature off
                         self._curr_state.set(obj, "held", 0.0)
 

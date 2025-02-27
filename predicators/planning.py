@@ -1204,9 +1204,14 @@ def run_task_plan_once(
         ground_nsrts, reachable_atoms = task_plan_grounding(
             init_atoms, objects, nsrts)
         assert task_planning_heuristic is not None
-        heuristic = utils.create_task_planning_heuristic(
-            task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
-            objects)
+        try:
+            heuristic = utils.create_task_planning_heuristic(
+                task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
+                objects)
+        except AssertionError:
+            raise PlanningFailure(
+                "Heuristic creation failed! Common culprit in spot environment is that goal atoms use objects named differently than initial objects"
+            )
         duration = time.perf_counter() - start_time
         timeout -= duration
         plan, atoms_seq, metrics = next(

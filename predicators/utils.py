@@ -2562,7 +2562,34 @@ def get_prompt_for_vlm_state_labelling(
         # Now, we use actual difference-based prompting for the second timestep
         # and beyond.
         curr_prompt = prompt[:]
-        curr_prompt_imgs = [imgs_history[-2][0], imgs_history[-1][0]]
+
+        # Note that each element of imgs_history might have multiple
+        # images embedded inside; thus we need to get all of these.
+        curr_prompt_imgs = []
+        assert len(imgs_history[-2]) == len(imgs_history[-1])
+        for prev_img, curr_img in zip(imgs_history[-2], imgs_history[-1]):
+            if "spot" in CFG.env:  # pragma: no cover
+                # For spot envs, we need to label each of the images with
+                # "before" and "after".
+                prev_img_pil = PIL.Image.fromarray(prev_img)
+                curr_img_pil = PIL.Image.fromarray(curr_img)
+                draw_prev = ImageDraw.Draw(prev_img_pil)
+                prev_img_shape = prev_img_pil.size[:2]
+                draw_curr = ImageDraw.Draw(curr_img_pil)
+                curr_img_shape = curr_img_pil.size[:2]
+                font = get_scaled_default_font(draw_prev, 4)
+                prev_img_font_loc = (prev_img_shape[0] * 0.9,
+                                     prev_img_shape[1] * 0.9)
+                curr_img_font_loc = (curr_img_shape[0] * 0.9,
+                                     curr_img_shape[1] * 0.9)
+                _ = add_text_to_draw_img(draw_prev, prev_img_font_loc,
+                                         "Before", font)
+                _ = add_text_to_draw_img(draw_curr, curr_img_font_loc, "After",
+                                         font)
+            curr_prompt_imgs.extend(
+                [np.array(prev_img_pil),
+                 np.array(curr_img_pil)])
+
         if CFG.vlm_include_cropped_images:
             if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
                 curr_prompt_imgs.extend(
