@@ -50,18 +50,54 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         mujoco.mju_euler2Quat(angled_quat, np.array([-3 * np.pi / 4, 0.0, -np.pi / 2]), 'xyz')
 
         # Types
-        gripper_type = types["rich_object_type"]
-        on_off_type = types["rich_object_type"]
-        kettle_type = types["rich_object_type"]
-        surface_type = types["rich_object_type"]
-        switch_type = types["rich_object_type"]
-        knob_type = types["rich_object_type"]
-        hinge_door_type = types["rich_object_type"]
+        # on_off_type = types["rich_object_type"]
+        # kettle_type = types["rich_object_type"]
+        # surface_type = types["rich_object_type"]
+        # switch_type = types["rich_object_type"]
+        # knob_type = types["rich_object_type"]
+        hinge_door_type = types["hinge_door_type"]
 
+        gripper_type = types["gripper_type"]
+        # handle_type = types["handle_type"]
         # Predicates
         # OnTop = predicates["OnTop"]
 
         options: Set[ParameterizedOption] = set()
+
+
+
+    # DS_move_option - always initiable, empty policy, never terminates
+        def _DS_move_option_initiable(state: State, memory: Dict,
+                                     objects: Sequence[Object],
+                                     params: Array) -> bool:
+            # Always initiable
+            return True
+
+        def _DS_move_option_policy(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> Action:
+            # Empty policy - just return a zero action
+            arr = np.zeros(7, dtype=np.float32)
+            return Action(arr)
+
+        def _DS_move_option_terminal(state: State, memory: Dict,
+                                    objects: Sequence[Object],
+                                    params: Array) -> bool:
+            # Never terminates
+            return False
+
+        DS_move_option = ParameterizedOption(
+            "DS_move_option",
+            types=[gripper_type, hinge_door_type],
+            # Unused params
+            params_space=Box(-5, 5, (1, )),
+            policy=_DS_move_option_policy,
+            initiable=_DS_move_option_initiable,
+            terminal=_DS_move_option_terminal)
+
+        options.add(DS_move_option)
+
+        return options
 
         # MoveTo
         def _MoveTo_initiable(state: State, memory: Dict,
@@ -609,4 +645,4 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_PushClose_terminal)
         options.add(PushClose)
 
-        return options
+    

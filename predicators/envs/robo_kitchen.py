@@ -41,6 +41,8 @@ class RoboKitchenEnv(BaseEnv):
     # object_type = Type("object", ["x", "y", "z"])
     rich_object_type = Type("rich_object_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
     hinge_door_type = Type("hinge_door_type", ["angle"])
+    handle_type = Type("handle_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
+    gripper_type = Type("gripper_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
     # on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
     # hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
     #                        parent=on_off_type)
@@ -208,6 +210,10 @@ class RoboKitchenEnv(BaseEnv):
             
         f.close()
         return tasks
+    def goal_reached(self) -> bool:
+        warnings.warn("goal_reached not implemented for robo_kitchen, False will be returned so simulation continues")
+        return False 
+
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         # each task has a success condition, we can translate to predicate
@@ -412,7 +418,7 @@ class RoboKitchenEnv(BaseEnv):
         # TurnedOn = self._pred_name_to_pred["TurnedOn"]
         # KettleBoiling = self._pred_name_to_pred["KettleBoiling"]
         # KnobAndBurnerLinked = self._pred_name_to_pred["KnobAndBurnerLinked"]
-        goal_preds = {self._pred_name_to_pred["InContact"]}
+        goal_preds = {self._pred_name_to_pred["Open"], self._pred_name_to_pred["Closed"]}
         return goal_preds
 
     @property
@@ -426,9 +432,12 @@ class RoboKitchenEnv(BaseEnv):
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""
         return {
-            self.rich_object_type, self.hinge_door_type
+            self.rich_object_type, self.hinge_door_type, self.gripper_type, self.handle_type
         }
 
+    def get_observation(self) -> Observation:
+        return self._copy_observation(self._current_observation)
+    
     def _copy_observation(self, obs: Observation) -> Observation:
         """Create copy of observation."""
         return copy.deepcopy(obs)
@@ -468,6 +477,8 @@ class RoboKitchenEnv(BaseEnv):
         """Made public for perceiver."""
         if obj_name.endswith("_angle"):
             return Object(obj_name, cls.hinge_door_type)
+        elif obj_name == "robot0_eef":
+            return Object(obj_name, cls.gripper_type)
         else:
             return Object(obj_name, cls.rich_object_type)
     

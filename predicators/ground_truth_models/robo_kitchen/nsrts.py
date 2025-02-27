@@ -24,50 +24,50 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         # Types
-        gripper_type = types["rich_object_type"]
-        on_off_type = types["rich_object_type"]
-        kettle_type = types["rich_object_type"]
-        surface_type = types["rich_object_type"]
-        switch_type = types["rich_object_type"]
-        knob_type = types["rich_object_type"]
+        gripper_type = types["gripper_type"]
+        # on_off_type = types["rich_object_type"]
+        # kettle_type = types["rich_object_type"]
+        # surface_type = types["rich_object_type"]
+        # switch_type = types["rich_object_type"]
+        # knob_type = types["rich_object_type"]
         hinge_door_type = types["hinge_door_type"]
 
         # Objects
         gripper = Variable("?gripper", gripper_type)
-        on_off_obj = Variable("?on_off_obj", on_off_type)
-        kettle = Variable("?kettle", kettle_type)
-        surface_from = Variable("?surface_from", surface_type)
-        surface_to = Variable("?surface_to", surface_type)
-        switch = Variable("?switch", switch_type)
-        knob = Variable("?knob", knob_type)
+        # on_off_obj = Variable("?on_off_obj", on_off_type)
+        # kettle = Variable("?kettle", kettle_type)
+        # surface_from = Variable("?surface_from", surface_type)
+        # surface_to = Variable("?surface_to", surface_type)
+        # switch = Variable("?switch", switch_type)
+        # knob = Variable("?knob", knob_type)
         hinge_door = Variable("?hinge_door", hinge_door_type)
 
         # Options
-        MoveToPrePushOnTop = options["MoveToPrePushOnTop"]
-        MoveToPreTurnOff = options["MoveToPreTurnOff"]
-        MoveToPreTurnOn = options["MoveToPreTurnOn"]
-        MoveToPrePullKettle = options["MoveToPrePullKettle"]
-        PullKettle = options["PullKettle"]
-        PushObjOnObjForward = options["PushObjOnObjForward"]
-        TurnOffSwitch = options["TurnOffSwitch"]
-        TurnOnSwitch = options["TurnOnSwitch"]
-        TurnOffKnob = options["TurnOffKnob"]
-        TurnOnKnob = options["TurnOnKnob"]
-        PushOpen = options["PushOpen"]
-        PushClose = options["PushClose"]
-        PushKettleOntoBurner = options["PushKettleOntoBurner"]
-        MoveAndTurnOnKnob = options["MoveAndTurnOnKnob"]
-
+        DS_move_option = options["DS_move_option"]
+        # Closed = predicates["Closed"]
+        Open = predicates["Open"]
+        # MoveToPrePushOnTop = options["MoveToPrePushOnTop"]
+        # MoveToPreTurnOff = options["MoveToPreTurnOff"]
+        # MoveToPreTurnOn = options["MoveToPreTurnOn"]
+        # MoveToPrePullKettle = options["MoveToPrePullKettle"]
+        # PullKettle = options["PullKettle"]
+        # PushObjOnObjForward = options["PushObjOnObjForward"]
+        # TurnOffSwitch = options["TurnOffSwitch"]
+        # TurnOnSwitch = options["TurnOnSwitch"]
+        # TurnOffKnob = options["TurnOffKnob"]
+        # TurnOnKnob = options["TurnOnKnob"]
+        # PushOpen = options["PushOpen"]
+        # PushClose = options["PushClose"]
+        # PushKettleOntoBurner = options["PushKettleOntoBurner"]
+        # MoveAndTurnOnKnob = options["MoveAndTurnOnKnob"]
         # Predicates
         # AtPreTurnOn = predicates["AtPreTurnOn"]
         # AtPreTurnOff = predicates["AtPreTurnOff"]
         # AtPrePushOnTop = predicates["AtPrePushOnTop"]
         # AtPrePullKettle = predicates["AtPrePullKettle"]
-        Closed = predicates["Closed"]
         # TurnedOn = predicates["TurnedOn"]
         # TurnedOff = predicates["TurnedOff"]
         # OnTop = predicates["OnTop"]
-        Open = predicates["Open"]
         # NotOnTop = predicates["NotOnTop"]
         # BurnerAhead = predicates["BurnerAhead"]
         # BurnerBehdind = predicates["BurnerBehind"]
@@ -75,6 +75,30 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # KnobAndBurnerLinked = predicates["KnobAndBurnerLinked"]
 
         nsrts = set()
+############################
+        # OpenDoor
+        parameters = [gripper, hinge_door]
+        preconditions = set()  # No preconditions
+        add_effects = {LiftedAtom(Open, [hinge_door])}
+        delete_effects = set()
+        ignore_effects = set()
+        option = DS_move_option
+        option_vars = [gripper, hinge_door]
+
+        def push_open_sampler(state: State, goal: Set[GroundAtom],
+                              rng: np.random.Generator,
+                              objs: Sequence[Object]) -> Array:
+            del state, goal  # unused
+            # Sample a direction to push - slightly angled for better contact
+            
+            return np.array([0], dtype=np.float32)
+
+        push_open_nsrt = NSRT("PushOpen", parameters, preconditions,
+                              add_effects, delete_effects, ignore_effects,
+                              option, option_vars, push_open_sampler)
+        nsrts.add(push_open_nsrt)
+
+        return nsrts
 
         # # MoveToPreTurnOff
         # parameters = [gripper, on_off_obj]
@@ -618,4 +642,4 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # nsrts.add(move_to_pre_turn_off_nsrt)
         # nsrts.add(push_close_hinge_door_nsrt)
 
-        return nsrts
+
