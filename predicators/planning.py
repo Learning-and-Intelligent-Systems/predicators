@@ -1208,7 +1208,7 @@ def run_task_plan_once(
             heuristic = utils.create_task_planning_heuristic(
                 task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
                 objects)
-        except AssertionError:
+        except AssertionError:  # pragma: no cover
             raise PlanningFailure(
                 "Heuristic creation failed! Common culprit in spot " +\
                 "environment is that goal atoms use objects named " +\

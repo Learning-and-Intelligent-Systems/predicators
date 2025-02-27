@@ -721,7 +721,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                           text,
                           fill='white',
                           font=font)
-        annotated_imgs = [img for img in pil_imgs]
+        annotated_imgs = list(pil_imgs)
         self._gripper_open_percentage = observation.gripper_open_percentage
 
         self._curr_state = self._create_state()
