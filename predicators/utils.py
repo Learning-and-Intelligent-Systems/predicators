@@ -2571,12 +2571,10 @@ def get_prompt_for_vlm_state_labelling(
             if "spot" in CFG.env:  # pragma: no cover
                 # For spot envs, we need to label each of the images with
                 # "before" and "after".
-                prev_img_pil = PIL.Image.fromarray(prev_img)  # type: ignore
-                curr_img_pil = PIL.Image.fromarray(curr_img)  # type: ignore
-                draw_prev = ImageDraw.Draw(prev_img_pil)
-                prev_img_shape = prev_img_pil.size[:2]
-                draw_curr = ImageDraw.Draw(curr_img_pil)
-                curr_img_shape = curr_img_pil.size[:2]
+                draw_prev = ImageDraw.Draw(prev_img)
+                prev_img_shape = prev_img.size[:2]
+                draw_curr = ImageDraw.Draw(curr_img)
+                curr_img_shape = curr_img.size[:2]
                 font = get_scaled_default_font(draw_prev, 4)
                 prev_img_font_loc = (prev_img_shape[0] * 0.9,
                                      prev_img_shape[1] * 0.9)
@@ -2586,7 +2584,7 @@ def get_prompt_for_vlm_state_labelling(
                                          "Before", font)
                 _ = add_text_to_draw_img(draw_curr, curr_img_font_loc, "After",
                                          font)
-            curr_prompt_imgs.extend([prev_img_pil, curr_img_pil])
+            curr_prompt_imgs.extend([prev_img, curr_img])
 
         if CFG.vlm_include_cropped_images:
             if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
@@ -2652,10 +2650,8 @@ def query_vlm_for_atom_vals(
     # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
-    vlm_input_imgs = \
-        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
     vlm_output = vlm.sample_completions(vlm_query_str,
-                                        vlm_input_imgs,
+                                        imgs,
                                         0.0,
                                         seed=CFG.seed,
                                         num_completions=1)
