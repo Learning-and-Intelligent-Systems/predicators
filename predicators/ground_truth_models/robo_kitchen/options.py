@@ -50,13 +50,13 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         mujoco.mju_euler2Quat(angled_quat, np.array([-3 * np.pi / 4, 0.0, -np.pi / 2]), 'xyz')
 
         # Types
-        gripper_type = types["rich_object_type"]
-        on_off_type = types["rich_object_type"]
-        kettle_type = types["rich_object_type"]
-        surface_type = types["rich_object_type"]
-        switch_type = types["rich_object_type"]
-        knob_type = types["rich_object_type"]
-        hinge_door_type = types["rich_object_type"]
+        gripper_type = types["rich_object"]
+        on_off_type = types["rich_object"]
+        kettle_type = types["rich_object"]
+        surface_type = types["rich_object"]
+        switch_type = types["rich_object"]
+        knob_type = types["rich_object"]
+        hinge_door_type = types["rich_object"]
 
         # Predicates
         # OnTop = predicates["OnTop"]

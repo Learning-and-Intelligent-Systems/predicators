@@ -37,10 +37,14 @@ class RoboKitchenEnv(BaseEnv):
     at_pre_pushontop_yz_atol = 0.1  # tolerance for AtPrePushOnTop
     at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
+
+    gripper_open_thresh = 0.05
+
     # Types (similar to original kitchen)
     # object_type = Type("object", ["x", "y", "z"])
-    rich_object_type = Type("rich_object_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
-    hinge_door_type = Type("hinge_door_type", ["angle"])
+    gripper_type = Type("gripper", ["angle"])
+    rich_object_type = Type("rich_object", ["x", "y", "z", "qx", "qy", "qz", "qw"])
+    hinge_door_type = Type("hinge_door", ["angle"])
     # on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
     # hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
     #                        parent=on_off_type)
@@ -48,6 +52,11 @@ class RoboKitchenEnv(BaseEnv):
     # switch_type = Type("switch", ["x", "y", "z", "angle"], parent=on_off_type)
     # surface_type = Type("surface", ["x", "y", "z"], parent=object_type)
     # kettle_type = Type("kettle", ["x", "y", "z"], parent=object_type)
+
+    obj_name_to_type = {
+        "gripper_angle": gripper_type,
+        "door_angle": hinge_door_type,
+    }
 
     tasks = OrderedDict(
         [
@@ -67,6 +76,7 @@ class RoboKitchenEnv(BaseEnv):
             ("PrepareCoffee", "make coffee"),
         ]
     )
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -110,7 +120,6 @@ class RoboKitchenEnv(BaseEnv):
 
         self._pred_name_to_pred = self.create_predicates()
 
-
         # Set the selected task - default to OpenSingleDoor
         self.task_selected = CFG.robo_kitchen_task
         if self.task_selected not in self.tasks:
@@ -146,7 +155,7 @@ class RoboKitchenEnv(BaseEnv):
         # robosuite.robots.robot.print_action_info()
         for robot in self._env.robots:
             robot.print_action_info()
-        
+
     def get_objects_of_interest(self) -> List[Object]:
         """Get the object of interest for the task."""
         if self.task_selected == "OpenSingleDoor":
@@ -159,31 +168,31 @@ class RoboKitchenEnv(BaseEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         """Create an ordered list of tasks for training from demos."""
         tasks = []
-        
+
         # Get the demo dataset path
         from robocasa.utils.dataset_registry import get_ds_path
         dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
-        
+
         if dataset_path is None or not os.path.exists(dataset_path):
             print(colored(f"Unable to find dataset for {self.task_selected}. Downloading...", "yellow"))
             from robocasa.scripts.download_datasets import download_datasets
             download_datasets(tasks=[self.task_selected], ds_types=["human_raw"])
             dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
-        
+
         # Load the demos
         import h5py
         f = h5py.File(dataset_path, "r")
         demos = list(f["data"].keys())
-        
+
         # Sort demos by index
         inds = np.argsort([int(elem[5:]) for elem in demos])
         demos = [demos[i] for i in inds]
-        
+
         # Create tasks from each demo
         for task_idx in range(CFG.num_train_tasks):
             if task_idx >= len(demos):
                 break
-                
+
             # Get demo data
             demo = f[f"data/{demos[task_idx]}"]
             # Get initial state info from first timestep of datagen_info
@@ -192,27 +201,27 @@ class RoboKitchenEnv(BaseEnv):
                 initial_state[key] = demo["datagen_info"][key][0]
             initial_state["model"] = demo.attrs["model_file"]
             initial_state["ep_meta"] = demo.attrs.get("ep_meta", None)
-            
+
             # Create observation
             obs = {
                 "state_info": initial_state,
                 "obs_images": []
             }
-            
+
             # Get goal description from task name
             goal_description = self.task_selected
-            
+
             # Create task
             task = EnvironmentTask(obs, goal_description)
             tasks.append(task)
-            
+
         f.close()
         return tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         # each task has a success condition, we can translate to predicate
         tasks = [] 
-   
+
         for task_idx in range(CFG.num_test_tasks):
             seed = utils.get_task_seed("test", task_idx)
             init_obs = self._reset_initial_state_from_seed(seed, "test")
@@ -221,20 +230,19 @@ class RoboKitchenEnv(BaseEnv):
             task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
         return tasks
-    
 
     def _reset_initial_state_from_seed(self, seed: int,
                                        train_or_test: str) -> Observation:
-        
+
         if CFG.robo_kitchen_randomize_init_state:
             pass # do randomization
-        
+
         # Reset the environment
         obs = self._env.reset()
-        
+
         # Get contact information
         contact_set = self.get_object_level_contacts()
-        
+
         # Return observation with contact info
         return {
             "state_info": obs,
@@ -256,7 +264,7 @@ class RoboKitchenEnv(BaseEnv):
         # robot_obj = self.object_name_to_object("robot")
         gripper_obj = self.object_name_to_object("gripper")
 
-        # for contact in robot_contacts: # each contact is a string 
+        # for contact in robot_contacts: # each contact is a string
         #     for obj_name in object_names:
         #         if obj_name in contact:
         #             obj = self.object_name_to_object(obj_name)
@@ -283,7 +291,6 @@ class RoboKitchenEnv(BaseEnv):
     def get_name(cls) -> str:
         return "robo_kitchen"
 
-
     @classmethod
     def create_predicates(cls) -> Dict[str, Predicate]:
         """Exposed for perceiver."""
@@ -302,10 +309,11 @@ class RoboKitchenEnv(BaseEnv):
             #           cls._NotOnTop_holds),
             # Predicate("TurnedOn", [cls.rich_object_type], cls.On_holds),
             # Predicate("TurnedOff", [cls.rich_object_type], cls.Off_holds),
-            Predicate("Open", [cls.hinge_door_type], cls.Open_holds),
-            Predicate("Closed", [cls.hinge_door_type], cls.Closed_holds),
-            Predicate("InContact", [cls.rich_object_type, cls.rich_object_type],
-                     cls._InContact_holds),
+            Predicate("GripperOpen", [cls.gripper_type], cls.GripperOpen_holds),
+            Predicate("GripperClosed", [cls.gripper_type], cls.GripperClosed_holds),
+            Predicate("HingeOpen", [cls.hinge_door_type], cls.HingeOpen_holds),
+            Predicate("HingeClosed", [cls.hinge_door_type], cls.HingeClosed_holds),
+            Predicate("InContact", [cls.rich_object_type, cls.rich_object_type], cls._InContact_holds),
             # Predicate("BurnerAhead", [cls.rich_object_type, cls.rich_object_type],
             #           cls._BurnerAhead_holds),
             # Predicate("BurnerBehind", [cls.rich_object_type, cls.rich_object_type],
@@ -365,32 +373,32 @@ class RoboKitchenEnv(BaseEnv):
             "obs_images": [],
             "contact_set": contact_set
         }
-        
+
         self._current_observation = observation
         return self._copy_observation(self._current_observation)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Reset environment to initial state."""
-        #TODO: Need to get the task as predicates
+        # TODO: Need to get the task as predicates
         # self._current_task = self.get_task(train_or_test, task_idx)
         # seed = utils.get_task_seed(train_or_test, task_idx)
         # Add warning that task-specific reset not implemented
         # warnings.warn("reset task not implemented for robo_kitchen")
 
         # Reset robosuite env
-         # Reset robosuite env
+        # Reset robosuite env
         obs = self._env.reset()
-        
+
         # Get contact information
         contact_set = self.get_object_level_contacts()
-        
+
         # Create observation with contact info
         observation = {
             "state_info": obs,
             "obs_images": [],
             "contact_set": contact_set
         }
-        
+
         self._current_observation = observation
         return self._copy_observation(self._current_observation)
 
@@ -419,7 +427,7 @@ class RoboKitchenEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         """Get the set of predicates that are given with this environment."""
         # Initialize predicates similar to kitchen.py
-        
+
         return set(self._pred_name_to_pred.values())
 
     @property
@@ -466,11 +474,11 @@ class RoboKitchenEnv(BaseEnv):
     @classmethod
     def object_name_to_object(cls, obj_name: str) -> Object:
         """Made public for perceiver."""
-        if obj_name.endswith("_angle"):
-            return Object(obj_name, cls.hinge_door_type)
+        if obj_name in cls.obj_name_to_type:
+            return Object(obj_name, cls.obj_name_to_type[obj_name])
         else:
             return Object(obj_name, cls.rich_object_type)
-    
+
     @classmethod
     def state_info_to_state(cls, state_info: Dict[str, Any], contact_set: set[Tuple[Object, Object]] = None) -> State:
         state_dict = {}
@@ -495,38 +503,42 @@ class RoboKitchenEnv(BaseEnv):
                     "qw": val[3],
                 }
 
-                          
         state = utils.create_state_from_dict(state_dict)
         state.simulator_state = {}
         state.items_in_contact = contact_set # when defaults, it means Not populated, when empty means no contact
         return state
 
-
     @classmethod
-    def Open_holds(cls,
-                   state: State,
-                   objects: Sequence[Object],
-                   thresh_pad: float = 0.0) -> bool:
+    def GripperOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.data[obj][0] > cls.hinge_open_thresh
+            return all(joint > cls.gripper_open_thresh for joint in state.get(obj, "angle"))
         return False
 
     @classmethod
-    def Closed_holds(cls,
-                     state: State,
-                     objects: Sequence[Object],
-                     thresh_pad: float = 0.0) -> bool:
+    def GripperClosed_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
-        # Can't do not Open_holds() because of thresh_pad logic.
         obj = objects[0]
-        if obj.is_instance(cls.hinge_door_type):
-           return state.data[obj][0] > cls.hinge_open_thresh
-            
+        if obj.is_instance(cls.gripper_type):
+            return all(joint <= cls.gripper_open_thresh for joint in state.get(obj, "angle"))
         return False
 
+    @classmethod
+    def HingeOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Made public for use in ground-truth options."""
+        obj = objects[0]
+        if obj.is_instance(cls.hinge_door_type):
+            return state.get(obj, "angle") > cls.hinge_open_thresh
+        return False
 
+    @classmethod
+    def HingeClosed_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Made public for use in ground-truth options."""
+        obj = objects[0]
+        if obj.is_instance(cls.hinge_door_type):
+            return state.get(obj, "angle") <= cls.hinge_open_thresh
+        return False
 
     @classmethod
     def _InContact_holds(cls, 
@@ -535,6 +547,7 @@ class RoboKitchenEnv(BaseEnv):
         """Check if two objects are in contact using robosuite's contact checking."""
         obj1, obj2 = objects
         return (obj1, obj2) in state.items_in_contact or (obj2, obj1) in state.items_in_contact
+
     # @classmethod
     # def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
     #                      on_or_off: str) -> bool:
@@ -655,7 +668,7 @@ class RoboKitchenEnv(BaseEnv):
     #         return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
     #     return False
 
-     # @classmethod
+    # @classmethod
     # def _BurnerAhead_holds(cls, state: State,
     #                        objects: Sequence[Object]) -> bool:
     #     """Static predicate useful for deciding between pushing or pulling the
@@ -694,4 +707,3 @@ class RoboKitchenEnv(BaseEnv):
     #     # all named "knob1", "burner1", .... And that "knob1" corresponds
     #     # to "burner1"
     #     return knob.name[-1] == burner.name[-1]
-

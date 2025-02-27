@@ -24,13 +24,13 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         # Types
-        gripper_type = types["rich_object_type"]
-        on_off_type = types["rich_object_type"]
-        kettle_type = types["rich_object_type"]
-        surface_type = types["rich_object_type"]
-        switch_type = types["rich_object_type"]
-        knob_type = types["rich_object_type"]
-        hinge_door_type = types["hinge_door_type"]
+        gripper_type = types["rich_object"]
+        on_off_type = types["rich_object"]
+        kettle_type = types["rich_object"]
+        surface_type = types["rich_object"]
+        switch_type = types["rich_object"]
+        knob_type = types["rich_object"]
+        hinge_door_type = types["hinge_door"]
 
         # Objects
         gripper = Variable("?gripper", gripper_type)
@@ -63,11 +63,11 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # AtPreTurnOff = predicates["AtPreTurnOff"]
         # AtPrePushOnTop = predicates["AtPrePushOnTop"]
         # AtPrePullKettle = predicates["AtPrePullKettle"]
-        Closed = predicates["Closed"]
+        HingeClosed = predicates["HingeClosed"]
         # TurnedOn = predicates["TurnedOn"]
         # TurnedOff = predicates["TurnedOff"]
         # OnTop = predicates["OnTop"]
-        Open = predicates["Open"]
+        HingeOpen = predicates["HingeOpen"]
         # NotOnTop = predicates["NotOnTop"]
         # BurnerAhead = predicates["BurnerAhead"]
         # BurnerBehdind = predicates["BurnerBehind"]
@@ -75,6 +75,11 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # KnobAndBurnerLinked = predicates["KnobAndBurnerLinked"]
 
         nsrts = set()
+        
+        
+        
+        
+        
 
         # # MoveToPreTurnOff
         # parameters = [gripper, on_off_obj]

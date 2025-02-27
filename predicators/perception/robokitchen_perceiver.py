@@ -19,7 +19,7 @@ class RoboKitchenPerceiver(BasePerceiver):
         # OnTop = pred_name_to_pred["OnTop"]
         # TurnedOn = pred_name_to_pred["TurnedOn"]
         # KettleBoiling = pred_name_to_pred["KettleBoiling"]
-        Open = pred_name_to_pred["Open"]
+        HingeOpen = pred_name_to_pred["HingeOpen"]
         # kettle = RoboKitchenEnv.object_name_to_object("kettle")
         # knob4 = RoboKitchenEnv.object_name_to_object("knob4")
         # knob3 = RoboKitchenEnv.object_name_to_object("knob3")
@@ -30,7 +30,7 @@ class RoboKitchenPerceiver(BasePerceiver):
         goal_desc = env_task.goal_description
         if goal_desc == 'OpenSingleDoor':
             goal = {
-                GroundAtom(Open, [door]),
+                GroundAtom(HingeOpen, [door]),
             }
         # elif goal_desc == "Move the kettle to the back left burner":
         #     goal = {GroundAtom(OnTop, [kettle, burner4])}
@@ -64,7 +64,7 @@ class RoboKitchenPerceiver(BasePerceiver):
     def _observation_to_state(self, obs: Observation) -> State:
         # Get contact set from observation, or use empty set if not provided
         contact_set = obs.get("contact_set", set())
-        
+
         # Convert state_info to state, passing in the contact set
         state = RoboKitchenEnv.state_info_to_state(obs["state_info"], contact_set)
 
