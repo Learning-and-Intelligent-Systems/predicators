@@ -10,7 +10,6 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 
-
 class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the RoboKitchen environment."""
 
@@ -31,6 +30,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # switch_type = types["rich_object_type"]
         # knob_type = types["rich_object_type"]
         hinge_door_type = types["hinge_door_type"]
+        handle_type = types["handle_type"]
 
         # Objects
         gripper = Variable("?gripper", gripper_type)
@@ -41,6 +41,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # switch = Variable("?switch", switch_type)
         # knob = Variable("?knob", knob_type)
         hinge_door = Variable("?hinge_door", hinge_door_type)
+        handle_obj = Variable("?handle", handle_type)
 
         # Options
         DS_move_option = options["DS_move_option"]
@@ -77,13 +78,13 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts = set()
 ############################
         # OpenDoor
-        parameters = [gripper, hinge_door]
+        parameters = [gripper, hinge_door, handle_obj]
         preconditions = set()  # No preconditions
         add_effects = {LiftedAtom(Open, [hinge_door])}
         delete_effects = set()
         ignore_effects = set()
         option = DS_move_option
-        option_vars = [gripper, hinge_door]
+        option_vars = [gripper, hinge_door, handle_obj]
 
         def push_open_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,

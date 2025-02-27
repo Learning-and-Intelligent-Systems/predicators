@@ -131,6 +131,7 @@ class RoboKitchenEnv(BaseEnv):
             "translucent_robot": True,
         }
 
+        # Set random seed for reproducibility
         self._env_raw = robosuite.make(
             **config,
             has_renderer=self._using_gui,
@@ -139,7 +140,7 @@ class RoboKitchenEnv(BaseEnv):
             ignore_done=True,
             use_camera_obs=False,
             control_freq=20,
-            renderer="mjviewer" 
+            renderer="mjviewer", 
         )
 
         # Wrap this with visualization wrapper
@@ -479,6 +480,8 @@ class RoboKitchenEnv(BaseEnv):
             return Object(obj_name, cls.hinge_door_type)
         elif obj_name == "robot0_eef":
             return Object(obj_name, cls.gripper_type)
+        elif obj_name == "handle_pose": 
+            return Object(obj_name, cls.handle_type)
         else:
             return Object(obj_name, cls.rich_object_type)
     
@@ -496,7 +499,7 @@ class RoboKitchenEnv(BaseEnv):
                 obj_name = key[:-5]  # Remove _pos
                 pos_val = state_info[key[:-5] + "_pos"]
                 obj = cls.object_name_to_object(obj_name)
-                state_dict[obj] = {
+                state_dict[obj] = { # robosuite is xyzw
                     "x": pos_val[0],
                     "y": pos_val[1],
                     "z": pos_val[2],
@@ -504,6 +507,18 @@ class RoboKitchenEnv(BaseEnv):
                     "qy": val[1],
                     "qz": val[2],
                     "qw": val[3],
+                }
+            elif key == "handle_pose":
+                obj_name = key
+                obj = cls.object_name_to_object(obj_name)
+                state_dict[obj] = { # mujoco quat order is wxyz
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "qw": val[3],
+                    "qx": val[4],
+                    "qy": val[5],
+                    "qz": val[6],
                 }
 
                           

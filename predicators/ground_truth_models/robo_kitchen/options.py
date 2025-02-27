@@ -12,6 +12,9 @@ from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, ParameterizedTerminal, Predicate, State, Type
 
+import torch
+from predicators.DS_models.gen_demo_model import DynamicalSystem
+
 
 class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the RoboKitchen environment."""
@@ -58,7 +61,8 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         hinge_door_type = types["hinge_door_type"]
 
         gripper_type = types["gripper_type"]
-        # handle_type = types["handle_type"]
+
+        handle_type = types["handle_type"]  
         # Predicates
         # OnTop = predicates["OnTop"]
 
@@ -70,14 +74,68 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _DS_move_option_initiable(state: State, memory: Dict,
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
-            # Always initiable
+            if "model" not in memory:
+                # Define model architecture
+                class SimpleDS(torch.nn.Module):
+                    def __init__(self):
+                        super().__init__()
+                        self.D = torch.nn.Parameter(torch.zeros(3, 3))
+                
+                    def forward(self, x):
+                        if isinstance(x, np.ndarray):
+                            x = torch.from_numpy(x).float()
+                        if len(x.shape) == 1:
+                            x = x.unsqueeze(0)
+                        return torch.matmul(x, self.D.T).squeeze(0)
+                
+                # Create model and load state dict
+                model = SimpleDS()
+                model_path = "/home/yifei/Documents/task_planning_2/predicators_robocasa/predicators/DS_models/models/model.pt"
+                model.load_state_dict(torch.load(model_path, map_location='cpu'))
+                model.eval()
+                memory["model"] = model
+            
             return True
 
         def _DS_move_option_policy(state: State, memory: Dict,
                                   objects: Sequence[Object],
                                   params: Array) -> Action:
-            # Empty policy - just return a zero action
+            # Get objects
+            gripper, _, handle = objects
+            
+            # Get positions
+            gripper_pos = np.array([
+                state.get(gripper, "x"),
+                state.get(gripper, "y"), 
+                state.get(gripper, "z")
+            ])
+            handle_pos = np.array([
+                state.get(handle, "x"),
+                state.get(handle, "y"),
+                state.get(handle, "z")
+            ])
+            
+            # Transform gripper position to handle frame
+            gripper_in_handle = gripper_pos - handle_pos
+            
+            # Get velocity in handle frame from model
+            net = memory["model"]
+            with torch.no_grad():
+                velocity_in_handle = net(torch.from_numpy(gripper_in_handle).float())
+                
+            # Transform velocity back to world frame
+            # Since handle frame is just translated, velocity transforms directly
+            velocity_world = velocity_in_handle.numpy()
+            
+            # Create action array
             arr = np.zeros(7, dtype=np.float32)
+            arr[:3] = velocity_world
+            
+            # Clip the action to the action space limits
+            action_low = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0], dtype=np.float32)
+            action_high = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32)
+            arr = np.clip(arr, action_low, action_high)
+            
             return Action(arr)
 
         def _DS_move_option_terminal(state: State, memory: Dict,
@@ -88,7 +146,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         DS_move_option = ParameterizedOption(
             "DS_move_option",
-            types=[gripper_type, hinge_door_type],
+            types=[gripper_type, hinge_door_type, handle_type],
             # Unused params
             params_space=Box(-5, 5, (1, )),
             policy=_DS_move_option_policy,
