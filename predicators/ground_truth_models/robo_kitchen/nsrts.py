@@ -33,6 +33,8 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         DS_move_option = options["DS_move_option"]
+        GripperOpen_option = options["GripperOpen_option"]
+        GripperClose_option = options["GripperClose_option"]
         DummyOption = options["DummyOption"]
 
         # Predicates
@@ -51,7 +53,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {LiftedAtom(GripperOpen, [gripper])}
         delete_effects = {LiftedAtom(GripperClosed, [gripper])}
         ignore_effects = set()
-        option = DummyOption
+        option = GripperOpen_option
         option_vars = []
 
         def open_gripper_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:
@@ -101,7 +103,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {LiftedAtom(GripperClosed, [gripper]), LiftedAtom(InContact, [gripper, handle])}
         delete_effects = {LiftedAtom(GripperOpen, [gripper])}
         ignore_effects = set()
-        option = DummyOption
+        option = GripperClose_option
         option_vars = []
 
         def grab_handle_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:

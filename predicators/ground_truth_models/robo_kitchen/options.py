@@ -5,13 +5,12 @@ from typing import ClassVar, Dict, Sequence, Set
 import numpy as np
 import os
 from gym.spaces import Box
-import mujoco # for quaternion operations
+import mujoco  # for quaternion operations
 
 from predicators.envs.robo_kitchen import RoboKitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.geometry import Pose3D
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, ParameterizedTerminal, Predicate, State, Type
+from predicators.structs import Action, Array, GroundAtom, Object, ParameterizedOption, ParameterizedTerminal, Predicate, State, Type
 
 import torch
 from predicators.DS_models.gen_demo_model import DynamicalSystem
@@ -35,29 +34,27 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {"robo_kitchen"}
 
     @classmethod
-    def get_options(cls, env_name: str, types: Dict[str, Type],
-                    predicates: Dict[str, Predicate],
-                    action_space: Box) -> Set[ParameterizedOption]:
+    def get_options(cls, env_name: str, types: Dict[str, Type], predicates: Dict[str, Predicate], action_space: Box) -> Set[ParameterizedOption]:
 
         # assert _MJKITCHEN_IMPORTED, "See kitchen.py"
 
         # Define quaternions using MuJoCo's utilities
         down_quat = np.zeros(4)
-        mujoco.mju_euler2Quat(down_quat, np.array([-np.pi, 0.0, -np.pi / 2]), 'xyz')
+        mujoco.mju_euler2Quat(down_quat, np.array([-np.pi, 0.0, -np.pi / 2]), "xyz")
 
         # End effector facing forward (e.g., toward the knobs.)
         fwd_quat = np.zeros(4)
-        mujoco.mju_euler2Quat(fwd_quat, np.array([-np.pi / 2, 0.0, -np.pi / 2]), 'xyz')
+        mujoco.mju_euler2Quat(fwd_quat, np.array([-np.pi / 2, 0.0, -np.pi / 2]), "xyz")
 
         # Angled quaternion
         angled_quat = np.zeros(4)
-        mujoco.mju_euler2Quat(angled_quat, np.array([-3 * np.pi / 4, 0.0, -np.pi / 2]), 'xyz')
+        mujoco.mju_euler2Quat(angled_quat, np.array([-3 * np.pi / 4, 0.0, -np.pi / 2]), "xyz")
 
         # Types
         hinge = types["hinge_type"]
         gripper = types["gripper_type"]
-        handle = types["handle_type"]  
-        
+        handle = types["handle_type"]
+
         # Predicates
         # OnTop = predicates["OnTop"]
 
@@ -100,7 +97,9 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Transform gripper position to handle frame
             gripper_in_handle = gripper_pos - handle_pos  # this is world frame difference
 
-            # TODO: Convert world frame into body frame of robot, so we know ow to move end effector
+            # TODO: Convert world frame into body frame of robot, so we know how to move end effector
+
+            # TODO: Get the robot base position and orientation
 
             # Get velocity in handle frame from model
             net = memory["model"]
@@ -138,6 +137,51 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options.add(DS_move_option)
 
+        # GripperOpen_option
+        def _GripperOpen_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            # Always initiable
+            return True
+
+        def _GripperOpen_option_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
+            return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))  # Open gripper
+
+        def _GripperOpen_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            # Always terminates
+            return True
+
+        GripperOpen_option = ParameterizedOption(
+            "GripperOpen_option",
+            types=[],  # Adjust type requirements as needed.
+            params_space=Box(-5, 5, (1,)),
+            policy=_GripperOpen_option_policy,
+            initiable=_GripperOpen_option_initiable,
+            terminal=_GripperOpen_option_terminal,
+        )
+        options.add(GripperOpen_option)
+
+        # GripperClose_option
+        def _GripperClose_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            # Always initiable
+            return True
+
+        def _GripperClose_option_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
+            return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))  # Close gripper
+
+        def _GripperClose_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            # Always terminates
+            return True
+
+        GripperClose_option = ParameterizedOption(
+            "GripperClose_option",
+            types=[],  # Adjust type requirements as needed.
+            params_space=Box(-5, 5, (1,)),
+            policy=_GripperClose_option_policy,
+            initiable=_GripperClose_option_initiable,
+            terminal=_GripperClose_option_terminal,
+        )
+
+        options.add(GripperClose_option)
+
         # Dummy initiable: always returns True.
         def _Dummy_initiable(state: State, memory: dict, objects: Sequence[Object], params: Array) -> bool:
             return True
@@ -152,12 +196,12 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         DummyOption = ParameterizedOption(
             "DummyOption",
             types=[],  # Adjust type requirements as needed.
-            params_space=Box(-1.0, 1.0, (3, )),  # Example parameter space.
+            params_space=Box(-1.0, 1.0, (3,)),  # Example parameter space.
             policy=_Dummy_policy,
             initiable=_Dummy_initiable,
-            terminal=_Dummy_terminal
+            terminal=_Dummy_terminal,
         )
 
         options.add(DummyOption)
-        
+
         return options

@@ -40,6 +40,7 @@ class RoboKitchenEnv(BaseEnv):
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     gripper_open_thresh = 0.038
+    close_distance_thresh = 0.02
 
     # Types (similar to original kitchen)
     handle_type = Type("handle_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
@@ -523,8 +524,13 @@ class RoboKitchenEnv(BaseEnv):
         # Check if gripper is open
         if not state.get(gripper, "angle") > cls.gripper_open_thresh:
             return False
-        # Check if handle is in contact with gripper
-        return (gripper, handle) in state.items_in_contact or (handle, gripper) in state.items_in_contact
+        # Check if position of gripper is close to handle
+        gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
+        handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")])
+        if np.linalg.norm(gripper_pos - handle_pos) > cls.close_distance_thresh:
+            return False
+        # Check if orientation of gripper is close to handle
+        return True
 
     @classmethod
     def _GripperOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -565,165 +571,6 @@ class RoboKitchenEnv(BaseEnv):
         """Check if two objects are in contact using robosuite's contact checking."""
         obj1, obj2 = objects
         return (obj1, obj2) in state.items_in_contact or (obj2, obj1) in state.items_in_contact
-    # @classmethod
-    # def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
-    #                      on_or_off: str) -> bool:
-    #     """Helper for _AtPreTurnOn_holds() and _AtPreTurnOff_holds()."""
-    #     gripper, obj = objects
-    #     obj_xyz = np.array(
-    #         [state.get(obj, "x"),
-    #          state.get(obj, "y"),
-    #          state.get(obj, "z")])
-    #     # On refers to Open and Off to Close
-    #     dpos = cls.get_pre_push_delta_pos(obj, on_or_off)
-    #     gripper_xyz = np.array([
-    #         state.get(gripper, "x"),
-    #         state.get(gripper, "y"),
-    #         state.get(gripper, "z")
-    #     ])
-    #     return np.allclose(obj_xyz + dpos,
-    #                        gripper_xyz,
-    #                        atol=cls.at_pre_turn_atol)
-
-    # @classmethod
-    # def _AtPreTurnOn_holds(cls, state: State,
-    #                        objects: Sequence[Object]) -> bool:
-    #     return cls._AtPreTurn_holds(state, objects, "on")
-
-    # @classmethod
-    # def _AtPreTurnOff_holds(cls, state: State,
-    #                         objects: Sequence[Object]) -> bool:
-    #     return cls._AtPreTurn_holds(state, objects, "off")
-
-    # @classmethod
-    # def _AtPrePushOnTop_holds(cls, state: State,
-    #                           objects: Sequence[Object]) -> bool:
-    #     # The main thing that's different from _AtPreTurnOn_holds is that the
-    #     # x position has a much higher range of allowed values, since it can
-    #     # be anywhere behind the object.
-    #     gripper, obj = objects
-    #     obj_xyz = np.array(
-    #         [state.get(obj, "x"),
-    #          state.get(obj, "y"),
-    #          state.get(obj, "z")])
-    #     dpos = cls.get_pre_push_delta_pos(obj, "on")
-    #     target_x, target_y, target_z = obj_xyz + dpos
-    #     gripper_x, gripper_y, gripper_z = [
-    #         state.get(gripper, "x"),
-    #         state.get(gripper, "y"),
-    #         state.get(gripper, "z")
-    #     ]
-    #     if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
-    #                        atol=cls.at_pre_pushontop_yz_atol):
-    #         return False
-    #     return np.isclose(target_x,
-    #                       gripper_x,
-    #                       atol=cls.at_pre_pushontop_x_atol)
-
-    # @classmethod
-    # def _AtPrePullKettle_holds(cls, state: State,
-    #                            objects: Sequence[Object]) -> bool:
-    #     gripper, obj = objects
-    #     obj_xyz = np.array(
-    #         [state.get(obj, "x"),
-    #          state.get(obj, "y"),
-    #          state.get(obj, "z")])
-    #     dpos = cls.get_pre_push_delta_pos(obj, "off")
-    #     target_x, target_y, target_z = obj_xyz + dpos
-    #     gripper_x, gripper_y, gripper_z = [
-    #         state.get(gripper, "x"),
-    #         state.get(gripper, "y"),
-    #         state.get(gripper, "z")
-    #     ]
-    #     if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
-    #                        atol=cls.at_pre_pullontop_yz_atol):
-    #         return False
-    #     return np.isclose(target_x,
-    #                       gripper_x,
-    #                       atol=cls.at_pre_pushontop_x_atol)
-
-    # @classmethod
-    # def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-    #     obj1, obj2 = objects
-    #     obj1_xy = [state.get(obj1, "x"), state.get(obj1, "y")]
-    #     obj2_xy = [
-    #         state.get(obj2, "x"),
-    #         state.get(obj2, "y"),
-    #     ]
-    #     return np.allclose(obj1_xy,
-    #                        obj2_xy, atol=cls.ontop_atol) and state.get(
-    #                            obj1, "z") > state.get(obj2, "z")
-
-    # @classmethod
-    # def _NotOnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-    #     return not cls._OnTop_holds(state, objects)
-
-    # @classmethod
-    # def On_holds(cls,
-    #              state: State,
-    #              objects: Sequence[Object],
-    #              thresh_pad: float = -0.06) -> bool:
-    #     """Made public for use in ground-truth options."""
-    #     obj = objects[0]
-    #     if obj.is_instance(cls.knob_type):
-    #         return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
-    #     if obj.is_instance(cls.switch_type):
-    #         return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
-    #     return False
-
-    # @classmethod
-    # def Off_holds(cls,
-    #               state: State,
-    #               objects: Sequence[Object],
-    #               thresh_pad: float = 0.0) -> bool:
-    #     """Made public for use in ground-truth options."""
-    #     # Can't do not On_holds() because of thresh_pad logic.
-    #     obj = objects[0]
-    #     if obj.is_instance(cls.knob_type):
-    #         return state.get(obj, "angle") >= cls.on_angle_thresh + thresh_pad
-    #     if obj.is_instance(cls.switch_type):
-    #         return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
-    #     return False
-
-     # @classmethod
-    # def _BurnerAhead_holds(cls, state: State,
-    #                        objects: Sequence[Object]) -> bool:
-    #     """Static predicate useful for deciding between pushing or pulling the
-    #     kettle."""
-    #     burner1, burner2 = objects
-    #     if burner1 == burner2:
-    #         return False
-    #     return state.get(burner1, "y") > state.get(burner2, "y")
-
-    # @classmethod
-    # def _BurnerBehind_holds(cls, state: State,
-    #                         objects: Sequence[Object]) -> bool:
-    #     """Static predicate useful for deciding between pushing or pulling the
-    #     kettle."""
-    #     burner1, burner2 = objects
-    #     if burner1 == burner2:
-    #         return False
-    #     return not cls._BurnerAhead_holds(state, objects)
-
-    # @classmethod
-    # def _KettleBoiling_holds(cls, state: State,
-    #                          objects: Sequence[Object]) -> bool:
-    #     """Predicate that's necessary for goal specification."""
-    #     kettle, burner, knob = objects
-    #     return cls.On_holds(state, [knob]) and cls._OnTop_holds(
-    #         state, [kettle, burner]) and cls._KnobAndBurnerLinkedHolds(
-    #             state, [knob, burner])
-
-    # @classmethod
-    # def _KnobAndBurnerLinkedHolds(cls, state: State,
-    #                               objects: Sequence[Object]) -> bool:
-    #     """Predicate that's necessary for goal specification."""
-    #     del state  # unused
-    #     knob, burner = objects
-    #     # NOTE: we assume the knobs and burners are
-    #     # all named "knob1", "burner1", .... And that "knob1" corresponds
-    #     # to "burner1"
-    #     return knob.name[-1] == burner.name[-1]
 
     def _add_debug_visualization(self):
         """Add debug visualization markers at important locations."""
