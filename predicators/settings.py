@@ -18,10 +18,11 @@ class GlobalSettings:
     robo_kitchen_contact_smoothing_window = 21
     robo_kitchen_save_traj = True
     make_test_videos = False
+    loglevel = 10
 
     """Unchanging settings."""
     # global parameters
-    num_train_tasks = 50 # in robocasa, either the max demo number or num_train_tasks will be used
+    num_train_tasks = 0 # in robocasa, either the max demo number or num_train_tasks will be used
     num_test_tasks = 1
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.

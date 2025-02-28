@@ -811,7 +811,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             # states in each segment, which we store into
             # self._state_sequence.
             eef_obj = RoboKitchenEnv.object_name_to_object("robot0_eef")
-            handle_obj = RoboKitchenEnv.object_name_to_object("door_obj")
+            handle_obj = RoboKitchenEnv.object_name_to_object("handle_pose")
             for i, traj in enumerate(self.dataset.trajectories):
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
