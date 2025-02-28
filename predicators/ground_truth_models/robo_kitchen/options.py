@@ -15,6 +15,7 @@ from predicators.structs import Action, Array, GroundAtom, Object, Parameterized
 import torch
 from predicators.DS_models.gen_demo_model import DynamicalSystem
 
+from scipy.spatial.transform import Rotation as R
 
 class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the RoboKitchen environment."""
@@ -82,32 +83,64 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 model.eval()
                 memory["model"] = model
 
+                gripper, handle, base = objects
+                handle_quat = np.array([state.get(handle, "qx"), state.get(handle, "qy"), state.get(handle, "qz"), state.get(handle, "qw")])
+                handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")])
+                memory["handle_init_rot"] = R.from_quat(handle_quat).as_matrix()
+                memory["handle_init_pos"] = handle_pos
+
+
             return True
+
+        def vee_operator(w):
+            return np.array([w[2, 1], w[0, 2], w[1, 0]])
+
 
         def _DS_move_option_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
             # Get objects
-            gripper, handle, base = objects
-
+            gripper, _, base = objects
+            handle_init_pos = memory["handle_init_pos"]
+            handle_init_rot = memory["handle_init_rot"]
             # Get positions
             gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
-            handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")])
-            base_pos = np.array([state.get(base, "x"), state.get(base, "y"), state.get(base, "z")])
+            gripper_quat = np.array([state.get(gripper, "qx"), state.get(gripper, "qy"), state.get(gripper, "qz"), state.get(gripper, "qw")])
+            gripper_rot = R.from_quat(gripper_quat).as_matrix()
+            # handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")]
+            # Compute relative position in world frame
+            rel_pos_world = gripper_pos - handle_init_pos
+            # Transform relative position to handle frame
+            pos_in_handle = handle_init_rot.T @ rel_pos_world
+            # Transform gripper rotation to handle frame
+            rot_in_handle = handle_init_rot.T @ gripper_rot
 
-            # Transform gripper position to handle frame
-            gripper_in_handle = -(base_pos + handle_pos)
+            expected_relative_rot_handle = R.from_quat(np.array([0.5, 0.5, 0.5, 0.5]))
 
-            # Get velocity in handle frame from model
+            # Compute the difference between the expected relative rotation and the actual relative rotation
+            rel_rot_diff = expected_relative_rot_handle * R.from_matrix(rot_in_handle).inv()
+            angular_w_handle = vee_operator(rel_rot_diff.as_matrix())
+            # move that difference to the base frame
+            world_w = handle_init_rot @ angular_w_handle
+
+            robot_base_pos = np.array([state.get(base, "x"), state.get(base, "y"), state.get(base, "z")])
+            robot_base_quat = np.array([state.get(base, "qx"), state.get(base, "qy"), state.get(base, "qz"), state.get(base, "qw")])
+            robot_base_rot = R.from_quat(robot_base_quat).as_matrix()
+
+            robot_base_w = robot_base_rot.T @ world_w
+
             net = memory["model"]
             with torch.no_grad():
-                velocity_in_handle = net(torch.from_numpy(gripper_in_handle).float())
+                velocity_in_handle = net(torch.from_numpy(pos_in_handle).float())
 
             # Transform velocity back to world frame
             # Since handle frame is just translated, velocity transforms directly
-            velocity_world = velocity_in_handle.numpy()
+            velocity_world = handle_init_rot @ velocity_in_handle.numpy()
+            velocity_robot_base = robot_base_rot.T @ velocity_world
 
             # Create action array
             arr = np.zeros(7, dtype=np.float32)
-            arr[:3] = velocity_world
+            arr[:3] = velocity_robot_base
+            # arr[3:6] = 0.3 * robot_base_w
+            print (arr)
 
             # Clip the action to the action space limits
             action_low = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0], dtype=np.float32)
