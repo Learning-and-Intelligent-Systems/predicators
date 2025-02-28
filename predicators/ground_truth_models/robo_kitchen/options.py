@@ -3,6 +3,7 @@
 from typing import ClassVar, Dict, Sequence, Set
 
 import numpy as np
+import os
 from gym.spaces import Box
 import mujoco # for quaternion operations
 
@@ -53,16 +54,10 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         mujoco.mju_euler2Quat(angled_quat, np.array([-3 * np.pi / 4, 0.0, -np.pi / 2]), 'xyz')
 
         # Types
-        # on_off_type = types["rich_object_type"]
-        # kettle_type = types["rich_object_type"]
-        # surface_type = types["rich_object_type"]
-        # switch_type = types["rich_object_type"]
-        # knob_type = types["rich_object_type"]
-        hinge_door_type = types["hinge_door_type"]
-
-        gripper_type = types["gripper_type"]
-
-        handle_type = types["handle_type"]  
+        hinge = types["hinge_type"]
+        gripper = types["gripper_type"]
+        handle = types["handle_type"]  
+        
         # Predicates
         # OnTop = predicates["OnTop"]
 
@@ -86,7 +81,8 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
                 # Create model and load state dict
                 model = SimpleDS()
-                model_path = "/home/yifei/Documents/task_planning_2/predicators_robocasa/predicators/DS_models/models/model.pt"
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                model_path = os.path.join(current_dir, "..", "..", "DS_models", "models", "model.pt")
                 model.load_state_dict(torch.load(model_path, map_location="cpu"))
                 model.eval()
                 memory["model"] = model
@@ -95,7 +91,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def _DS_move_option_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
             # Get objects
-            gripper, _, handle = objects
+            gripper, handle = objects
 
             # Get positions
             gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
@@ -132,7 +128,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         DS_move_option = ParameterizedOption(
             "DS_move_option",
-            types=[gripper_type, hinge_door_type, handle_type],
+            types=[gripper, handle],
             # Unused params
             params_space=Box(-5, 5, (1,)),
             policy=_DS_move_option_policy,
@@ -146,16 +142,13 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _Dummy_initiable(state: State, memory: dict, objects: Sequence[Object], params: Array) -> bool:
             return True
 
-        # Dummy policy: returns a zero action (adjust the dimension as needed).
         def _Dummy_policy(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Action:
             # Here we assume an action vector of size 7.
             return Action(np.zeros(7, dtype=np.float32))
 
-        # Dummy terminal: always returns True.
         def _Dummy_terminal(state: State, memory: dict, objects: Sequence[Object], params: Array) -> bool:
             return True
 
-        # Creating a dummy option.
         DummyOption = ParameterizedOption(
             "DummyOption",
             types=[],  # Adjust type requirements as needed.
@@ -165,7 +158,6 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_Dummy_terminal
         )
 
-        # Add the dummy option to the set of options.
         options.add(DummyOption)
         
         return options

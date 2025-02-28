@@ -396,12 +396,7 @@ class RoboKitchenEnv(BaseEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         """Get the subset of self.predicates that are used in goals."""
-        # Copying from kitchen.py but simplified for initial implementation
-        # OnTop = self._pred_name_to_pred["OnTop"]
-        # TurnedOn = self._pred_name_to_pred["TurnedOn"]
-        # KettleBoiling = self._pred_name_to_pred["KettleBoiling"]
-        # KnobAndBurnerLinked = self._pred_name_to_pred["KnobAndBurnerLinked"]
-        goal_preds = {self._pred_name_to_pred["Open"], self._pred_name_to_pred["Closed"]}
+        goal_preds = {self._pred_name_to_pred["HingeOpen"], self._pred_name_to_pred["HingeClosed"]}
         return goal_preds
 
     @property
