@@ -460,7 +460,7 @@ class RoboKitchenEnv(BaseEnv):
         state_dict = {}
         for key, val in state_info.items():            
             if key.endswith("_pos_quat_angle"):
-                obj_name = key[:-14]
+                obj_name = key[:-15]
                 obj = cls.object_name_to_object(obj_name)
                 state_dict[obj] = {
                     "x": val[0],
