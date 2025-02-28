@@ -116,7 +116,9 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             ])
             
             # Transform gripper position to handle frame
-            gripper_in_handle = gripper_pos - handle_pos
+            gripper_in_handle = gripper_pos - handle_pos # this is world frame difference
+
+            # TODO: Convert world frame into body frame of robot, so we know ow to move end effector
             
             # Get velocity in handle frame from model
             net = memory["model"]

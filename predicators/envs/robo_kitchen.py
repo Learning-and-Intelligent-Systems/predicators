@@ -19,6 +19,7 @@ from collections import OrderedDict
 from termcolor import colored
 import warnings
 import os
+import mujoco
 
 # Constants from demo files
 MAX_CARTESIAN_DISPLACEMENT = 0.2
@@ -355,6 +356,7 @@ class RoboKitchenEnv(BaseEnv):
         # - Next 1D: torso (no movement)
         # - Last 1D: extra dimension (not used)
         env_action = np.zeros(12, dtype=np.float32)
+        print(pos_delta)
         env_action[0:3] = pos_delta  # position control
         env_action[3:6] = rot_delta  # rotation control
         env_action[6] = gripper_cmd  # gripper control
@@ -364,6 +366,8 @@ class RoboKitchenEnv(BaseEnv):
 
         # Execute action in environment (Robosuite:Mujoco Env)
         obs, _, _, _ = self._env.step(env_action)
+        # self._add_debug_visualization() # not working!
+
 
         contact_set = self.get_object_level_contacts()
 
@@ -515,10 +519,10 @@ class RoboKitchenEnv(BaseEnv):
                     "x": val[0],
                     "y": val[1],
                     "z": val[2],
-                    "qw": val[3],
-                    "qx": val[4],
-                    "qy": val[5],
-                    "qz": val[6],
+                    "qx": val[3],
+                    "qy": val[4],
+                    "qz": val[5],
+                    "qw": val[6],
                 }
 
                           
@@ -720,4 +724,51 @@ class RoboKitchenEnv(BaseEnv):
     #     # all named "knob1", "burner1", .... And that "knob1" corresponds
     #     # to "burner1"
     #     return knob.name[-1] == burner.name[-1]
+
+    def _add_debug_visualization(self):
+        """Add debug visualization markers at important locations."""
+        # Get the viewer from the simulation
+        viewer = self._env.viewer
+        if viewer is None:
+            return
+
+        # Clear existing visualizations
+        viewer.user_scn.ngeom = 0
+        geom_count = 0
+
+        # Add visualization for each object's important sites/geoms
+        for obj_name, obj in self.objects.items():
+            # Get object position and orientation
+            obj_pos = sim.data.body_xpos[self.obj_body_id[obj_name]]
+            
+            # Create a sphere at object position
+            mujoco.mjv_initGeom(
+                viewer.user_scn.geoms[geom_count],
+                type=mujoco.mjtGeom.mjGEOM_SPHERE,
+                size=[0.02, 0, 0],  # Small sphere
+                pos=obj_pos,
+                mat=np.eye(3).flatten(),
+                rgba=[1, 0, 0, 0.5]  # Semi-transparent red
+            )
+            geom_count += 1
+
+            # Add more visualizations for specific object types
+            if obj_name in ["microwave", "cabinet", "drawer"]:
+                # Add handle visualization
+                handle_site_id = sim.model.site_name2id(f"{obj_name}_handle")
+                if handle_site_id >= 0:
+                    handle_pos = sim.data.site_xpos[handle_site_id]
+                    mujoco.mjv_initGeom(
+                        viewer.user_scn.geoms[geom_count],
+                        type=mujoco.mjtGeom.mjGEOM_SPHERE,
+                        size=[0.015, 0, 0],
+                        pos=handle_pos,
+                        mat=np.eye(3).flatten(),
+                        rgba=[0, 1, 0, 0.5]  # Semi-transparent green
+                    )
+                    geom_count += 1
+
+        # Update the number of visualization geoms
+        viewer.user_scn.ngeom = geom_count
+        viewer.sync()
 
