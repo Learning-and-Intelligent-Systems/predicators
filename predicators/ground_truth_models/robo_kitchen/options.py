@@ -54,9 +54,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         hinge = types["hinge_type"]
         gripper = types["gripper_type"]
         handle = types["handle_type"]
-
-        # Predicates
-        # OnTop = predicates["OnTop"]
+        base = types["base_type"]
 
         options: Set[ParameterizedOption] = set()
 
@@ -88,18 +86,15 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def _DS_move_option_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
             # Get objects
-            gripper, handle = objects
+            gripper, handle, base = objects
 
             # Get positions
             gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
             handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")])
+            base_pos = np.array([state.get(base, "x"), state.get(base, "y"), state.get(base, "z")])
 
             # Transform gripper position to handle frame
-            gripper_in_handle = gripper_pos - handle_pos  # this is world frame difference
-
-            # TODO: Convert world frame into body frame of robot, so we know how to move end effector
-
-            # TODO: Get the robot base position and orientation
+            gripper_in_handle = -(base_pos + handle_pos)
 
             # Get velocity in handle frame from model
             net = memory["model"]
@@ -127,7 +122,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         DS_move_option = ParameterizedOption(
             "DS_move_option",
-            types=[gripper, handle],
+            types=[gripper, handle, base],
             # Unused params
             params_space=Box(-5, 5, (1,)),
             policy=_DS_move_option_policy,
@@ -146,12 +141,12 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))  # Open gripper
 
         def _GripperOpen_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-            # Always terminates
-            return True
+            # Never terminates
+            return RoboKitchenEnv._GripperOpen_holds(state, objects)  # Check if gripper is open
 
         GripperOpen_option = ParameterizedOption(
             "GripperOpen_option",
-            types=[],  # Adjust type requirements as needed.
+            types=[gripper],  # Adjust type requirements as needed.
             params_space=Box(-5, 5, (1,)),
             policy=_GripperOpen_option_policy,
             initiable=_GripperOpen_option_initiable,
@@ -168,12 +163,12 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))  # Close gripper
 
         def _GripperClose_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-            # Always terminates
-            return True
+            # Never terminates
+            return RoboKitchenEnv._GripperClosed_holds(state, objects)  # Check if gripper is closed
 
         GripperClose_option = ParameterizedOption(
             "GripperClose_option",
-            types=[],  # Adjust type requirements as needed.
+            types=[gripper],  # Adjust type requirements as needed.
             params_space=Box(-5, 5, (1,)),
             policy=_GripperClose_option_policy,
             initiable=_GripperClose_option_initiable,

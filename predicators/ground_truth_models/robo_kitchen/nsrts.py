@@ -25,11 +25,13 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         gripper_type = types["gripper_type"]
         handle_type = types["handle_type"]
         hinge_type = types["hinge_type"]
+        base_type = types["base_type"]
 
         # Objects
         gripper = Variable("?gripper", gripper_type)
         handle = Variable("?handle", handle_type)
         hinge = Variable("?hinge", hinge_type)
+        base = Variable("?base", base_type)
 
         # Options
         DS_move_option = options["DS_move_option"]
@@ -54,7 +56,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {LiftedAtom(GripperClosed, [gripper])}
         ignore_effects = set()
         option = GripperOpen_option
-        option_vars = []
+        option_vars = [gripper]
 
         def open_gripper_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:
             return np.array([0], dtype=np.float32)
@@ -73,13 +75,13 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(open_gripper_nsrt)
 
         # MoveToHandle
-        parameters = [gripper, handle]
+        parameters = [gripper, handle, base]
         preconditions = {LiftedAtom(GripperOpen, [gripper])}
         add_effects = {LiftedAtom(ReadyGrabHandle, [gripper, handle])}
         delete_effects = set()
         ignore_effects = set()
         option = DS_move_option
-        option_vars = [gripper, handle]
+        option_vars = [gripper, handle, base]
 
         def move_to_handle_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:
             return np.array([0], dtype=np.float32)
@@ -104,7 +106,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {LiftedAtom(GripperOpen, [gripper])}
         ignore_effects = set()
         option = GripperClose_option
-        option_vars = []
+        option_vars = [gripper]
 
         def grab_handle_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:
             return np.array([0], dtype=np.float32)
@@ -123,13 +125,13 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(grab_handle_nsrt)
 
         # PullOpenDoor
-        parameters = [gripper, handle, hinge]
+        parameters = [gripper, handle, hinge, base]
         preconditions = {LiftedAtom(HingeClosed, [hinge]), LiftedAtom(ReadyGrabHandle, [gripper, handle]), LiftedAtom(GripperClosed, [gripper]), LiftedAtom(InContact, [gripper, handle])}
         add_effects = {LiftedAtom(HingeOpen, [hinge])}
         delete_effects = {LiftedAtom(HingeClosed, [hinge])}
         ignore_effects = set()
         option = DS_move_option
-        option_vars = [gripper, handle]
+        option_vars = [gripper, handle, base]
 
         def pull_open_door_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:
             return np.array([0], dtype=np.float32)

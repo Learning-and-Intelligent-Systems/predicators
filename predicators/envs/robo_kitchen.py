@@ -46,12 +46,14 @@ class RoboKitchenEnv(BaseEnv):
     handle_type = Type("handle_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
     gripper_type = Type("gripper_type", ["x", "y", "z", "qx", "qy", "qz", "qw", "angle"])
     hinge_type = Type("hinge_type", ["angle"])
-    rich_object_type = Type("rich_object_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
+    object_type = Type("object_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
+    base_type = Type("base_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
 
     obj_name_to_type = {
         "handle": handle_type,
         "gripper": gripper_type,
         "hinge": hinge_type,
+        "robot0_base": base_type,
     }
 
     tasks = OrderedDict(
@@ -218,7 +220,6 @@ class RoboKitchenEnv(BaseEnv):
         warnings.warn("goal_reached not implemented for robo_kitchen, False will be returned so simulation continues")
         return False 
 
-
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         # each task has a success condition, we can translate to predicate
         tasks = [] 
@@ -347,7 +348,6 @@ class RoboKitchenEnv(BaseEnv):
         obs, _, _, _ = self._env.step(env_action)
         # self._add_debug_visualization() # not working!
 
-
         contact_set = self.get_object_level_contacts()
 
         observation = {
@@ -411,15 +411,16 @@ class RoboKitchenEnv(BaseEnv):
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""
         return {
-            self.rich_object_type, 
+            self.object_type, 
             self.hinge_type,
             self.gripper_type,
             self.handle_type,
+            self.base_type,
         }
 
     def get_observation(self) -> Observation:
         return self._copy_observation(self._current_observation)
-    
+
     def _copy_observation(self, obs: Observation) -> Observation:
         """Create copy of observation."""
         return copy.deepcopy(obs)
@@ -461,7 +462,7 @@ class RoboKitchenEnv(BaseEnv):
         if obj_name in cls.obj_name_to_type:
             return Object(obj_name, cls.obj_name_to_type[obj_name])
         else:
-            return Object(obj_name, cls.rich_object_type)
+            return Object(obj_name, cls.object_type)
 
     @classmethod
     def state_info_to_state(cls, state_info: Dict[str, Any], contact_set: set[Tuple[Object, Object]] = None) -> State:
@@ -536,7 +537,7 @@ class RoboKitchenEnv(BaseEnv):
     def _GripperOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
-        if obj.is_instance(cls.hinge_type):
+        if obj.is_instance(cls.gripper_type):
             return state.get(obj, "angle") > cls.gripper_open_thresh
         return False
 
@@ -587,7 +588,7 @@ class RoboKitchenEnv(BaseEnv):
         for obj_name, obj in self.objects.items():
             # Get object position and orientation
             obj_pos = sim.data.body_xpos[self.obj_body_id[obj_name]]
-            
+
             # Create a sphere at object position
             mujoco.mjv_initGeom(
                 viewer.user_scn.geoms[geom_count],
@@ -618,4 +619,3 @@ class RoboKitchenEnv(BaseEnv):
         # Update the number of visualization geoms
         viewer.user_scn.ngeom = geom_count
         viewer.sync()
-
