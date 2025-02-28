@@ -38,24 +38,18 @@ class RoboKitchenEnv(BaseEnv):
     at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
-    gripper_open_thresh = 0.05
+    gripper_open_thresh = 0.038
 
     # Types (similar to original kitchen)
-    # object_type = Type("object", ["x", "y", "z"])
-    gripper_type = Type("gripper", ["angle"])
-    rich_object_type = Type("rich_object", ["x", "y", "z", "qx", "qy", "qz", "qw"])
-    hinge_door_type = Type("hinge_door", ["angle"])
-    # on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
-    # hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
-    #                        parent=on_off_type)
-    # knob_type = Type("knob", ["x", "y", "z", "angle"], parent=on_off_type)
-    # switch_type = Type("switch", ["x", "y", "z", "angle"], parent=on_off_type)
-    # surface_type = Type("surface", ["x", "y", "z"], parent=object_type)
-    # kettle_type = Type("kettle", ["x", "y", "z"], parent=object_type)
+    handle_type = Type("handle_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
+    gripper_type = Type("gripper_type", ["x", "y", "z", "qx", "qy", "qz", "qw", "angle"])
+    hinge_type = Type("hinge_type", ["angle"])
+    rich_object_type = Type("rich_object_type", ["x", "y", "z", "qx", "qy", "qz", "qw"])
 
     obj_name_to_type = {
-        "gripper_angle": gripper_type,
-        "door_angle": hinge_door_type,
+        "handle": handle_type,
+        "gripper": gripper_type,
+        "hinge": hinge_type,
     }
 
     tasks = OrderedDict(
@@ -295,34 +289,12 @@ class RoboKitchenEnv(BaseEnv):
     def create_predicates(cls) -> Dict[str, Predicate]:
         """Exposed for perceiver."""
         preds = {
-            # Predicate("AtPreTurnOff", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._AtPreTurnOff_holds),
-            # Predicate("AtPreTurnOn", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._AtPreTurnOn_holds),
-            # Predicate("AtPrePushOnTop", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._AtPrePushOnTop_holds),
-            # Predicate("AtPrePullKettle", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._AtPrePullKettle_holds),
-            # Predicate("OnTop", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._OnTop_holds),
-            # Predicate("NotOnTop", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._NotOnTop_holds),
-            # Predicate("TurnedOn", [cls.rich_object_type], cls.On_holds),
-            # Predicate("TurnedOff", [cls.rich_object_type], cls.Off_holds),
-            Predicate("GripperOpen", [cls.gripper_type], cls.GripperOpen_holds),
-            Predicate("GripperClosed", [cls.gripper_type], cls.GripperClosed_holds),
-            Predicate("HingeOpen", [cls.hinge_door_type], cls.HingeOpen_holds),
-            Predicate("HingeClosed", [cls.hinge_door_type], cls.HingeClosed_holds),
-            Predicate("InContact", [cls.rich_object_type, cls.rich_object_type], cls._InContact_holds),
-            # Predicate("BurnerAhead", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._BurnerAhead_holds),
-            # Predicate("BurnerBehind", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._BurnerBehind_holds),
-            # Predicate("KettleBoiling",
-            #           [cls.rich_object_type, cls.rich_object_type, cls.rich_object_type],
-            #           cls._KettleBoiling_holds),
-            # Predicate("KnobAndBurnerLinked", [cls.rich_object_type, cls.rich_object_type],
-            #           cls._KnobAndBurnerLinkedHolds),
+            Predicate("ReadyGrabHandle", [cls.gripper_type, cls.handle_type], cls._ReadyGrabHandle_holds),
+            Predicate("GripperOpen", [cls.gripper_type], cls._GripperOpen_holds),
+            Predicate("GripperClosed", [cls.gripper_type], cls._GripperClosed_holds),
+            Predicate("HingeOpen", [cls.hinge_type], cls._HingeOpen_holds),
+            Predicate("HingeClosed", [cls.hinge_type], cls._HingeClosed_holds),
+            Predicate("InContact", [cls.gripper_type, cls.handle_type], cls._InContact_holds),
         }
 
         return {p.name: p for p in preds}
@@ -434,7 +406,10 @@ class RoboKitchenEnv(BaseEnv):
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""
         return {
-            self.rich_object_type, self.hinge_door_type
+            self.rich_object_type, 
+            self.hinge_type,
+            self.gripper_type,
+            self.handle_type,
         }
 
     def _copy_observation(self, obs: Observation) -> Observation:
@@ -471,6 +446,7 @@ class RoboKitchenEnv(BaseEnv):
     #         body_id = mujoco_model_names.body_name2id[body]
     #         state_info[body] = mujoco_data.xpos[body_id].copy()
     #     return state_info
+
     @classmethod
     def object_name_to_object(cls, obj_name: str) -> Object:
         """Made public for perceiver."""
@@ -482,9 +458,34 @@ class RoboKitchenEnv(BaseEnv):
     @classmethod
     def state_info_to_state(cls, state_info: Dict[str, Any], contact_set: set[Tuple[Object, Object]] = None) -> State:
         state_dict = {}
-        for key, val in state_info.items():
-            if key.endswith("_angle"):
-                obj_name = key
+        for key, val in state_info.items():            
+            if key.endswith("_pos_quat_angle"):
+                obj_name = key[:-14]
+                obj = cls.object_name_to_object(obj_name)
+                state_dict[obj] = {
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "qx": val[3],
+                    "qy": val[4],
+                    "qz": val[5],
+                    "qw": val[6],
+                    "angle": val[7]
+                }
+            elif key.endswith("_pos_quat"):
+                obj_name = key[:-9]
+                obj = cls.object_name_to_object(obj_name)
+                state_dict[obj] = {
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "qx": val[3],
+                    "qy": val[4],
+                    "qz": val[5],
+                    "qw": val[6]
+                }
+            elif key.endswith("_angle"):
+                obj_name = key[:-6]
                 obj = cls.object_name_to_object(obj_name)
                 state_dict[obj] = {
                     "angle": val #currently only support 1 door, double door doesn't work
@@ -509,34 +510,44 @@ class RoboKitchenEnv(BaseEnv):
         return state
 
     @classmethod
-    def GripperOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _ReadyGrabHandle_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Check if gripper is ready to grip handle."""
+        gripper, handle = objects
+        # Check if gripper is open
+        if not state.get(gripper, "angle") > cls.gripper_open_thresh:
+            return False
+        # Check if handle is in contact with gripper
+        return (gripper, handle) in state.items_in_contact or (handle, gripper) in state.items_in_contact
+
+    @classmethod
+    def _GripperOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
-        if obj.is_instance(cls.hinge_door_type):
-            return all(joint > cls.gripper_open_thresh for joint in state.get(obj, "angle"))
+        if obj.is_instance(cls.hinge_type):
+            return state.get(obj, "angle") > cls.gripper_open_thresh
         return False
 
     @classmethod
-    def GripperClosed_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _GripperClosed_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.gripper_type):
-            return all(joint <= cls.gripper_open_thresh for joint in state.get(obj, "angle"))
+            return state.get(obj, "angle") <= cls.gripper_open_thresh
         return False
 
     @classmethod
-    def HingeOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _HingeOpen_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
-        if obj.is_instance(cls.hinge_door_type):
+        if obj.is_instance(cls.hinge_type):
             return state.get(obj, "angle") > cls.hinge_open_thresh
         return False
 
     @classmethod
-    def HingeClosed_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _HingeClosed_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
-        if obj.is_instance(cls.hinge_door_type):
+        if obj.is_instance(cls.hinge_type):
             return state.get(obj, "angle") <= cls.hinge_open_thresh
         return False
 
@@ -547,163 +558,3 @@ class RoboKitchenEnv(BaseEnv):
         """Check if two objects are in contact using robosuite's contact checking."""
         obj1, obj2 = objects
         return (obj1, obj2) in state.items_in_contact or (obj2, obj1) in state.items_in_contact
-
-    # @classmethod
-    # def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
-    #                      on_or_off: str) -> bool:
-    #     """Helper for _AtPreTurnOn_holds() and _AtPreTurnOff_holds()."""
-    #     gripper, obj = objects
-    #     obj_xyz = np.array(
-    #         [state.get(obj, "x"),
-    #          state.get(obj, "y"),
-    #          state.get(obj, "z")])
-    #     # On refers to Open and Off to Close
-    #     dpos = cls.get_pre_push_delta_pos(obj, on_or_off)
-    #     gripper_xyz = np.array([
-    #         state.get(gripper, "x"),
-    #         state.get(gripper, "y"),
-    #         state.get(gripper, "z")
-    #     ])
-    #     return np.allclose(obj_xyz + dpos,
-    #                        gripper_xyz,
-    #                        atol=cls.at_pre_turn_atol)
-
-    # @classmethod
-    # def _AtPreTurnOn_holds(cls, state: State,
-    #                        objects: Sequence[Object]) -> bool:
-    #     return cls._AtPreTurn_holds(state, objects, "on")
-
-    # @classmethod
-    # def _AtPreTurnOff_holds(cls, state: State,
-    #                         objects: Sequence[Object]) -> bool:
-    #     return cls._AtPreTurn_holds(state, objects, "off")
-
-    # @classmethod
-    # def _AtPrePushOnTop_holds(cls, state: State,
-    #                           objects: Sequence[Object]) -> bool:
-    #     # The main thing that's different from _AtPreTurnOn_holds is that the
-    #     # x position has a much higher range of allowed values, since it can
-    #     # be anywhere behind the object.
-    #     gripper, obj = objects
-    #     obj_xyz = np.array(
-    #         [state.get(obj, "x"),
-    #          state.get(obj, "y"),
-    #          state.get(obj, "z")])
-    #     dpos = cls.get_pre_push_delta_pos(obj, "on")
-    #     target_x, target_y, target_z = obj_xyz + dpos
-    #     gripper_x, gripper_y, gripper_z = [
-    #         state.get(gripper, "x"),
-    #         state.get(gripper, "y"),
-    #         state.get(gripper, "z")
-    #     ]
-    #     if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
-    #                        atol=cls.at_pre_pushontop_yz_atol):
-    #         return False
-    #     return np.isclose(target_x,
-    #                       gripper_x,
-    #                       atol=cls.at_pre_pushontop_x_atol)
-
-    # @classmethod
-    # def _AtPrePullKettle_holds(cls, state: State,
-    #                            objects: Sequence[Object]) -> bool:
-    #     gripper, obj = objects
-    #     obj_xyz = np.array(
-    #         [state.get(obj, "x"),
-    #          state.get(obj, "y"),
-    #          state.get(obj, "z")])
-    #     dpos = cls.get_pre_push_delta_pos(obj, "off")
-    #     target_x, target_y, target_z = obj_xyz + dpos
-    #     gripper_x, gripper_y, gripper_z = [
-    #         state.get(gripper, "x"),
-    #         state.get(gripper, "y"),
-    #         state.get(gripper, "z")
-    #     ]
-    #     if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
-    #                        atol=cls.at_pre_pullontop_yz_atol):
-    #         return False
-    #     return np.isclose(target_x,
-    #                       gripper_x,
-    #                       atol=cls.at_pre_pushontop_x_atol)
-
-    # @classmethod
-    # def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-    #     obj1, obj2 = objects
-    #     obj1_xy = [state.get(obj1, "x"), state.get(obj1, "y")]
-    #     obj2_xy = [
-    #         state.get(obj2, "x"),
-    #         state.get(obj2, "y"),
-    #     ]
-    #     return np.allclose(obj1_xy,
-    #                        obj2_xy, atol=cls.ontop_atol) and state.get(
-    #                            obj1, "z") > state.get(obj2, "z")
-
-    # @classmethod
-    # def _NotOnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-    #     return not cls._OnTop_holds(state, objects)
-
-    # @classmethod
-    # def On_holds(cls,
-    #              state: State,
-    #              objects: Sequence[Object],
-    #              thresh_pad: float = -0.06) -> bool:
-    #     """Made public for use in ground-truth options."""
-    #     obj = objects[0]
-    #     if obj.is_instance(cls.knob_type):
-    #         return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
-    #     if obj.is_instance(cls.switch_type):
-    #         return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
-    #     return False
-
-    # @classmethod
-    # def Off_holds(cls,
-    #               state: State,
-    #               objects: Sequence[Object],
-    #               thresh_pad: float = 0.0) -> bool:
-    #     """Made public for use in ground-truth options."""
-    #     # Can't do not On_holds() because of thresh_pad logic.
-    #     obj = objects[0]
-    #     if obj.is_instance(cls.knob_type):
-    #         return state.get(obj, "angle") >= cls.on_angle_thresh + thresh_pad
-    #     if obj.is_instance(cls.switch_type):
-    #         return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
-    #     return False
-
-    # @classmethod
-    # def _BurnerAhead_holds(cls, state: State,
-    #                        objects: Sequence[Object]) -> bool:
-    #     """Static predicate useful for deciding between pushing or pulling the
-    #     kettle."""
-    #     burner1, burner2 = objects
-    #     if burner1 == burner2:
-    #         return False
-    #     return state.get(burner1, "y") > state.get(burner2, "y")
-
-    # @classmethod
-    # def _BurnerBehind_holds(cls, state: State,
-    #                         objects: Sequence[Object]) -> bool:
-    #     """Static predicate useful for deciding between pushing or pulling the
-    #     kettle."""
-    #     burner1, burner2 = objects
-    #     if burner1 == burner2:
-    #         return False
-    #     return not cls._BurnerAhead_holds(state, objects)
-
-    # @classmethod
-    # def _KettleBoiling_holds(cls, state: State,
-    #                          objects: Sequence[Object]) -> bool:
-    #     """Predicate that's necessary for goal specification."""
-    #     kettle, burner, knob = objects
-    #     return cls.On_holds(state, [knob]) and cls._OnTop_holds(
-    #         state, [kettle, burner]) and cls._KnobAndBurnerLinkedHolds(
-    #             state, [knob, burner])
-
-    # @classmethod
-    # def _KnobAndBurnerLinkedHolds(cls, state: State,
-    #                               objects: Sequence[Object]) -> bool:
-    #     """Predicate that's necessary for goal specification."""
-    #     del state  # unused
-    #     knob, burner = objects
-    #     # NOTE: we assume the knobs and burners are
-    #     # all named "knob1", "burner1", .... And that "knob1" corresponds
-    #     # to "burner1"
-    #     return knob.name[-1] == burner.name[-1]
