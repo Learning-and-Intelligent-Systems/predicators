@@ -336,7 +336,6 @@ class RoboKitchenEnv(BaseEnv):
         # - Next 1D: torso (no movement)
         # - Last 1D: extra dimension (not used)
         env_action = np.zeros(12, dtype=np.float32)
-        print(pos_delta)
         env_action[0:3] = pos_delta  # position control
         env_action[3:6] = rot_delta  # rotation control
         env_action[6] = gripper_cmd  # gripper control
@@ -471,6 +470,10 @@ class RoboKitchenEnv(BaseEnv):
             if key.endswith("_pos_quat_angle"):
                 obj_name = key[:-15]
                 obj = cls.object_name_to_object(obj_name)
+                if obj_name == "gripper":
+                    warnings.warn("Hardcoding gripper quat to robot0_eef_quat")
+                    val_quat = state_info["robot0_eef_quat"]
+                    val[3:7] = val_quat
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],

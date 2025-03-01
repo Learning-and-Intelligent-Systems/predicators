@@ -113,7 +113,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Transform gripper rotation to handle frame
             rot_in_handle = handle_init_rot.T @ gripper_rot
 
-            expected_relative_rot_handle = R.from_quat(np.array([0.5, 0.5, 0.5, 0.5]))
+            expected_relative_rot_handle = R.from_quat(np.array([0.5, 0.5, 0.5, -0.5]))
 
             # Compute the difference between the expected relative rotation and the actual relative rotation
             rel_rot_diff = expected_relative_rot_handle * R.from_matrix(rot_in_handle).inv()
@@ -126,6 +126,9 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot_base_rot = R.from_quat(robot_base_quat).as_matrix()
 
             robot_base_w = robot_base_rot.T @ world_w
+            mag = np.linalg.norm(robot_base_w)
+            if mag > 1:
+                robot_base_w = robot_base_w / mag
 
             net = memory["model"]
             with torch.no_grad():
@@ -135,12 +138,10 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Since handle frame is just translated, velocity transforms directly
             velocity_world = handle_init_rot @ velocity_in_handle.numpy()
             velocity_robot_base = robot_base_rot.T @ velocity_world
-
             # Create action array
             arr = np.zeros(7, dtype=np.float32)
             arr[:3] = velocity_robot_base
-            # arr[3:6] = 0.3 * robot_base_w
-            print (arr)
+            arr[3:6] = 0.3 * robot_base_w
 
             # Clip the action to the action space limits
             action_low = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0], dtype=np.float32)
