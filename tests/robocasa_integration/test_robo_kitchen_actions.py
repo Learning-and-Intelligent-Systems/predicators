@@ -61,6 +61,7 @@ def test_action_conversion():
         
         # Create and execute predicators action
         action = Action(action_arr)
+        env._env_raw.viewer.mjprint(f"Action: {action_arr}")
         for _ in range(6):
             obs = env.step(action)
         
