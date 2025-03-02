@@ -1,6 +1,6 @@
 """Ground-truth options for the Kitchen environment."""
 
-from typing import ClassVar, Dict, Sequence, Set
+from typing import ClassVar, Dict, Sequence, Set, Optional
 
 import numpy as np
 import os
@@ -16,6 +16,8 @@ import torch
 from predicators.DS_models.gen_demo_model import DynamicalSystem
 
 from scipy.spatial.transform import Rotation as R
+
+import warnings
 
 class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the RoboKitchen environment."""
@@ -59,37 +61,49 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
 
+        def _create_ds_model(memory: Dict, state: State, objects: Sequence[Object], offset: Optional[np.ndarray] = None) -> None:
+            """Helper to create and initialize the DS model in memory."""
+            # Define model architecture
+            class SimpleDS(torch.nn.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.D = torch.nn.Parameter(torch.zeros(3, 3))
+
+                def forward(self, x):
+                    if isinstance(x, np.ndarray):
+                        x = torch.from_numpy(x).float()
+                    if len(x.shape) == 1:
+                        x = x.unsqueeze(0)
+                    return torch.matmul(x, self.D.T).squeeze(0)
+
+            # Create model and load state dict
+            model = SimpleDS()
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            model_path = os.path.join(current_dir, "..", "..", "DS_models", "models", "model.pt")
+            model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
+            model.eval()
+            memory["model"] = model
+
+            gripper, handle, base = objects
+            handle_quat = np.array([state.get(handle, "qx"), state.get(handle, "qy"), 
+                                  state.get(handle, "qz"), state.get(handle, "qw")])
+            handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), 
+                                 state.get(handle, "z")])
+            memory["handle_init_rot"] = R.from_quat(handle_quat).as_matrix()
+            if offset is not None:
+                handle_pos = handle_pos + offset
+            memory["handle_init_pos"] = handle_pos
+
         # DS_move_option - always initiable, empty policy, never terminates
-        def _DS_move_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+        def _DS_move_towards_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             if "model" not in memory:
-                # Define model architecture
-                class SimpleDS(torch.nn.Module):
-                    def __init__(self):
-                        super().__init__()
-                        self.D = torch.nn.Parameter(torch.zeros(3, 3))
-
-                    def forward(self, x):
-                        if isinstance(x, np.ndarray):
-                            x = torch.from_numpy(x).float()
-                        if len(x.shape) == 1:
-                            x = x.unsqueeze(0)
-                        return torch.matmul(x, self.D.T).squeeze(0)
-
-                # Create model and load state dict
-                model = SimpleDS()
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                model_path = os.path.join(current_dir, "..", "..", "DS_models", "models", "model.pt")
-                model.load_state_dict(torch.load(model_path, map_location="cpu"))
-                model.eval()
-                memory["model"] = model
-
-                gripper, handle, base = objects
-                handle_quat = np.array([state.get(handle, "qx"), state.get(handle, "qy"), state.get(handle, "qz"), state.get(handle, "qw")])
-                handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")])
-                memory["handle_init_rot"] = R.from_quat(handle_quat).as_matrix()
-                memory["handle_init_pos"] = handle_pos
-
-
+                _create_ds_model(memory, state, objects)
+            return True
+        
+        # DS_move_away_option - always initiable, empty policy, never terminates
+        def _DS_move_away_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            if "model" not in memory:
+                _create_ds_model(memory, state, objects, offset=np.array([-0.6, -0.6, 0.0]))
             return True
 
         def vee_operator(w):
@@ -133,7 +147,11 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             net = memory["model"]
             with torch.no_grad():
                 velocity_in_handle = net(torch.from_numpy(pos_in_handle).float())
-
+            
+            warnings.warn("Velocity getting scaled, plz remove")
+            velocity_in_handle[0] = velocity_in_handle[0] * 2 #handle frame x is the direction towards handle
+            velocity_in_handle[1] = velocity_in_handle[1] * 0.4
+            velocity_in_handle[2] = velocity_in_handle[2] * 2
             # Transform velocity back to world frame
             # Since handle frame is just translated, velocity transforms directly
             velocity_world = handle_init_rot @ velocity_in_handle.numpy()
@@ -151,7 +169,12 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(arr)
 
         def _DS_move_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-            # Never terminates
+            handle_init_pos = memory["handle_init_pos"]
+            # when gripper position close enough to handle
+            gripper, _, base = objects
+            gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
+            if np.linalg.norm(gripper_pos - handle_init_pos) < 0.01:
+                return True
             return False
 
         DS_move_option = ParameterizedOption(
@@ -160,11 +183,23 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Unused params
             params_space=Box(-5, 5, (1,)),
             policy=_DS_move_option_policy,
-            initiable=_DS_move_option_initiable,
+            initiable=_DS_move_towards_option_initiable,
+            terminal=_DS_move_option_terminal,
+        )
+
+
+        DS_move_away_option = ParameterizedOption(
+            "DS_move_away_option",
+            types=[gripper, handle, base],
+            # Unused params
+            params_space=Box(-5, 5, (1,)),
+            policy=_DS_move_option_policy,
+            initiable=_DS_move_away_option_initiable,
             terminal=_DS_move_option_terminal,
         )
 
         options.add(DS_move_option)
+        options.add(DS_move_away_option)
 
         # GripperOpen_option
         def _GripperOpen_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
@@ -197,7 +232,6 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))  # Close gripper
 
         def _GripperClose_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-            # Never terminates
             return RoboKitchenEnv._GripperClosed_holds(state, objects)  # Check if gripper is closed
 
         GripperClose_option = ParameterizedOption(

@@ -39,7 +39,8 @@ class RoboKitchenEnv(BaseEnv):
     at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
-    gripper_open_thresh = 0.038
+    gripper_open_thresh = 0.038 # m 
+    gripper_closed_thresh = 0.02 # m
     close_distance_thresh = 0.02
 
     # Types (similar to original kitchen)
@@ -527,11 +528,13 @@ class RoboKitchenEnv(BaseEnv):
         gripper, handle = objects
         # Check if gripper is open
         if not state.get(gripper, "angle") > cls.gripper_open_thresh:
+            print ("ReadyGrabHandle Not True: Gripper not open")
             return False
         # Check if position of gripper is close to handle
         gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
         handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), state.get(handle, "z")])
         if np.linalg.norm(gripper_pos - handle_pos) > cls.close_distance_thresh:
+            print ("ReadyGrabHandle Not True: Gripper not close enough to handle")
             return False
         # Check if orientation of gripper is close to handle
         return True
@@ -549,7 +552,7 @@ class RoboKitchenEnv(BaseEnv):
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.gripper_type):
-            return state.get(obj, "angle") <= cls.gripper_open_thresh
+            return state.get(obj, "angle") <= cls.gripper_closed_thresh
         return False
 
     @classmethod

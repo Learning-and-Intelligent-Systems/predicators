@@ -35,6 +35,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         DS_move_option = options["DS_move_option"]
+        DS_move_away_option = options["DS_move_away_option"]
         GripperOpen_option = options["GripperOpen_option"]
         GripperClose_option = options["GripperClose_option"]
         DummyOption = options["DummyOption"]
@@ -130,7 +131,7 @@ class RoboKitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {LiftedAtom(HingeOpen, [hinge])}
         delete_effects = {LiftedAtom(HingeClosed, [hinge])}
         ignore_effects = set()
-        option = DS_move_option
+        option = DS_move_away_option
         option_vars = [gripper, handle, base]
 
         def pull_open_door_sampler(state: State, memory: dict, objects: Sequence[Object], params: Array) -> Array:
