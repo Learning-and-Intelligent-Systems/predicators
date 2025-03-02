@@ -14,7 +14,7 @@ class MpcExecutionMonitor(BaseExecutionMonitor):
     def step(self, state: State) -> bool:
         # Don't trigger replanning on the 0th
         # timestep.
-        if self._curr_plan_timestep == 0:
+        if self._curr_plan_timestep < 50:
             self._curr_plan_timestep += 1
             return False
         # Otherwise, trigger replanning.

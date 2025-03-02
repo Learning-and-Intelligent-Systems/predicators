@@ -1367,8 +1367,8 @@ def nsrt_plan_to_greedy_option_policy(
                 "Executing the NSRT failed to achieve the necessary atoms.")
         cur_nsrt = nsrt_queue.pop(0)
         cur_option = cur_nsrt.sample_option(state, goal, rng)
-        logging.debug(f"Using option {cur_option.name}{cur_option.objects}"
-                      f"{cur_option.params} from NSRT plan.")
+        logging.debug(f"\033[32mUsing option {cur_option.name}{cur_option.objects}"
+                      f"{cur_option.params} from NSRT plan.\033[0m")
         return cur_option
 
     return _option_policy

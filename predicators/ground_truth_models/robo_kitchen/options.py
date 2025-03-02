@@ -97,7 +97,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         # DS_move_option - always initiable, empty policy, never terminates
         def _DS_move_towards_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             if "model" not in memory:
-                _create_ds_model(memory, state, objects)
+                _create_ds_model(memory, state, objects, offset=np.array([0.0, 0.1, 0.0]))
             return True
         
         # DS_move_away_option - always initiable, empty policy, never terminates
@@ -170,10 +170,20 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def _DS_move_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             handle_init_pos = memory["handle_init_pos"]
-            # when gripper position close enough to handle
             gripper, _, base = objects
             gripper_pos = np.array([state.get(gripper, "x"), state.get(gripper, "y"), state.get(gripper, "z")])
-            if np.linalg.norm(gripper_pos - handle_init_pos) < 0.01:
+            
+            # Store previous gripper position if not already in memory
+            if "prev_gripper_pos" not in memory:
+                memory["prev_gripper_pos"] = gripper_pos
+                return False
+            
+            # Calculate velocity as position change
+            velocity = np.linalg.norm(gripper_pos - memory["prev_gripper_pos"])
+            memory["prev_gripper_pos"] = gripper_pos
+            
+            # Terminal if close to target or velocity too small
+            if velocity < 0.001:
                 return True
             return False
 
@@ -210,8 +220,22 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))  # Open gripper
 
         def _GripperOpen_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-            # Never terminates
-            return RoboKitchenEnv._GripperOpen_holds(state, objects)  # Check if gripper is open
+            # Get current gripper angle
+            curr_angle = state.get(objects[0], "angle")
+            
+            # Store previous angle in memory if not already there
+            if "prev_angle" not in memory:
+                memory["prev_angle"] = curr_angle
+                return False
+                
+            # Check if angle hasn't changed and gripper is open
+            angle_unchanged = abs(curr_angle - memory["prev_angle"]) < 1e-3
+            is_open = RoboKitchenEnv._GripperOpen_holds(state, objects)
+            
+            # Update memory
+            memory["prev_angle"] = curr_angle
+            
+            return angle_unchanged and is_open
 
         GripperOpen_option = ParameterizedOption(
             "GripperOpen_option",
@@ -232,7 +256,22 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))  # Close gripper
 
         def _GripperClose_option_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-            return RoboKitchenEnv._GripperClosed_holds(state, objects)  # Check if gripper is closed
+            # Get current gripper angle
+            curr_angle = state.get(objects[0], "angle")
+            
+            # Store previous angle in memory if not already there
+            if "prev_angle" not in memory:
+                memory["prev_angle"] = curr_angle
+                return False
+                
+            # Check if angle hasn't changed and gripper is closed
+            angle_unchanged = abs(curr_angle - memory["prev_angle"]) < 1e-3
+            is_closed = RoboKitchenEnv._GripperClosed_holds(state, objects)
+            
+            # Update memory
+            memory["prev_angle"] = curr_angle
+            
+            return angle_unchanged and is_closed
 
         GripperClose_option = ParameterizedOption(
             "GripperClose_option",

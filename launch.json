@@ -6,7 +6,17 @@
         "type": "python",
         "request": "launch",
         "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
-        "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--bilevel_plan_without_sim", "True","--debug", "--use_gui"],
+        "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--debug", "--use_gui", "--execution_monitor", "mpc"],
+        "console": "integratedTerminal",
+        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
+        // plan without sim does not work
+      },
+      {
+        "name": "Burger",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
+        "args": ["--env", "burger", "--approach", "oracle", "--seed", "0", "--debug", "--use_gui"],
         "console": "integratedTerminal",
         "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
       },
@@ -15,7 +25,16 @@
         "type": "python",
         "request": "launch",
         "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
-        "args": ["--env", "robo_kitchen", "--approach", "grammar_search_invention", "--seed", "0", "--bilevel_plan_without_sim", "True","--debug", "--use_gui", "--excluded_predicates", "all"],
+        "args": ["--env", "robo_kitchen", "--approach", "grammar_search_invention", "--seed", "0", "--bilevel_plan_without_sim", "True","--debug", "--excluded_predicates", "all"],
+        "console": "integratedTerminal",
+        "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
+      },
+      {
+        "name": "Playback dataset",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/robocasa/robocasa/demos/demo_tasks.py",
+        "args": ["--task", "PnPCounterToCab"],
         "console": "integratedTerminal",
         "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
       },
@@ -27,7 +46,7 @@
         "type": "python", 
         "request": "launch",
         "program": "${workspaceFolder}/robocasa/robocasa/demos/demo_teleop.py",
-        "args": ["--robot","PandaOmron","--task", "OpenSingleDoor", "--layout", "0", "--style", "0"],
+      "args": ["--robot","PandaOmron","--task", "OpenSingleDoor", "--layout", "0", "--style", "0"],
         "console": "integratedTerminal",
         "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
       }

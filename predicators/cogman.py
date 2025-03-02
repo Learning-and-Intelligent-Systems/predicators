@@ -79,7 +79,7 @@ class CogMan:
             return None
         # Check if we should replan.
         if self._exec_monitor.step(state):
-            logging.info("[CogMan] Replanning triggered.")
+            logging.info("\033[93m[CogMan] Replanning triggered.\033[0m")
             assert self._current_goal is not None
             task = Task(state, self._current_goal)
             self._reset_policy(task)
