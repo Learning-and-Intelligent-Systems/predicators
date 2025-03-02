@@ -471,10 +471,6 @@ class RoboKitchenEnv(BaseEnv):
             if key.endswith("_pos_quat_angle"):
                 obj_name = key[:-15]
                 obj = cls.object_name_to_object(obj_name)
-                if obj_name == "gripper":
-                    warnings.warn("Hardcoding gripper quat to robot0_eef_quat")
-                    val_quat = state_info["robot0_eef_quat"]
-                    val[3:7] = val_quat
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
