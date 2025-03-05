@@ -6,7 +6,7 @@
         "type": "python",
         "request": "launch",
         "program": "${workspaceFolder}/predicators_robocasa/predicators/main.py",
-        "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--debug", "--use_gui", "--execution_monitor", "mpc"],
+        "args": ["--env", "robo_kitchen", "--approach", "oracle", "--seed", "0", "--debug", "--use_gui"],//, "--execution_monitor", "mpc"],
         "console": "integratedTerminal",
         "pythonPath": "/home/yifei/miniconda3/envs/task_plan_casa2/bin/python"
         // plan without sim does not work

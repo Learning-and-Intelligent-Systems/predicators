@@ -1,5 +1,12 @@
 # predicators_robocasa
 
+## Predicators_Robocasa Intsallation Instructions
+1. Follow instruction for robocasa (In step 4, use fork [here](https://github.com/shaoyifei96/robocasa.git)). Don't forget step 5 to download dataset.[here](https://robocasa.ai/docs/introduction/installation.html)
+1. Install this repo using the instructions below, also in the conda env (There should be nothing red appearing)
+1. all three repos should be in a directory, in that directory, create .vscode folder and copy the launch.json file in this repo to that folder, making edits to the file, to enable debugging.
+1. put ```export PYTHONHASHSEED=0``` in bashrc
+1. In VSCode, you should see a few debug profiles, the teleop profile should work as is.(Try complete the task, it is not easy). The predicator_robocasa main file should solve the task, and output a NSRT plan. It will then start executing the plan in a GUI. The door should be opened.
+
 ## Running inside docker
 When running inside docker, this seems to work: ```export MUJOCO_GL=glfw && export PYOPENGL_PLATFORM=egl && cd /workspace/predicators_robocasa && python3 predicators/main.py --env robo_kitchen --approach grammar_search_invention --seed 0 --bilevel_plan_without_sim True --debug --excluded_predicates all```
 
@@ -7,19 +14,14 @@ and this [link](https://github.com/Andrew-Luo1/Mujoco-Headless-Tutorial/tree/mai
 
 [link](https://github.com/google-deepmind/mujoco/issues/572)
 
-## Learning to Plan in RoboCasa
+## Learning Predicates for RoboCasa
 Robocasa is a mujoco based simulator. For each task, it provides 50 demonstrations, which can be used to learn to plan. This is the same as as in this paper [Learning Neuro-Symbolic Skills for Bilevel Planning](http://arxiv.org/abs/2206.10680), where the appendix explored the possibility of using demonstrations to a set of predicates first, by starting with the goal predicates. We are going to approach this problem in a similar way.
 1. Defined the goal predicates for each task (starting with OpenSingleDoor). We can get these from the definition of tasks in each single stage ones. They need to be evaluated, with one of the following approaches: 1) evaluate the predicates during demo loading, since we have the simulator reset to the state, evaluating them is easy. 2) save the relevant states in the state variable, and use the ```abstract``` function as intended. The advantage is during predicate invention, we can use the state to evaluate new predicates.
 1. Currently, the InContact is done with approach 1) since it is difficult to evaluate them online given each object has different mesh. Other predicates need to be evaluated online during planning and sampling, going to implement with apporoach 2). The values that need to go from mujoco state to predicator state are: 1) button states (coffee, microwave) 2) knob angle 3) faucet state (can be continuous or already in predicate form on/off, left/right) 4) door and drawer state 5) spatial relationship (in contact, not in contact) 6) position and orientation of the robot 
 1. (Optionally) When inventing new predicates, keep ```InContact``` predicate since we are using that for trajectory segmentation anyway (TODO: Run Abalation including InContact and excluding InContact)
 1. Run Grammar Invention
 
-## Predicators_Robocasa Intsallation Instructions
-1. Follow instruction for robocasa (In step 4, use fork [here](https://github.com/shaoyifei96/robocasa.git)). Don't forget step 5 to download dataset.[here](https://robocasa.ai/docs/introduction/installation.html)
-1. Install this repo using the instructions below, also in the conda env (There should be nothing red appearing)
-1. all three repos should be in a directory, in that directory, create .vscode folder and copy the launch.json file in this repo to that folder, making edits to the file, to enable debugging.
-1. put ```export PYTHONHASHSEED=0``` in bashrc
-1. In VSCode, you should see 2 debug profiles, the teleop profile should work as is.(Try complete the task, it is not easy). The predicator_robocasa main file should not solve and saying ```Task 1 / 1: Approach failed to solve with error: Goal {Open(door_angle:hinge_door_type)} not dr-reachable```
+
 
 
 # Predicators
