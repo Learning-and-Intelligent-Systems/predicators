@@ -31,7 +31,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     push_lr_thresh_pad: ClassVar[float] = 0.02
     push_microhandle_thresh_pad: ClassVar[float] = 0.02
     turn_knob_tol: ClassVar[float] = 0.02  # for twisting the knob
-    offset_inwards_from_handle: ClassVar[float] = 0.05
+    offset_inwards_from_handle: ClassVar[float] = 0.1
 
     @classmethod
     def get_env_names(cls) -> Set[str]:

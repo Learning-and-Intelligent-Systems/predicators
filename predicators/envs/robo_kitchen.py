@@ -8,6 +8,8 @@ import robosuite
 from robosuite.controllers import load_composite_controller_config
 from robosuite.wrappers import VisualizationWrapper
 import robocasa.macros as macros
+from robocasa.environments import ALL_KITCHEN_ENVIRONMENTS
+from robocasa.utils.env_utils import create_env
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -86,6 +88,8 @@ class RoboKitchenEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        print(f"ALL_KITCHEN_ENVIRONMENTS: {ALL_KITCHEN_ENVIRONMENTS}")
 
         if self._using_gui:
             pass
@@ -174,16 +178,17 @@ class RoboKitchenEnv(BaseEnv):
         """Create a list of tasks"""
         tasks = []
 
-        for _ in range(num):
+        for task_idx in range(num):
             # For now just use OpenSingleDoor as the default task
             task_name = self.task_selected
             #check if task_name is in available_tasks
             if task_name not in self.tasks_extended:
                 raise ValueError(f"Task {task_name} not supported")
             goal_description = task_name
+            seed = task_idx
             
             # Get initial observation
-            init_obs = self._reset_initial_state(train_or_test, task_name)
+            init_obs = self._reset_initial_state(seed, train_or_test, task_name)
             # let's not do that since we are not using reset from initial state
             # init_obs = {}
             task = EnvironmentTask(init_obs, goal_description)
@@ -209,38 +214,47 @@ class RoboKitchenEnv(BaseEnv):
         
 
 
-    def _reset_initial_state(self, train_or_test: str, task_name: str) -> Observation:
+    def _reset_initial_state(self, seed: int, train_or_test: str, task_name: str) -> Observation:
         """Reset the environment to an initial state based on the seed."""
         # Create or recreate environment if needed
         warnings.warn("Resetting environment to initial state from seed not implemented for robosuite kitchen")
         if self._env is None:
-            robot_type = "PandaOmron"
-            controller_config = load_composite_controller_config(robot=robot_type)
+            complex_config = False # easy config allows seed
+            if complex_config:
+                robot_type = "PandaOmron"
+                controller_config = load_composite_controller_config(robot=robot_type)
 
-            config = {
-                "env_name": task_name,
-                "robots": robot_type,
-                "controller_configs": controller_config,
-                "layout_ids": 0,
-                "style_ids": 0,
-                "translucent_robot": True,
-            }
+                config = {
+                    "env_name": task_name,
+                    "robots": robot_type,
+                    "controller_configs": controller_config,
+                    "layout_ids": 0,
+                    "style_ids": 0,
+                    "translucent_robot": True,
+                }
 
-            print(colored(f"Initializing environment for task: {task_name}", "yellow"))
+                print(colored(f"Initializing environment for task: {task_name}", "yellow"))
 
-            self._env_raw = robosuite.make(
-                **config,
-                has_renderer=self._using_gui,
-                has_offscreen_renderer=False,
-                render_camera="robot0_frontview",
-                ignore_done=True,
-                use_camera_obs=False,
-                control_freq=20,
-                renderer="mjviewer", 
-            )
+                self._env_raw = robosuite.make(
+                    **config,
+                    has_renderer=self._using_gui,
+                    has_offscreen_renderer=False,
+                    render_camera="robot0_frontview",
+                    ignore_done=True,
+                    use_camera_obs=False,
+                    control_freq=20,
+                    renderer="mjviewer", 
+                )
 
-            self._env = VisualizationWrapper(self._env_raw)
-            self.ep_meta = self._env.get_ep_meta()
+                self._env = VisualizationWrapper(self._env_raw)
+                self.ep_meta = self._env.get_ep_meta()
+            else:
+                print(f"Creating env for task: {task_name}, seed: {seed}, gui: {self._using_gui}")
+                self._env = create_env(
+                    env_name = task_name,
+                    render_onscreen = self._using_gui,
+                    seed = seed,
+                )
 
         # Reset environment with seed
         obs = self._env.reset()
@@ -370,7 +384,10 @@ class RoboKitchenEnv(BaseEnv):
         task_name = self._current_task.goal_description
         warnings.warn("Resetting environment to initial state from not implemented, just reset the env")
         self._current_observation = self._reset_initial_state(
-            train_or_test, task_name)
+            seed = task_idx,
+            train_or_test = train_or_test,
+            task_name = task_name
+        )   
         return self._copy_observation(self._current_observation)
     def render(self, action: Optional[Action] = None, # this renders the robot observation, not the viewer??
               caption: Optional[str] = None) -> Video:

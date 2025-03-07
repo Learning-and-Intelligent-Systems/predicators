@@ -261,12 +261,13 @@ def run_episode_and_get_observations(
                 current_nsrt = current_nsrt_plan[nsrt_index]
                 nsrt_preconditions = list(current_nsrt.preconditions)
                 nsrt_add_effects = list(current_nsrt.add_effects)
-                env._env_raw.viewer.mjprint(
-                    f" \
-                    NSRT: {current_nsrt.name}\n \
-                    Option: {curr_option.name}\n \
-                    ", auto_clean=True
-                    )
+                if env._env_raw is not None:
+                    env._env_raw.viewer.mjprint(
+                        f" \
+                        NSRT: {current_nsrt.name}\n \
+                        Option: {curr_option.name}\n \
+                        ", auto_clean=True
+                        )
 
                 obs = env.step(act)
                 actions.append(act)
