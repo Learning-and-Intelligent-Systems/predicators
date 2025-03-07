@@ -31,6 +31,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     push_lr_thresh_pad: ClassVar[float] = 0.02
     push_microhandle_thresh_pad: ClassVar[float] = 0.02
     turn_knob_tol: ClassVar[float] = 0.02  # for twisting the knob
+    offset_inwards_from_handle: ClassVar[float] = 0.05
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -97,7 +98,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         # DS_move_option - always initiable, empty policy, never terminates
         def _DS_move_towards_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             if "model" not in memory:
-                _create_ds_model(memory, state, objects, offset=np.array([0.0, 0.1, 0.0]))
+                _create_ds_model(memory, state, objects, offset=np.array([0.0, cls.offset_inwards_from_handle, 0.0]))
             return True
         
         # DS_move_away_option - always initiable, empty policy, never terminates
@@ -150,7 +151,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             
             warnings.warn("Velocity getting scaled, plz remove")
             velocity_in_handle[0] = velocity_in_handle[0] * 2 #handle frame x is the direction towards handle
-            velocity_in_handle[1] = velocity_in_handle[1] * 0.4
+            velocity_in_handle[1] = velocity_in_handle[1] * 0.3
             velocity_in_handle[2] = velocity_in_handle[2] * 2
             # Transform velocity back to world frame
             # Since handle frame is just translated, velocity transforms directly
@@ -182,8 +183,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             velocity = np.linalg.norm(gripper_pos - memory["prev_gripper_pos"])
             memory["prev_gripper_pos"] = gripper_pos
             
-            # Terminal if close to target or velocity too small
-            if velocity < 0.001:
+            if np.linalg.norm(gripper_pos - handle_init_pos) <= cls.offset_inwards_from_handle and velocity < 0.01:
                 return True
             return False
 

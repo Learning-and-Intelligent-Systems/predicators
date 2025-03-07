@@ -15,6 +15,7 @@ class RoboKitchenPerceiver(BasePerceiver):
 
     def reset(self, env_task: EnvironmentTask) -> Task:
         state = self._observation_to_state(env_task.init_obs)
+        
         pred_name_to_pred = RoboKitchenEnv.create_predicates()
         # OnTop = pred_name_to_pred["OnTop"]
         # TurnedOn = pred_name_to_pred["TurnedOn"]

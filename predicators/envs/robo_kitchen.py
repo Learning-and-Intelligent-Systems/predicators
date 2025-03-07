@@ -57,39 +57,7 @@ class RoboKitchenEnv(BaseEnv):
         "robot0_base": base_type,
     }
 
-    tasks = OrderedDict(
-        [
-            ("PnPCounterToCab", "pick and place from counter to cabinet"),
-            ("PnPCounterToSink", "pick and place from counter to sink"),
-            ("PnPMicrowaveToCounter", "pick and place from microwave to counter"),
-            ("PnPStoveToCounter", "pick and place from stove to counter"),
-            ("OpenSingleDoor", "open cabinet or microwave door"),
-            ("CloseDrawer", "close drawer"),
-            ("TurnOnMicrowave", "turn on microwave"),
-            ("TurnOnSinkFaucet", "turn on sink faucet"),
-            ("TurnOnStove", "turn on stove"),
-            ("ArrangeVegetables", "arrange vegetables on a cutting board"),
-            ("MicrowaveThawing", "place frozen food in microwave for thawing"),
-            ("RestockPantry", "restock cans in pantry"),
-            ("PreSoakPan", "prepare pan for washing"),
-            ("PrepareCoffee", "make coffee"),
-        ]
-    )
-
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        if self._using_gui:
-            pass
-            # assert not CFG.make_test_videos or CFG.make_failure_videos, \
-            #     "Turn off --use_gui to make videos in robo kitchen env"
-
-        robot_type = "PandaOmron"
-        # Create robosuite environment
-        controller_config = load_composite_controller_config(robot=robot_type)
-
-        # Create argument configuration
-        tasks_names = ['Lift', 'Stack', 'NutAssembly', 'NutAssemblySingle', 'NutAssemblySquare', 'NutAssemblyRound', 
+    tasks_extended = ['Lift', 'Stack', 'NutAssembly', 'NutAssemblySingle', 'NutAssemblySquare', 'NutAssemblyRound', 
                        'PickPlace', 'PickPlaceSingle', 'PickPlaceMilk', 'PickPlaceBread', 'PickPlaceCereal', 'PickPlaceCan', 
                        'Door', 'Wipe', 'ToolHang', 'TwoArmLift', 'TwoArmPegInHole', 'TwoArmHandover', 'TwoArmTransport', 'Kitchen',
                          'KitchenDemo', 'CupcakeCleanup', 'OrganizeBakingIngredients', 'PastryDisplay', 'FillKettle', 'HeatMultipleWater',
@@ -115,138 +83,175 @@ class RoboKitchenEnv(BaseEnv):
                                'PnPSinkToCounter', 'PnPCounterToMicrowave', 'PnPMicrowaveToCounter', 'PnPCounterToStove', 'PnPStoveToCounter', 
                                'ManipulateSinkFaucet', 'TurnOnSinkFaucet', 'TurnOffSinkFaucet', 'TurnSinkSpout', 'ManipulateStoveKnob',
                                  'TurnOnStove', 'TurnOffStove']
-        print(colored(f"Initializing environment...", "yellow"))
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        if self._using_gui:
+            pass
+            # assert not CFG.make_test_videos or CFG.make_failure_videos, \
+            #     "Turn off --use_gui to make videos in robo kitchen env"
 
         self._pred_name_to_pred = self.create_predicates()
-
-        # Set the selected task - default to OpenSingleDoor
+        self._env = None  # Will be created in reset
+        self._env_raw = None
         self.task_selected = CFG.robo_kitchen_task
-        if self.task_selected not in self.tasks:
-            print(colored(f"Warning: Task {self.task_selected} not found in available tasks. Defaulting to OpenSingleDoor", "yellow"))
-            self.task_selected = "OpenSingleDoor"
+        if self.task_selected not in self.tasks_extended:
+            raise ValueError(f"Task {self.task_selected} not supported")
         print(colored(f"Selected task: {self.task_selected}", "green"))
 
-        self.objects_of_interest = self.get_objects_of_interest()
-
-        config = {
-            "env_name": self.task_selected,
-            "robots": robot_type,
-            "controller_configs": controller_config,
-            "layout_ids": 0, # this is the layout of the kitchen
-            "style_ids": 0, # this is the style of the kitchen
-            "translucent_robot": True,
-        }
-
-        # Set random seed for reproducibility
-        self._env_raw = robosuite.make(
-            **config,
-            has_renderer=self._using_gui,
-            has_offscreen_renderer=False,
-            render_camera="robot0_frontview",
-            ignore_done=True,
-            use_camera_obs=False,
-            control_freq=20,
-            renderer="mjviewer", 
-        )
-
-        # Wrap this with visualization wrapper
-        self._env = VisualizationWrapper(self._env_raw)
-        self.ep_meta = self._env.get_ep_meta()
-        # robosuite.robots.robot.print_action_info()
-        for robot in self._env.robots:
-            robot.print_action_info()
-
-    def get_objects_of_interest(self) -> List[Object]:
+    def get_objects_of_interest(self, task_name: str) -> List[Object]:
         """Get the object of interest for the task."""
-        if self.task_selected == "OpenSingleDoor":
+        if task_name == "OpenSingleDoor":
             return [self.object_name_to_object("handle"), 
                     self.object_name_to_object("door")]
         # by default, there are robot and gripper objects
         else:
-            raise ValueError(f"Task {self.task_selected} not supported")
+            raise ValueError(f"Task {task_name} not supported")
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        """Create an ordered list of tasks for training from demos."""
-        tasks = []
+        """Create tasks for training."""
+        using_recorded_data = True
+        if using_recorded_data:
+            tasks = []
 
-        # Get the demo dataset path
-        from robocasa.utils.dataset_registry import get_ds_path
-        dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
-
-        if dataset_path is None or not os.path.exists(dataset_path):
-            print(colored(f"Unable to find dataset for {self.task_selected}. Downloading...", "yellow"))
-            from robocasa.scripts.download_datasets import download_datasets
-            download_datasets(tasks=[self.task_selected], ds_types=["human_raw"])
+            # Get the demo dataset path
+            from robocasa.utils.dataset_registry import get_ds_path
             dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
 
-        # Load the demos
-        import h5py
-        f = h5py.File(dataset_path, "r")
-        demos = list(f["data"].keys())
+            if dataset_path is None or not os.path.exists(dataset_path):
+                print(colored(f"Unable to find dataset for {self.task_selected}. Downloading...", "yellow"))
+                from robocasa.scripts.download_datasets import download_datasets
+                download_datasets(tasks=[self.task_selected], ds_types=["human_raw"])
+                dataset_path = get_ds_path(self.task_selected, ds_type="human_raw")
 
-        # Sort demos by index
-        inds = np.argsort([int(elem[5:]) for elem in demos])
-        demos = [demos[i] for i in inds]
+            # Load the demos
+            import h5py
+            f = h5py.File(dataset_path, "r")
+            demos = list(f["data"].keys())
 
-        # Create tasks from each demo
-        for task_idx in range(CFG.num_train_tasks):
-            if task_idx >= len(demos):
-                break
+            # Sort demos by index
+            inds = np.argsort([int(elem[5:]) for elem in demos])
+            demos = [demos[i] for i in inds]
 
-            # Get demo data
-            demo = f[f"data/{demos[task_idx]}"]
-            # Get initial state info from first timestep of datagen_info
-            initial_state = {}
-            for key in demo["datagen_info"].keys():
-                initial_state[key] = demo["datagen_info"][key][0]
-            initial_state["model"] = demo.attrs["model_file"]
-            initial_state["ep_meta"] = demo.attrs.get("ep_meta", None)
+            # Create tasks from each demo
+            for task_idx in range(CFG.num_train_tasks):
+                if task_idx >= len(demos):
+                    break
 
-            # Create observation
-            obs = {
-                "state_info": initial_state,
-                "obs_images": []
-            }
+                # Get demo data
+                demo = f[f"data/{demos[task_idx]}"]
+                # Get initial state info from first timestep of datagen_info
+                initial_state = {}
+                for key in demo["datagen_info"].keys():
+                    initial_state[key] = demo["datagen_info"][key][0]
+                initial_state["model"] = demo.attrs["model_file"]
+                initial_state["ep_meta"] = demo.attrs.get("ep_meta", None)
 
-            # Get goal description from task name
-            goal_description = self.task_selected
+                # Create observation
+                obs = {
+                    "state_info": initial_state,
+                    "obs_images": []
+                }
 
-            # Create task
-            task = EnvironmentTask(obs, goal_description)
-            tasks.append(task)
+                # Get goal description from task name
+                goal_description = self.task_selected
 
-        f.close()
-        return tasks
-    def goal_reached(self) -> bool:
-        warnings.warn("goal_reached not implemented for robo_kitchen, False will be returned so simulation continues")
-        return False 
+                # Create task
+                task = EnvironmentTask(obs, goal_description)
+                tasks.append(task)
+
+            f.close()
+            return tasks
+        else:   
+            return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        # each task has a success condition, we can translate to predicate
-        tasks = [] 
+        """Create tasks for testing."""
+        return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
 
-        for task_idx in range(CFG.num_test_tasks):
-            seed = utils.get_task_seed("test", task_idx)
-            init_obs = self._reset_initial_state_from_seed(seed, "test")
-            # Simplified goal for initial implementation
-            goal_description = self.task_selected
+    def _get_tasks(self, num: int, train_or_test: str) -> List[EnvironmentTask]:
+        """Create a list of tasks"""
+        tasks = []
+
+        for _ in range(num):
+            # For now just use OpenSingleDoor as the default task
+            task_name = self.task_selected
+            #check if task_name is in available_tasks
+            if task_name not in self.tasks_extended:
+                raise ValueError(f"Task {task_name} not supported")
+            goal_description = task_name
+            
+            # Get initial observation
+            init_obs = self._reset_initial_state(train_or_test, task_name)
+            # let's not do that since we are not using reset from initial state
+            # init_obs = {}
             task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
+
         return tasks
 
-    def _reset_initial_state_from_seed(self, seed: int,
-                                       train_or_test: str) -> Observation:
+    def goal_reached(self) -> bool:
+        #print angle of handle
+        state = self.state_info_to_state(
+            self._current_observation["state_info"])
+        hinge_angle = state.get(self.object_name_to_object("hinge"), "angle")
 
-        if CFG.robo_kitchen_randomize_init_state:
-            pass # do randomization
+        # print(f"Hinge angle: {hinge_angle}")
 
-        # Reset the environment
+        goal_desc = self._current_task.goal_description
+
+        if goal_desc == "OpenSingleDoor":
+            if hinge_angle > 0.9:
+                return True
+        else:
+            return False
+        
+
+
+    def _reset_initial_state(self, train_or_test: str, task_name: str) -> Observation:
+        """Reset the environment to an initial state based on the seed."""
+        # Create or recreate environment if needed
+        warnings.warn("Resetting environment to initial state from seed not implemented for robosuite kitchen")
+        if self._env is None:
+            robot_type = "PandaOmron"
+            controller_config = load_composite_controller_config(robot=robot_type)
+
+            config = {
+                "env_name": task_name,
+                "robots": robot_type,
+                "controller_configs": controller_config,
+                "layout_ids": 0,
+                "style_ids": 0,
+                "translucent_robot": True,
+            }
+
+            print(colored(f"Initializing environment for task: {task_name}", "yellow"))
+
+            self._env_raw = robosuite.make(
+                **config,
+                has_renderer=self._using_gui,
+                has_offscreen_renderer=False,
+                render_camera="robot0_frontview",
+                ignore_done=True,
+                use_camera_obs=False,
+                control_freq=20,
+                renderer="mjviewer", 
+            )
+
+            self._env = VisualizationWrapper(self._env_raw)
+            self.ep_meta = self._env.get_ep_meta()
+
+        # Reset environment with seed
         obs = self._env.reset()
+        
+        # Update objects of interest based on task
+        self.objects_of_interest = self.get_objects_of_interest(task_name)
 
         # Get contact information
         contact_set = self.get_object_level_contacts()
 
-        # Return observation with contact info
+        # Return observation
         return {
             "state_info": obs,
             "obs_images": [],
@@ -360,30 +365,13 @@ class RoboKitchenEnv(BaseEnv):
         return self._copy_observation(self._current_observation)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
-        """Reset environment to initial state."""
-        # TODO: Need to get the task as predicates
-        # self._current_task = self.get_task(train_or_test, task_idx)
-        # seed = utils.get_task_seed(train_or_test, task_idx)
-        # Add warning that task-specific reset not implemented
-        # warnings.warn("reset task not implemented for robo_kitchen")
-
-        # Reset robosuite env
-        # Reset robosuite env
-        obs = self._env.reset()
-
-        # Get contact information
-        contact_set = self.get_object_level_contacts()
-
-        # Create observation with contact info
-        observation = {
-            "state_info": obs,
-            "obs_images": [],
-            "contact_set": contact_set
-        }
-
-        self._current_observation = observation
+        """Reset environment to initial state for the given task."""
+        self._current_task = self.get_task(train_or_test, task_idx)
+        task_name = self._current_task.goal_description
+        warnings.warn("Resetting environment to initial state from not implemented, just reset the env")
+        self._current_observation = self._reset_initial_state(
+            train_or_test, task_name)
         return self._copy_observation(self._current_observation)
-
     def render(self, action: Optional[Action] = None, # this renders the robot observation, not the viewer??
               caption: Optional[str] = None) -> Video:
         """Render current state."""
