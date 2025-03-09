@@ -12,7 +12,7 @@ from typing import Callable, Set, Tuple
 import numpy as np
 
 from predicators import utils
-from predicators.envs import create_new_env
+from predicators.envs import create_new_env, get_or_create_env
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, ParameterizedOption, \
@@ -22,7 +22,10 @@ from predicators.structs import Action, DefaultState, ParameterizedOption, \
 def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "oracle":
-        env = create_new_env(CFG.env,
+        if CFG.bilevel_plan_without_sim:
+            env = get_or_create_env(CFG.env)
+        else:
+            env = create_new_env(CFG.env,
                              do_cache=False,
                              use_gui=CFG.option_model_use_gui)
         options = get_gt_options(env.get_name())

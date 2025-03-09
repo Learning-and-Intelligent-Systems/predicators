@@ -62,7 +62,7 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
 
-        def _create_ds_model(memory: Dict, state: State, objects: Sequence[Object], offset: Optional[np.ndarray] = None) -> None:
+        def _create_ds_model(memory: Dict, state: State, objects: Sequence[Object], offset_handle_frame: Optional[np.ndarray] = None) -> None:
             """Helper to create and initialize the DS model in memory."""
             # Define model architecture
             class SimpleDS(torch.nn.Module):
@@ -90,21 +90,25 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                   state.get(handle, "qz"), state.get(handle, "qw")])
             handle_pos = np.array([state.get(handle, "x"), state.get(handle, "y"), 
                                  state.get(handle, "z")])
-            memory["handle_init_rot"] = R.from_quat(handle_quat).as_matrix()
-            if offset is not None:
-                handle_pos = handle_pos + offset
+            handle_rot = R.from_quat(handle_quat).as_matrix()
+            memory["handle_init_rot"] = handle_rot
+            if offset_handle_frame is not None:
+                # Transform offset from handle frame to world frame before adding
+                offset_world = handle_rot @ offset_handle_frame
+                handle_pos = handle_pos + offset_world
             memory["handle_init_pos"] = handle_pos
 
         # DS_move_option - always initiable, empty policy, never terminates
         def _DS_move_towards_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             if "model" not in memory:
-                _create_ds_model(memory, state, objects, offset=np.array([0.0, cls.offset_inwards_from_handle, 0.0]))
+                _create_ds_model(memory, state, objects, offset_handle_frame=np.array([0.0, cls.offset_inwards_from_handle, 0.0]))
             return True
         
         # DS_move_away_option - always initiable, empty policy, never terminates
         def _DS_move_away_option_initiable(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             if "model" not in memory:
-                _create_ds_model(memory, state, objects, offset=np.array([-0.6, -0.6, 0.0]))
+                _create_ds_model(memory, state, objects, offset_handle_frame=np.array([-0.6, -0.6, 0.0]))
+                # NOTE: this means open the door to the left, some doors open to the right and won't work
             return True
 
         def vee_operator(w):
@@ -131,8 +135,9 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             expected_relative_rot_handle = R.from_quat(np.array([0.5, 0.5, 0.5, -0.5]))
 
             # Compute the difference between the expected relative rotation and the actual relative rotation
-            rel_rot_diff = expected_relative_rot_handle * R.from_matrix(rot_in_handle).inv()
-            angular_w_handle = vee_operator(rel_rot_diff.as_matrix())
+            relative_rotation = expected_relative_rot_handle * R.from_matrix(rot_in_handle).inv()
+            angular_w_handle = relative_rotation.as_rotvec()
+            # angular_w_handle = vee_operator(rel_rot_diff.as_matrix())
             # move that difference to the base frame
             world_w = handle_init_rot @ angular_w_handle
 
@@ -150,9 +155,9 @@ class RoboKitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 velocity_in_handle = net(torch.from_numpy(pos_in_handle).float())
             
             warnings.warn("Velocity getting scaled, plz remove")
-            velocity_in_handle[0] = velocity_in_handle[0] * 2 #handle frame x is the direction towards handle
-            velocity_in_handle[1] = velocity_in_handle[1] * 0.3
-            velocity_in_handle[2] = velocity_in_handle[2] * 2
+            velocity_in_handle[0] = velocity_in_handle[0] * 0.5 #handle frame x is the direction towards handle
+            velocity_in_handle[1] = velocity_in_handle[1] * 0.05
+            velocity_in_handle[2] = velocity_in_handle[2] * 0.5
             # Transform velocity back to world frame
             # Since handle frame is just translated, velocity transforms directly
             velocity_world = handle_init_rot @ velocity_in_handle.numpy()
