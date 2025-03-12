@@ -2451,9 +2451,10 @@ class SpotMinimalVLMPredicateEnv(SpotRearrangementEnv):
     invention and evaluation pipeline on the real Spot robot.
 
     Importantly note that every env that inherits from this doesn't
-    require a map. Rather, it just works directly without a map. TODO:
-    see if this assumption is actually tenable, or if we need to remove
-    it?
+    require a map. Rather, it just works directly without a map. This means
+    that we don't get to use all the nice navigation skills that we have
+    on the robot. To use those, we need to use a variant of the 
+    SpotRearrangementEnv from above.
     """
 
     def __init__(self, use_gui: bool = True) -> None:  #pylint:disable=super-init-not-called
@@ -3580,7 +3581,7 @@ class LISSpotBlockFloorEnv(SpotRearrangementEnv):
 
         red_block = Object("red_block", _movable_object_type)
         red_block_detection = LanguageObjectDetectionID(
-            "red block/orange block/yellow block")
+            "green block/red block/orange block/yellow block")
         detection_id_to_obj[red_block_detection] = red_block
 
         for obj, pose in get_known_immovable_objects().items():
