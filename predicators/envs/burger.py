@@ -50,6 +50,7 @@ class BurgerEnv(BaseEnv):
     --option_model_terminate_on_repeat False
     --sesame_max_skeletons_optimized 1000 --timeout 80
     --make_demo_videos
+    --bilevel_plan_without_sim True
     --sesame_task_planner fdopt
 
     Note that the default task planner is too slow -- fast downward is required.
