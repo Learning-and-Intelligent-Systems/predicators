@@ -330,6 +330,13 @@ class GlobalSettings:
     coffee_machine_has_plug = False
     coffee_use_pixelated_jug = False
 
+    # pybullet _coffee env parameters
+    pybullet_coffee_update_camera = True
+    pybullet_coffee_camera_distance = 0.4
+    pybullet_coffee_camera_yaw = -60
+    pybullet_coffee_camera_pitch = -30
+    pybullet_coffee_camera_target = (0.75, 1.25, 0.42)
+
     # satellites env parameters
     satellites_num_sat_train = [2, 3]
     satellites_num_obj_train = [3, 4]

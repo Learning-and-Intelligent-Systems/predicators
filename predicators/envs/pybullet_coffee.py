@@ -35,6 +35,7 @@ import logging
 import random
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
+import copy
 
 import numpy as np
 import pybullet as p
@@ -234,6 +235,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             PyBulletCoffeeEnv._camera_pitch = -38  # lower
             # PyBulletCoffeeEnv._camera_pitch = 0  # even lower
             PyBulletCoffeeEnv._camera_target = (0.75, 1.25, 0.42)
+        if CFG.pybullet_coffee_update_camera:
+            self.update_camera(CFG.pybullet_coffee_camera_distance, 
+                               CFG.pybullet_coffee_camera_yaw, 
+                               CFG.pybullet_coffee_camera_pitch, 
+                               CFG.pybullet_coffee_camera_target)
 
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
@@ -247,6 +253,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cord_ids: Optional[List[int]] = None
         self._plug_id: Optional[int] = None
         self._machine_plugged_in_id: Optional[int] = None
+
+    @property
+    def agent_goal_predicates(self) -> Set[Predicate]:
+        return self.goal_predicates
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:
@@ -570,6 +580,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state
 
     def step(self, action: Action, render_obs: bool = False) -> State:
+        # import pdb; pdb.set_trace()
         # What's the previous robot state?
         # logging.debug("[env] start simulation step")
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
@@ -1293,3 +1304,31 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                            physicsClientId=physics_client_id)
         p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
                            physicsClientId=physics_client_id)
+
+    def update_camera(self, distance, yaw, pitch, target):
+        """Update the PyBullet camera view."""
+        p.resetDebugVisualizerCamera(distance, yaw, pitch, target)
+        # self.update_camera(0.4, -60, -30, (0.75, 1.25, 0.42))
+
+    def _copy_observation(self, obs: Observation) -> Observation:
+            return copy.deepcopy(obs)
+
+# if CFG.coffee_render_grid_world:
+#             # Camera parameters for grid world
+#             PyBulletCoffeeEnv._camera_distance = 3
+#             PyBulletCoffeeEnv._camera_fov = 8
+#             PyBulletCoffeeEnv._camera_yaw = 90
+#             PyBulletCoffeeEnv._camera_pitch = 0  # lower
+#             PyBulletCoffeeEnv._camera_target = (0.75, 1.33, 0.3)
+#         else:
+#             # Camera parameters -- standard
+#             PyBulletCoffeeEnv._camera_distance = 1.3
+#             if CFG.coffee_machine_has_plug:
+#                 PyBulletCoffeeEnv._camera_yaw = -60
+#                 # self._camera_yaw: ClassVar[float] = -90
+#                 # self._camera_yaw: ClassVar[float] = -180
+#             else:
+#                 PyBulletCoffeeEnv._camera_yaw = 70
+#             PyBulletCoffeeEnv._camera_pitch = -38  # lower
+#             # PyBulletCoffeeEnv._camera_pitch = 0  # even lower
+#             PyBulletCoffeeEnv._camera_target = (0.75, 1.25, 0.42)
