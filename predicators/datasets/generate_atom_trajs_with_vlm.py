@@ -183,7 +183,10 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                 "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
                 "double_check_prompt_prev_labels.txt"
             # pylint: enable=line-too-long
-            double_check_prompt += previous_timestep_check_prompt
+            with open(previous_timestep_check_prompt, "r",
+                      encoding="utf-8") as f:
+                previous_timestep_check_prompt_str = f.read()
+            double_check_prompt += previous_timestep_check_prompt_str
             double_check_prompt += "\n\nTruth values of predicates at " + \
                 "the previous timestep:\n\n"
 

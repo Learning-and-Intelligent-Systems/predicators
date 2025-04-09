@@ -49,7 +49,8 @@ class BurgerEnv(BaseEnv):
     --approach grammar_search_invention --seed 0 --num_train_tasks 10
     --option_model_terminate_on_repeat False
     --sesame_max_skeletons_optimized 1000 --timeout 80
-    --sesame_max_samples_per_step 1 --make_demo_videos
+    --make_demo_videos
+    --bilevel_plan_without_sim True
     --sesame_task_planner fdopt
 
     Note that the default task planner is too slow -- fast downward is required.
