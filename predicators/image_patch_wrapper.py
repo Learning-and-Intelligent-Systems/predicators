@@ -120,6 +120,9 @@ class ImagePatch:
 
         image_tensor: th.Tensor
 
+        # Assuming `img` is a PIL Image
+        img = np.array(img)
+
         # if isinstance(img, Image.Image):
         #     image_tensor = transforms.ToTensor()(img)
         if isinstance(img, np.ndarray):

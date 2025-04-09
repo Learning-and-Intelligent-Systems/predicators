@@ -327,7 +327,8 @@ class PyBulletEnv(BaseEnv):
         assert isinstance(self._current_observation, PyBulletState)
         state_copy = self._current_observation.copy()
         if render:
-            state_copy.add_images_and_masks(*self.render_segmented_obj())
+            state_img, mask_dict = self.render_segmented_obj()
+            state_copy.add_images_and_masks(state_img, mask_dict)
         return state_copy
 
     def step(self, action: Action, render_obs: bool = False) -> Observation:
@@ -501,7 +502,8 @@ class PyBulletEnv(BaseEnv):
             # Cast _current_observation from type State to PybulletState
             joint_positions = self._pybullet_robot.get_joints()
             self._current_observation = utils.PyBulletState(
-                init.data.copy(), simulator_state=joint_positions)
+                init.data.copy(), simulator_state={"joint_positions": joint_positions}
+            )
             # Attempt 1: Let's try to get a rendering directly first
             pybullet_init = self.get_observation(render=CFG.render_init_state)
             pybullet_init.option_history = []

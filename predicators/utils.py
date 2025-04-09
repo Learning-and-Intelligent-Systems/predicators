@@ -1085,6 +1085,25 @@ class PyBulletState(State):
         state_ip = ImagePatch(self)
         obj_mask_dict = self.obj_mask_dict
         assert obj_mask_dict is not None
+
+        import torch
+        import numpy as np
+        from PIL import Image
+
+        tensor_image = state_ip.cropped_image
+        if tensor_image.is_cuda:
+            tensor_image = tensor_image.cpu()
+        np_image = tensor_image.detach().numpy()
+        # Transpose the array to (H, W, C) from (C, H, W)
+        np_image = np.transpose(np_image, (1, 2, 0))
+        # Convert the NumPy array to a PIL image
+        # Ensure the pixel values are in the range [0, 255]
+        pil_image = Image.fromarray((np_image * 255).astype(np.uint8))
+        # Display the image
+        # pil_image.show()
+        # import pdb; pdb.set_trace()
+
+
         state_ip.label_all_objects(obj_mask_dict)
         assert isinstance(self.simulator_state, Dict)
         self.simulator_state["images"] = state_ip.cropped_image_in_PIL

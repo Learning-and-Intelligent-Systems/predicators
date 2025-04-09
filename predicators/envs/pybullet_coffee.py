@@ -48,8 +48,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    Predicate, State
-
+    Predicate, State, Observation
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     """PyBullet Coffee domain.
@@ -1311,7 +1310,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # self.update_camera(0.4, -60, -30, (0.75, 1.25, 0.42))
 
     def _copy_observation(self, obs: Observation) -> Observation:
-            return copy.deepcopy(obs)
+        return copy.deepcopy(obs)
 
 # if CFG.coffee_render_grid_world:
 #             # Camera parameters for grid world
