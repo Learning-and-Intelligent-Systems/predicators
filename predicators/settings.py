@@ -332,7 +332,7 @@ class GlobalSettings:
 
     # pybullet _coffee env parameters
     pybullet_coffee_update_camera = True
-    pybullet_coffee_camera_distance = 0.4
+    pybullet_coffee_camera_distance = 0.8
     pybullet_coffee_camera_yaw = -60
     pybullet_coffee_camera_pitch = -30
     pybullet_coffee_camera_target = (0.75, 1.25, 0.42)

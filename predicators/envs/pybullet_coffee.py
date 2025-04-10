@@ -215,29 +215,38 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        if CFG.coffee_render_grid_world:
-            # Camera parameters for grid world
-            PyBulletCoffeeEnv._camera_distance = 3
-            PyBulletCoffeeEnv._camera_fov = 8
-            PyBulletCoffeeEnv._camera_yaw = 90
-            PyBulletCoffeeEnv._camera_pitch = 0  # lower
-            PyBulletCoffeeEnv._camera_target = (0.75, 1.33, 0.3)
-        else:
-            # Camera parameters -- standard
-            PyBulletCoffeeEnv._camera_distance = 1.3
-            if CFG.coffee_machine_has_plug:
-                PyBulletCoffeeEnv._camera_yaw = -60
-                # self._camera_yaw: ClassVar[float] = -90
-                # self._camera_yaw: ClassVar[float] = -180
-            else:
-                PyBulletCoffeeEnv._camera_yaw = 70
-            PyBulletCoffeeEnv._camera_pitch = -38  # lower
-            # PyBulletCoffeeEnv._camera_pitch = 0  # even lower
-            PyBulletCoffeeEnv._camera_target = (0.75, 1.25, 0.42)
-        if CFG.pybullet_coffee_update_camera:
-            self.update_camera(CFG.pybullet_coffee_camera_distance, 
-                               CFG.pybullet_coffee_camera_yaw, 
-                               CFG.pybullet_coffee_camera_pitch, 
+        # if CFG.coffee_render_grid_world:
+        #     # Camera parameters for grid world
+        #     PyBulletCoffeeEnv._camera_distance = 3
+        #     PyBulletCoffeeEnv._camera_fov = 8
+        #     PyBulletCoffeeEnv._camera_yaw = 90
+        #     PyBulletCoffeeEnv._camera_pitch = 0  # lower
+        #     PyBulletCoffeeEnv._camera_target = (0.75, 1.33, 0.3)
+        # else:
+        #     # Camera parameters -- standard
+        #     PyBulletCoffeeEnv._camera_distance = 1.3
+        #     if CFG.coffee_machine_has_plug:
+        #         PyBulletCoffeeEnv._camera_yaw = -60
+        #         # self._camera_yaw: ClassVar[float] = -90
+        #         # self._camera_yaw: ClassVar[float] = -180
+        #     else:
+        #         PyBulletCoffeeEnv._camera_yaw = 70
+        #     PyBulletCoffeeEnv._camera_pitch = -38  # lower
+        #     # PyBulletCoffeeEnv._camera_pitch = 0  # even lower
+        #     PyBulletCoffeeEnv._camera_target = (0.75, 1.25, 0.42)
+        # if CFG.pybullet_coffee_update_camera:
+            # self.update_camera(CFG.pybullet_coffee_camera_distance, 
+            #                    CFG.pybullet_coffee_camera_yaw, 
+            #                    CFG.pybullet_coffee_camera_pitch, 
+            #                    CFG.pybullet_coffee_camera_target)
+        PyBulletCoffeeEnv._camera_fov = 8
+        PyBulletCoffeeEnv._camera_distance = CFG.pybullet_coffee_camera_distance
+        PyBulletCoffeeEnv._camera_yaw = CFG.pybullet_coffee_camera_yaw
+        PyBulletCoffeeEnv._camera_pitch = CFG.pybullet_coffee_camera_pitch
+        PyBulletCoffeeEnv._camera_target = CFG.pybullet_coffee_camera_target
+        self.update_camera(CFG.pybullet_coffee_camera_distance, 
+                            CFG.pybullet_coffee_camera_yaw, 
+                            CFG.pybullet_coffee_camera_pitch, 
                                CFG.pybullet_coffee_camera_target)
 
         # Create the cups lazily because they can change size and color.
@@ -253,6 +262,26 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._plug_id: Optional[int] = None
         self._machine_plugged_in_id: Optional[int] = None
 
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            self._CupFilled,
+            self._JugInMachine,
+            self._Holding,
+            self._MachineOn,
+            self._OnTable,
+            self._HandEmpty,
+            self._JugFilled,
+            self._RobotAboveCup,
+            self._JugAboveCup,
+            self._NotAboveCup,
+            self._PressingButton,
+            self._Twisting,
+            self._NotSameCup,
+            self._JugPickable,
+            self._PluggedIn,
+        }
+    
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
         return self.goal_predicates
@@ -571,6 +600,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         if render_obs:
             # add unlabeled image, masks and labelled image
             state.add_images_and_masks(*self.render_segmented_obj())
+            # import pdb; pdb.set_trace()
 
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "

@@ -238,7 +238,8 @@ class ImagePatch:
             vis_image.ax.text(
                 coords_x[len(coords_x) // 2],
                 coords_y[len(coords_y) // 2] - 8 + dy,
-                str(obj.id),  # convert to str
+                # str(obj.id),  # convert to str
+                str(obj),
                 size=14 * vis_image.scale,
                 family="sans-serif",
                 bbox={
