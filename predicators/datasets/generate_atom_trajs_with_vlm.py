@@ -1086,12 +1086,13 @@ def create_ground_atom_data_from_generated_demos(
                     raise NotImplementedError(
                         f"Cropped images not implemented for {CFG.env}.")
             if CFG.env in ["pybullet_coffee"]:
-                state_imgs.append([state.simulator_state['images']])
+                state_imgs.append(state.simulator_state['images'])
             else:
                 state_imgs.append([
                     PIL.Image.fromarray(img_arr)  # type: ignore
                     for img_arr in state.simulator_state["images"]
                 ])
+        # import pdb; pdb.set_trace()
         img_option_trajs.append(
             ImageOptionTrajectory(
                 set(traj.states[0]), state_imgs, cropped_state_imgs,

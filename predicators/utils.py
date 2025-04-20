@@ -1106,7 +1106,8 @@ class PyBulletState(State):
 
         state_ip.label_all_objects(obj_mask_dict)
         assert isinstance(self.simulator_state, Dict)
-        self.simulator_state["images"] = state_ip.cropped_image_in_PIL
+        # self.simulator_state["images"] = [np.array(state_ip.cropped_image_in_PIL)]
+        self.simulator_state["images"] = [state_ip.cropped_image_in_PIL]
 
     def add_images_and_masks(self, unlabeled_image: PIL.Image.Image,
                              masks: Dict[Object, Mask]) -> None:

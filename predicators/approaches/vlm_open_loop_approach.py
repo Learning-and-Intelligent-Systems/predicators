@@ -72,12 +72,18 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
         prompt for use at test time!"""
 
         def _append_to_prompt_state_imgs_list(state: State) -> None:
+            # import pdb; pdb.set_trace()
             assert state.simulator_state is not None
             assert len(state.simulator_state["images"]) == num_imgs_per_state
             for img_num, img in enumerate(state.simulator_state["images"]):
-                pil_img = PIL.Image.fromarray(img)  # type: ignore
+                # Check if img is already a PIL.Image.Image
+                if not isinstance(img, PIL.Image.Image):
+                    pil_img = PIL.Image.fromarray(img)  # type: ignore
+                else:
+                    pil_img = img
+                # pil_img = PIL.Image.fromarray(img)  # type: ignore
                 width, height = pil_img.size
-                font_size = 15
+                font_size = 10
                 text = f"Demonstration {traj_num}, " + \
                     f"State {state_num}, Image {img_num}"
                 draw = ImageDraw.Draw(pil_img)
@@ -104,7 +110,10 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
         # For each image, add text to it in the bototm left indicating the
         # trajectory and timestep it's from.
         assert dataset.trajectories[0].states[0].simulator_state is not None
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
+        # # Debugging information
+        # print("Simulator state:", dataset.trajectories[0].states[0].simulator_state)
+        # print("Images type:", type(dataset.trajectories[0].states[0].simulator_state["images"]))
         assert isinstance(
             dataset.trajectories[0].states[0].simulator_state["images"], List)
         num_imgs_per_state = len(
@@ -162,10 +171,17 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
         assert isinstance(init_state.simulator_state["images"], List)
         curr_options = sorted(self._initial_options)
         imgs = init_state.simulator_state["images"]
-        pil_imgs = [
-            PIL.Image.fromarray(img_arr)  # type: ignore
-            for img_arr in imgs
-        ]
+        if not isinstance(imgs[0], PIL.Image.Image):
+            pil_imgs = [
+                PIL.Image.fromarray(img_arr)  # type: ignore
+                for img_arr in imgs
+            ]
+        else:
+            pil_imgs = imgs
+        # pil_imgs = [
+        #     PIL.Image.fromarray(img_arr)  # type: ignore
+        #     for img_arr in imgs
+        # ]
         imgs_for_vlm = []
         for img_num, pil_img in enumerate(pil_imgs):
             draw = ImageDraw.Draw(pil_img)
