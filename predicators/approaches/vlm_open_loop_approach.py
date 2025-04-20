@@ -104,6 +104,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
         # For each image, add text to it in the bototm left indicating the
         # trajectory and timestep it's from.
         assert dataset.trajectories[0].states[0].simulator_state is not None
+        import pdb; pdb.set_trace()
         assert isinstance(
             dataset.trajectories[0].states[0].simulator_state["images"], List)
         num_imgs_per_state = len(
