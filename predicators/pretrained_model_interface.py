@@ -387,10 +387,12 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
                                                 images=imgs,
                                                 detail="auto")
         responses = [
-            self.call_openai_api(messages,
-                                 model=self.model_name,
-                                 max_tokens=self._max_tokens,
-                                 temperature=temperature)
+            self.call_openai_api(messages, model=self.model_name, max_tokens=self._max_tokens, temperature=temperature)
             for _ in range(num_completions)
         ]
+        while any("sorry" in response.lower() for response in responses):
+            responses = [
+                self.call_openai_api(messages, model=self.model_name, max_tokens=self._max_tokens, temperature=temperature)
+                for _ in range(num_completions)
+            ]
         return responses

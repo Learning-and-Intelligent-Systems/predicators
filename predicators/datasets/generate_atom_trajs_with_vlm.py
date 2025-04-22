@@ -78,6 +78,7 @@ def _generate_prompt_for_atom_proposals(
                             for act in traj.actions)
         # NOTE: exact same issue as described in the above note for
         # naive_whole_traj.
+        # import pdb; pdb.set_trace()
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
     else:  # pragma: no cover.
@@ -144,6 +145,8 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
     obj_names = [o.name for o in traj.objects]
     filtered_atoms_list = []
     for a in atoms_list:
+        # Remove whitespace from the atom string.
+        a = a.replace(' ', '')
         # Get the names of the objects in this atom.
         atom_args = a[a.find('(') + 1:a.find(')')]
         atom_objs = atom_args.split(',')
@@ -412,6 +415,7 @@ def _save_img_option_trajs_in_folder(
             for j, img_list in enumerate(img_option_traj.imgs):
                 curr_traj_timestep_folder = Path(curr_traj_folder, str(j))
                 os.makedirs(curr_traj_timestep_folder, exist_ok=False)
+                # import pdb; pdb.set_trace()
                 for k, img in enumerate(img_list):
                     img.save(
                         Path(curr_traj_timestep_folder,
@@ -1086,6 +1090,7 @@ def create_ground_atom_data_from_generated_demos(
                     raise NotImplementedError(
                         f"Cropped images not implemented for {CFG.env}.")
             if CFG.env in ["pybullet_coffee"]:
+                # import pdb; pdb.set_trace()
                 state_imgs.append(state.simulator_state['images'])
             else:
                 state_imgs.append([
@@ -1116,6 +1121,7 @@ def create_ground_atom_data_from_generated_demos(
     if CFG.vlm_predicate_vision_api_generate_ground_atoms:
         generate_func = _generate_ground_atoms_with_vlm_oo_code_gen
     else:
+        # import pdb; pdb.set_trace()
         generate_func = _generate_ground_atoms_with_vlm_pure_visual_preds
     ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
                                        known_predicates, all_task_objs, vlm)
