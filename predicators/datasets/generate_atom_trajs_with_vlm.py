@@ -113,6 +113,7 @@ def _sample_vlm_atom_proposals_from_trajectories(
     """Given a list of ImageOptionTrajectories, query a VLM to generate a list
     of names of ground atoms from which we can extract predicates that might be
     relevant for planning to recreate these trajectories."""
+    import pdb; pdb.set_trace()
     aggregated_vlm_output_strs = []
     all_vlm_queries_list = []
     for traj in trajectories:

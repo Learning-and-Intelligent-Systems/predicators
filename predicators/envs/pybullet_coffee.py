@@ -286,21 +286,23 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def agent_goal_predicates(self) -> Set[Predicate]:
         return self.goal_predicates
     
-    # def get_vlm_debug_atom_strs(self,
-    #                             train_tasks: List[Task]) -> List[List[str]]:
-    #     # Convert the default value from List[List[str]] to List[str] to match
-    #     # the other entries we'll put into the dictionary.
-    #     default = [a[0] for a in super().get_vlm_debug_atom_strs(train_tasks)]
-    #     atom_strs_by_task_type = {
-    #         "more_stacks": ["Cooked(patty1)"],
-    #         "fatter_burger": ["Cooked(patty1)"],
-    #         "combo_burger":
-    #         ["Cooked(patty1)", "Cut(lettuce1)", "Whole(lettuce1)"]
-    #     }
-    #     atom_strs_by_task_type = defaultdict(lambda: default,
-    #                                          atom_strs_by_task_type)
-    #     atom_strs = atom_strs_by_task_type[CFG.burger_no_move_task_type]
-    #     return [[a] for a in atom_strs]
+    def get_vlm_debug_atom_strs(self,
+                                train_tasks: List[Task]) -> List[List[str]]:
+        # # Convert the default value from List[List[str]] to List[str] to match
+        # # the other entries we'll put into the dictionary.
+        # default = [a[0] for a in super().get_vlm_debug_atom_strs(train_tasks)]
+        # atom_strs_by_task_type = {
+        #     "more_stacks": ["Cooked(patty1)"],
+        #     "fatter_burger": ["Cooked(patty1)"],
+        #     "combo_burger":
+        #     ["Cooked(patty1)", "Cut(lettuce1)", "Whole(lettuce1)"]
+        # }
+        # atom_strs_by_task_type = defaultdict(lambda: default,
+        #                                      atom_strs_by_task_type)
+        # atom_strs = atom_strs_by_task_type[CFG.burger_no_move_task_type]
+        # return [[a] for a in atom_strs]
+        return [["JugInMachine(jug, coffee_machine)"], ["Holding(robby, jug)"], ["HandEmpty(robby)"]]
+        
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:

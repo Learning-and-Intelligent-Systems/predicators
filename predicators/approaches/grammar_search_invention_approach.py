@@ -487,9 +487,9 @@ _DEBUG_VLM_PREDICATES = {
         "Cut0",
     ],
     "pybullet_coffee": [
-        "JugInMachine",
-        "Holding",
-        "HandEmpty",
+        "JugInMachine0",
+        "Holding0",
+        "HandEmpty0",
     ]
 }
 _DEBUG_VLM_PREDICATES = defaultdict(list, _DEBUG_VLM_PREDICATES)
@@ -1107,6 +1107,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 self._learned_predicates = set(
                     p for p in candidates.keys()
                     if p.name in debug_predicate_names)
+                import pdb; pdb.set_trace()
             else:
                 # Create the score function that will be used to guide search.
                 score_function = create_score_function(
@@ -1123,6 +1124,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         elif CFG.grammar_search_pred_selection_approach == "no_select":
             self._learned_predicates = set(candidates.keys())
         logging.info("Done.")
+
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         annotations = None
         if dataset.has_annotations:
