@@ -54,11 +54,10 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             TwistJug = options["TwistJug"]
         PickJug = options["PickJug"]
         PlaceJugInMachine = options["PlaceJugInMachine"]
-        TurnMachineOn = options["TurnMachineOn"]
-        Pour = options["Pour"]
+        TurnMachineOn = options["TurnMachineOnAndFill"]
+        Pour = options["PourSomeLiquid"]
 
         nsrts = set()
-
         if CFG.coffee_machine_has_plug:
             # PlugIn
             plug = Variable("?plug", plug_type)

@@ -333,12 +333,25 @@ class GlobalSettings:
     # pybullet _coffee env parameters
     pybullet_coffee_update_camera = True
     pybullet_coffee_camera_distance = 0.8
+    # default
     # pybullet_coffee_camera_yaw = -60
     # pybullet_coffee_camera_pitch = -30
     # pybullet_coffee_camera_target = (0.75, 1.25, 0.42)
-    pybullet_coffee_camera_yaw = 40
-    pybullet_coffee_camera_pitch = -40
-    pybullet_coffee_camera_target = (1, 1.25, 0.42)
+
+    # improved 
+    # pybullet_coffee_camera_yaw = 40
+    # pybullet_coffee_camera_pitch = -40
+    # pybullet_coffee_camera_target = (1, 1.25, 0.42)
+
+    # like perpendicular?
+    pybullet_coffee_camera_yaw = 70
+    pybullet_coffee_camera_pitch = -30
+    pybullet_coffee_camera_target = (1, 1.3, 0.2)
+
+    # above?
+    # pybullet_coffee_camera_yaw = 60
+    # pybullet_coffee_camera_pitch = -30
+    # pybullet_coffee_camera_target = (0.75, 1.3, 0.25)
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]

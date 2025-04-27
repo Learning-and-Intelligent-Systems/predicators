@@ -150,8 +150,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # jug_color: ClassVar[Tuple[float, float, float, float]] =\
     #     (0.5,1,0,0.5) # Green
+    # jug_color: ClassVar[Tuple[float, float, float, float]] =\
+    #             (1,1,1,0.5) # White
     jug_color: ClassVar[Tuple[float, float, float, float]] =\
-                (1,1,1,0.5) # White
+                (1,1,1,0.3) # White
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 5 * jug_radius
@@ -301,8 +303,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #                                      atom_strs_by_task_type)
         # atom_strs = atom_strs_by_task_type[CFG.burger_no_move_task_type]
         # return [[a] for a in atom_strs]
-        return [["JugInMachine(jug, coffee_machine)"], ["Holding(robby, jug)"], ["HandEmpty(robby)"]]
-        
+        # return [["JugInMachine(jug, coffee_machine)"], ["Holding(robby, jug)"], ["HandEmpty(robby)"]]
+        return [["JugFilled(jug)"], ["JugInMachine(jug, coffee_machine)"], ["Holding(robot, jug)"], ["HandEmpty(robot)"], ["MachineOn(coffee_machine)"]]
+        # return [["JugFilled(jug)"], ["JugInMachine(jug, coffee_machine)"]]
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:

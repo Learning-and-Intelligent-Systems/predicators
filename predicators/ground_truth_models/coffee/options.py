@@ -155,7 +155,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             return MachineOn.holds(state, [machine])
 
         TurnMachineOn = ParameterizedOption(
-            "TurnMachineOn",
+            "TurnMachineOnAndFill",
             types=[robot_type, machine_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
@@ -175,7 +175,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             _, _, cup = objects
             return CupFilled.holds(state, [cup])
 
-        Pour = ParameterizedOption("Pour",
+        Pour = ParameterizedOption("PourSomeLiquid",
                                    types=[robot_type, jug_type, cup_type],
                                    params_space=Box(0, 1, (0, )),
                                    policy=cls._create_pour_policy(),
@@ -634,7 +634,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             )
 
             _TurnMachineOn = utils.get_parameterized_option_by_name(
-                options, "TurnMachineOn")
+                options, "TurnMachineOnAndFill")
             _PlaceJugInMachine = utils.get_parameterized_option_by_name(
                 options, "PlaceJugInMachine")
             assert _TurnMachineOn is not None
@@ -646,7 +646,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 "PlaceJugInMachine", [_PlaceJugInMachine, MoveBackAfterPlace])
 
             TurnMachineOn = utils.LinearChainParameterizedOption(
-                "TurnMachineOn", [_TurnMachineOn, MoveBackAfterPush])
+                "TurnMachineOnAndFill", [_TurnMachineOn, MoveBackAfterPush])
             options.add(PlaceJugInMachine)
             options.add(TurnMachineOn)
 

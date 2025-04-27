@@ -490,6 +490,8 @@ _DEBUG_VLM_PREDICATES = {
         "JugInMachine0",
         "Holding0",
         "HandEmpty0",
+        "JugFilled0",
+        "MachineOn0",
     ]
 }
 _DEBUG_VLM_PREDICATES = defaultdict(list, _DEBUG_VLM_PREDICATES)

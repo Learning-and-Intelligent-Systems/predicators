@@ -2,6 +2,8 @@ You are a vision system for a robot. Your job is to output the values of the fol
 
 Before output predicate values, give a description of the scene and explain why you think the predicate values are what they are.
 
-Note that the coffee machine is black and the table is white.
+Our object detection system tells us that the table is white, the coffee machine is black, the jug is white, and coffee is brown.
+
+Double check your answer and make sure that you have provided labels for all predicates we requested labels for.
 
 Predicates:

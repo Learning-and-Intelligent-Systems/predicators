@@ -308,6 +308,7 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
         response = self._model.generate_content(
             [prompt] + imgs,  # type: ignore
             generation_config=generation_config)  # type: ignore
+        # import pdb; pdb.set_trace()
         response.resolve()  # type: ignore
         return [response.text]
 
@@ -390,9 +391,9 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
             self.call_openai_api(messages, model=self.model_name, max_tokens=self._max_tokens, temperature=temperature)
             for _ in range(num_completions)
         ]
-        while any("sorry" in response.lower() for response in responses):
-            responses = [
-                self.call_openai_api(messages, model=self.model_name, max_tokens=self._max_tokens, temperature=temperature)
-                for _ in range(num_completions)
-            ]
+        # while any("sorry" in response.lower() for response in responses):
+        #     responses = [
+        #         self.call_openai_api(messages, model=self.model_name, max_tokens=self._max_tokens, temperature=temperature)
+        #         for _ in range(num_completions)
+        #     ]
         return responses
