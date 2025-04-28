@@ -134,7 +134,8 @@ def generate_run_configs(config_filename: str,
                                              train_refinement_estimator,
                                              start_seed, num_seeds)
                 else:
-                    for seed in range(start_seed, start_seed + num_seeds):
+                    # HACK! hardcoding seeds for now!
+                    for seed in [0, 2, 3, 4, 7]: #range(start_seed, start_seed + num_seeds):
                         yield SingleSeedRunConfig(experiment_id, approach, env,
                                                   run_args, run_flags, use_gpu,
                                                   use_mujoco,
