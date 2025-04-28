@@ -253,9 +253,9 @@ ENVS:
   #     grammar_search_early_termination_heuristic_thresh: 100
 
 ARGS:
-  # []
+  []
   # - "debug"
-  - "load_data"
+  # - "load_data"
 FLAGS: 
   vlm_model_name: gpt-4o
   num_test_tasks: 10
