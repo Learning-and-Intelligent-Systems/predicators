@@ -259,6 +259,6 @@ FLAGS:
   vlm_model_name: gpt-4o
   num_test_tasks: 10
   # save_eval_trajs: False
-START_SEED: 0
-NUM_SEEDS: 5
+START_SEED: 1
+NUM_SEEDS: 1
 ...
