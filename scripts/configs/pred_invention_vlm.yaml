@@ -24,13 +24,13 @@ APPROACHES:
   #     offline_data_method: geo_and_demo_with_vlm_imgs
   #     grammar_search_pred_selection_approach: no_select
   #     grammar_search_invent_geo_predicates_only: False
-  ours-no-invent:
-    NAME: "nsrt_learning"
-    FLAGS: {}
-  # ours-no-visual:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS: 
-  #     offline_data_method: demo
+  # ours-no-invent:
+  #   NAME: "nsrt_learning"
+  #   FLAGS: {}
+  ours-no-visual:
+    NAME: "grammar_search_invention"
+    FLAGS: 
+      offline_data_method: demo
   # ours-no-geo:
   #   NAME: "grammar_search_invention"
   #   FLAGS:
