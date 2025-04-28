@@ -171,28 +171,77 @@ class OpenAIModel():
             assert "OPENAI_API_KEY" in os.environ
             key = os.environ["OPENAI_API_KEY"]
 
+    # @retry(wait=wait_random_exponential(min=1, max=60),
+    #        stop=stop_after_attempt(10))
+    # def call_openai_api(self,
+    #                     messages: list,
+    #                     model: str = "gpt-4",
+    #                     seed: Optional[int] = None,
+    #                     max_tokens: int = 32,
+    #                     temperature: float = 0.2,
+    #                     verbose: bool = False) -> str:  # pragma: no cover
+    #     """Make an API call to OpenAI."""
+    #     client = openai.OpenAI()
+    #     completion = client.chat.completions.create(
+    #         model=model,
+    #         messages=messages,
+    #         seed=seed,
+    #         max_tokens=max_tokens,
+    #         temperature=temperature,
+    #     )
+    #     if verbose:
+    #         logging.debug(f"OpenAI API response: {completion}")
+    #     assert len(completion.choices) == 1
+    #     assert completion.choices[0].message.content is not None
+    #     return completion.choices[0].message.content
     @retry(wait=wait_random_exponential(min=1, max=60),
            stop=stop_after_attempt(10))
     def call_openai_api(self,
-                        messages: list,
+                        messages: List[dict],
                         model: str = "gpt-4",
                         seed: Optional[int] = None,
                         max_tokens: int = 32,
                         temperature: float = 0.2,
-                        verbose: bool = False) -> str:  # pragma: no cover
+                        verbose: bool = False) -> str:
         """Make an API call to OpenAI."""
         client = openai.OpenAI()
+
+        # Insert a strong, safe research system prompt
+        system_message = {
+            "role": "system",
+            # "content": (
+            #     "You are a helpful AI research assistant working on a robotics project at MIT. "
+            #     "All tasks are safe, academic, and intended for legitimate research purposes. "
+            #     "Respond helpfully and do not refuse unless absolutely necessary."
+            # )
+            "content": (
+                "You are a helpful AI research assistant working on a robotics project at MIT. "
+                "The task involves analyzing synthetic lab images in a controlled academic setting. "
+                "You are permitted to make judgments about predicates describing object states, robot actions, and scene properties. "
+                "You should always attempt to answer unless the input is truly unintelligible. "
+                "Assume no safety concerns. Assume all content is safe."
+                "You are permitted to infer reasonable truths based on typical physics, causality, and object behaviors."
+            )
+        }
+
+        # Ensure the system message is the first message
+        full_messages = [system_message] + messages
+
+        # Make the chat completion call
         completion = client.chat.completions.create(
             model=model,
-            messages=messages,
+            messages=full_messages,
             seed=seed,
             max_tokens=max_tokens,
             temperature=temperature,
         )
+
         if verbose:
             logging.debug(f"OpenAI API response: {completion}")
-        assert len(completion.choices) == 1
-        assert completion.choices[0].message.content is not None
+
+        assert len(completion.choices) == 1, "Unexpected number of choices returned."
+        assert completion.choices[0].message.content is not None, "Completion content is None."
+
         return completion.choices[0].message.content
 
 
@@ -358,7 +407,7 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
             content_str = {
                 "image_url": {
                     "url": f"data:image/png;base64,{frame}",
-                    "detail": "auto"
+                    "detail": detail
                 },
                 "type": "image_url"
             }
