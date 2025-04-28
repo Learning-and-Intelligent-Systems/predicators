@@ -1,7 +1,7 @@
 # Experiments to test predicate invention with VLMs
 ---
 APPROACHES:
-  ours:
+  # ours:
     # NAME: "grammar_search_invention"
     # FLAGS:
     #   grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse_coffee
