@@ -592,7 +592,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             options.remove(TwistJug)
 
             Twist = utils.LinearChainParameterizedOption(
-                "Twist", [_MoveToTwistJug, TwistJug])
+                "RotateItemUntilHandleAccessible", [_MoveToTwistJug, TwistJug])
             options.add(Twist)
 
         if CFG.coffee_move_back_after_place_and_push:

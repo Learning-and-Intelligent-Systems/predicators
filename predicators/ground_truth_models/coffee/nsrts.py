@@ -48,7 +48,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         if CFG.coffee_combined_move_and_twist_policy:
-            Twist = options["Twist"]
+            Twist = options["RotateItemUntilHandleAccessible"]
         else:
             MoveToTwistJug = options["MoveToTwistJug"]
             TwistJug = options["TwistJug"]
