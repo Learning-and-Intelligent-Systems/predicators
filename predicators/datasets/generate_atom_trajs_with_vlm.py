@@ -802,7 +802,9 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         structured_state_trajs,
         state_trajs=state_trajs,
         known_predicates=known_predicates)
+    # import pdb; pdb.set_trace()
     _debug_log_atoms_trajs(ground_atoms_trajs)
+    # import pdb; pdb.set_trace()
     return ground_atoms_trajs
 
 
