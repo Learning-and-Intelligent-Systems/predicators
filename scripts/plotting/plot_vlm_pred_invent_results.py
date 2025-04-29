@@ -9,6 +9,16 @@ rcParams['font.family'] = 'DejaVu Sans'
 rcParams['font.size'] = 16
 
 # Define the data for each environment
+data_coffee = {
+    'EXPERIMENT_ID': [
+        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'No subselect', 'No visual', 'VLM subselect', 
+        'ViLa', 'ViLa fewshot'
+    ],
+    'NUM_SOLVED': [5.00, 8.00, 2.00, 0.20, 0.00, 2.00, 0.40, 0.00, 5.00],
+    'NUM_SOLVED_STDDEV': [5.20, 4.00, 2.10, 0.40, 0.00, 2.10, 0.80, 0.00, 1.40]
+}
+
 data_combo_burger = {
     'EXPERIMENT_ID': [
         'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
@@ -50,6 +60,7 @@ data_kitchen_boil_kettle = {
 }
 
 # Convert each dataset to a DataFrame
+df_coffee = pd.DataFrame(data_coffee)
 df_combo_burger = pd.DataFrame(data_combo_burger)
 df_fatter_burger = pd.DataFrame(data_fatter_burger)
 df_more_stacks = pd.DataFrame(data_more_stacks)
@@ -62,24 +73,24 @@ custom_order = [
 ]
 
 # Apply Categorical ordering before any transformations
-for df in [df_combo_burger, df_fatter_burger, df_more_stacks, df_kitchen_boil_kettle]:
+for df in [df_coffee, df_combo_burger, df_fatter_burger, df_more_stacks, df_kitchen_boil_kettle]:
     df['EXPERIMENT_ID'] = pd.Categorical(df['EXPERIMENT_ID'], categories=custom_order, ordered=True)
     df.sort_values('EXPERIMENT_ID', inplace=True)
 
 # Convert 'NUM_SOLVED' to percentages and calculate standard error
-for df in [df_combo_burger, df_fatter_burger, df_more_stacks, df_kitchen_boil_kettle]:
+for df in [df_coffee, df_combo_burger, df_fatter_burger, df_more_stacks, df_kitchen_boil_kettle]:
     df['NUM_SOLVED'] = df['NUM_SOLVED'] * 10
     df['NUM_SOLVED_SE'] = df['NUM_SOLVED_STDDEV'] / np.sqrt(5) * 10
 
 # Initialize subplots
-fig, axes = plt.subplots(1, 4, figsize=(18, 6), sharey=True)
+fig, axes = plt.subplots(1, 5, figsize=(18, 6), sharey=True)
 
 # Assign a larger color palette for the bars, so that each bar has a unique color
 unique_palette = sns.color_palette("pastel", n_colors=len(df_combo_burger))
 
-# Plot in the new order: 'Boil Kettle', 'More Stacks', 'Bigger Burger', then 'Combo Burger'
-environments = [df_kitchen_boil_kettle, df_fatter_burger, df_more_stacks, df_combo_burger]
-titles = ["Kitchen Boil Kettle", "Bigger Burger", "More Burger Stacks", "Combo Burger"]
+# Plot in the new order: 'Boil Kettle', 'More Stacks', 'Bigger Burger', 'Combo Burger', then Coffee
+environments = [df_kitchen_boil_kettle, df_fatter_burger, df_more_stacks, df_combo_burger, df_coffee]
+titles = ["Kitchen Boil Kettle", "Bigger Burger", "More Burger Stacks", "Combo Burger", "Coffee"]
 
 for i, (df, title) in enumerate(zip(environments, titles)):
     sns.barplot(
