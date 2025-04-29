@@ -36,15 +36,15 @@ APPROACHES:
   #   FLAGS:
   #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
   #     grammar_search_invent_geo_predicates_only: False
-  # interpret:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS:
-  #     offline_data_method: demo_with_vlm_imgs
-  #     vlm_predicate_vision_api_generate_ground_atoms: True
-  vila-with-fewshot:
-    NAME: "vlm_open_loop"
+  interpret:
+    NAME: "grammar_search_invention"
     FLAGS:
-      vlm_open_loop_use_training_demos: True
+      offline_data_method: demo_with_vlm_imgs
+      vlm_predicate_vision_api_generate_ground_atoms: True
+  # vila-with-fewshot:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: True
 
 ENVS:
   # burger_no_move_more_stacks:
