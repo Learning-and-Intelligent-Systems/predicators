@@ -248,7 +248,7 @@ def run_episode_and_get_observations(
                     monitor.observe(obs, act)
                     monitor_observed = True
                 if isinstance(env, PyBulletEnv):
-                    obs = env.step(act, render_obs=render_obs)
+                    obs = env.step(act, render_obs=True)
                 else:
                     obs = env.step(act)
                 actions.append(act)
