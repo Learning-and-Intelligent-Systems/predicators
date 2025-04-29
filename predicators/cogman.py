@@ -215,7 +215,7 @@ def run_episode_and_get_observations(
     render_obs = cogman.get_approach_name == "oracle" and\
                  CFG.offline_data_method == "geo_and_demo_with_vlm_imgs"
     if isinstance(env, PyBulletEnv):
-        obs = env.get_observation(render=render_obs)
+        obs = env.get_observation(render=True)
     else:
         obs = env.get_observation()
     observations = [obs]
