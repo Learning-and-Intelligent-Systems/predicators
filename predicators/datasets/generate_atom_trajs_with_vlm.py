@@ -750,7 +750,6 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
     """Given a collection of ImageOptionTrajectories, query a VLM to convert
     these into ground atom trajectories."""
-    import pdb; pdb.set_trace()
     if not CFG.grammar_search_vlm_atom_proposal_use_debug:
         logging.info("Querying VLM for candidate atom proposals...")
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
@@ -1128,6 +1127,7 @@ def create_ground_atom_data_from_generated_demos(
         generate_func = _generate_ground_atoms_with_vlm_pure_visual_preds
     ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
                                        known_predicates, all_task_objs, vlm)
+    # return Dataset(option_segmented_trajs, None)
     return Dataset(option_segmented_trajs, ground_atoms_trajs)
 
 

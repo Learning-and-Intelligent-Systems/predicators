@@ -48,7 +48,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    Predicate, State, Observation, Task
+    Predicate, State, Observation, Task, Type
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     """PyBullet Coffee domain.
@@ -213,6 +213,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _camera_yaw: ClassVar[float]
     _camera_pitch: ClassVar[float]
     _camera_target: ClassVar[Pose3D]
+
+    # Types
+    _table_type = Type("table", [])
+    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
+    _jug_type = Type("jug", ["x", "y", "z", "rot", "is_held", "is_filled"])
+    _machine_type = Type("coffee_machine", ["is_on"])
+    _cup_type = Type("cup", ["x", "y", "z", "capacity_liquid", "target_liquid", "current_liquid"])
+    _plug_type = Type("plug", ["x", "y", "z", "plugged_in"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -626,7 +634,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
-
         return state
 
     def step(self, action: Action, render_obs: bool = False) -> State:
