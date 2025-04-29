@@ -1126,9 +1126,10 @@ def create_ground_atom_data_from_generated_demos(
     else:
         # import pdb; pdb.set_trace()
         generate_func = _generate_ground_atoms_with_vlm_pure_visual_preds
-    ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
-                                       known_predicates, all_task_objs, vlm)
-    return Dataset(option_segmented_trajs, ground_atoms_trajs)
+    # ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
+    #                                    known_predicates, all_task_objs, vlm)
+    # return Dataset(option_segmented_trajs, ground_atoms_trajs)
+    return Dataset(option_segmented_trajs, None)
 
 
 def create_ground_atom_data_from_labelled_txt(
