@@ -11,7 +11,7 @@ rcParams['font.size'] = 16
 # Define the data for each environment
 data_coffee = {
     'EXPERIMENT_ID': [
-        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'VLM feat. pred', 'Ours (pix2pred)', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
@@ -21,7 +21,7 @@ data_coffee = {
 
 data_combo_burger = {
     'EXPERIMENT_ID': [
-        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'VLM feat. pred', 'Ours (pix2pred)', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
@@ -31,7 +31,7 @@ data_combo_burger = {
 
 data_fatter_burger = {
     'EXPERIMENT_ID': [
-        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'VLM feat. pred', 'Ours (pix2pred)', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
@@ -41,7 +41,7 @@ data_fatter_burger = {
 
 data_more_stacks = {
     'EXPERIMENT_ID': [
-        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'VLM feat. pred', 'Ours (pix2pred)', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
@@ -51,7 +51,7 @@ data_more_stacks = {
 
 data_kitchen_boil_kettle = {
     'EXPERIMENT_ID': [
-        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'VLM feat. pred', 'Ours (pix2pred)', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
@@ -68,7 +68,7 @@ df_kitchen_boil_kettle = pd.DataFrame(data_kitchen_boil_kettle)
 
 # Reorder the 'EXPERIMENT_ID' column to match 'custom_order'
 custom_order = [
-    'Ours', 'VLM subselect', 'No subselect', 'No feat.', 'No visual', 'No invent',
+    'Ours (pix2pred)', 'VLM subselect', 'No subselect', 'No feat.', 'No visual', 'No invent',
     'VLM feat. pred', 'ViLa', 'ViLa fewshot'
 ]
 
@@ -86,7 +86,17 @@ for df in [df_coffee, df_combo_burger, df_fatter_burger, df_more_stacks, df_kitc
 fig, axes = plt.subplots(1, 5, figsize=(18, 6), sharey=True)
 
 # Assign a larger color palette for the bars, so that each bar has a unique color
-unique_palette = sns.color_palette("pastel", n_colors=len(df_combo_burger))
+# unique_palette = sns.color_palette("pastel", n_colors=len(df_combo_burger))
+
+# Define custom colors for the bars (replace these with your hex codes)
+custom_colors = [
+    "#10a37f", "#e45756", "#f58518", "#ffbf00", "#b5d33d", 
+    "#6ec1e4", "#b980d1", "#444444", "#d8b88f"
+]
+
+# Repeat the custom colors for each environment if necessary
+custom_palette = custom_colors * (len(df_combo_burger) // len(custom_colors) + 1)
+
 
 # Plot in the new order: 'Boil Kettle', 'More Stacks', 'Bigger Burger', 'Combo Burger', then Coffee
 environments = [df_kitchen_boil_kettle, df_fatter_burger, df_more_stacks, df_combo_burger, df_coffee]
@@ -94,7 +104,7 @@ titles = ["Kitchen Boil Kettle", "Bigger Burger", "More Burger Stacks", "Combo B
 
 for i, (df, title) in enumerate(zip(environments, titles)):
     sns.barplot(
-        data=df, y='EXPERIMENT_ID', x='NUM_SOLVED', ax=axes[i], palette=unique_palette, capsize=0.1
+        data=df, y='EXPERIMENT_ID', x='NUM_SOLVED', ax=axes[i], palette=custom_palette[:len(df)], capsize=0.1
     )
     axes[i].errorbar(
         df['NUM_SOLVED'], df['EXPERIMENT_ID'],
@@ -102,12 +112,12 @@ for i, (df, title) in enumerate(zip(environments, titles)):
     )
     axes[i].set_title(title, fontsize=20)  # Increase title font size
     axes[i].set_xlabel('')  # Clear individual x-labels
-    axes[i].set_ylabel('', fontsize=16)  # Increase y-label font size
-    axes[i].tick_params(axis='both', labelsize=14)  # Increase tick label size
+    axes[i].set_ylabel('', fontsize=19)  # Increase y-label font size
+    axes[i].tick_params(axis='both', labelsize=18)  # Increase tick label size
     axes[i].grid(True, linestyle='--', alpha=0.6)  # Add gridlines for clarity
 
 # Set shared x-label
-fig.text(0.5, 0.01, '% Evaluation Tasks Solved', ha='center', fontsize=18)
+fig.text(0.5, 0.01, '% Evaluation Tasks Solved', ha='center', fontsize=19)
 
 # Adjust layout with tighter spacing
 plt.tight_layout(rect=[0.02, 0.05, 1, 1])
