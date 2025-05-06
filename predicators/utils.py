@@ -52,7 +52,6 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 from tabulate import tabulate
 from tqdm import tqdm
-from pympler import asizeof
 
 from predicators.args import create_arg_parser
 from predicators.image_patch_wrapper import ImagePatch
@@ -2786,9 +2785,9 @@ def _run_heuristic_search(
     while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
             num_expansions < max_expansions and num_evals < max_evals:
         # Checking the memory usuage of the queue
-        memory_usage = asizeof.asizeof(queue)
-        memory_usage_mb = memory_usage / (1024 * 1024)
-        logging.info(f"Memory usage of the candidate op: {memory_usage_mb:.2f} MB")
+        # memory_usage = asizeof.asizeof(queue)
+        # memory_usage_mb = memory_usage / (1024 * 1024)
+        # logging.info(f"Memory usage of the candidate op: {memory_usage_mb:.2f} MB")
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:

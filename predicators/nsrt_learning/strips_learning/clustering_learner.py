@@ -6,7 +6,6 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
-from pympler import asizeof
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner

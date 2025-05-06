@@ -1,7 +1,7 @@
 """Example command line: export OPENAI_API_KEY=<your API key>
 
-Example run:     python scripts/run_interactive_yaml.py -c
-vlm_predicate_cover.yaml
+Example run:
+PYTHONPATH=. python scripts/run_interactive_yaml.py -c nsp/nsps.yaml
 """
 import ast
 import sys
