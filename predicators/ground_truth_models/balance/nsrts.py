@@ -27,7 +27,7 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             env_cls = PyBulletBalanceEnv
         else:
             env_cls = BalanceEnv
-            
+
         # Types
         block_type = types["block"]
         robot_type = types["robot"]
@@ -140,7 +140,7 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(Holding, [block]),
             LiftedAtom(ClearPlate, [plate])
-            }
+        }
         add_effects = {
             LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
@@ -149,18 +149,18 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {
             LiftedAtom(Holding, [block]),
             LiftedAtom(ClearPlate, [plate])
-            }
+        }
 
         def putonplate_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
-            del state, goal # unused
+            del state, goal  # unused
             block, robot, plate = objs
             # Note: normalized coordinates w.r.t. workspace.
             # x = rng.uniform()
             x = 0.09
             if plate.name == "plate1":
-                # y = rng.uniform(0, 
+                # y = rng.uniform(0,
                 #     (env_cls.y_plate1_ub - env_cls.y_lb) /
                 #     (env_cls.y_ub - env_cls.y_lb))
                 y = 0.06
@@ -187,13 +187,15 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [robot, machine, plate1, plate2]
         option_vars = [plate1, plate2]
         option = TurnMachineOn
-        preconditions = {LiftedAtom(Balanced, [plate1, plate2]),
-                         LiftedAtom(GripperOpen, [robot])}
+        preconditions = {
+            LiftedAtom(Balanced, [plate1, plate2]),
+            LiftedAtom(GripperOpen, [robot])
+        }
         add_effects = {LiftedAtom(MachineOn, [machine, robot])}
         delete_effects = set()
 
-        turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,
-                                  add_effects, delete_effects, set(), option,
-                                  option_vars, null_sampler)
+        turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars, null_sampler)
         nsrts.add(turn_machine_on_nsrt)
         return nsrts

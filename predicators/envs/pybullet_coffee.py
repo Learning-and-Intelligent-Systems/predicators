@@ -1,9 +1,9 @@
 """A PyBullet version of CoffeeEnv."""
 
 import logging
+import random
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
-import random
 
 import numpy as np
 import pybullet as p

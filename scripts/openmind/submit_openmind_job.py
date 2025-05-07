@@ -94,13 +94,14 @@ def submit_openmind_job(entry_point: str,
         cmd += "--gres=gpu:1 "
     # else:
     #     cmd += "--partition=xeon-p8 "
-    cmd += ("--nodes=1 "
-            # "--mem=512G " # for blocks
-            "--mem=128G "
-            # "-p tenenbaum "
-            f"--job-name={job_name} "
-            f"--array={start_seed}-{start_seed+num_seeds-1} "
-            f"-o {logfile_pattern} {temp_run_file}")
+    cmd += (
+        "--nodes=1 "
+        # "--mem=512G " # for blocks
+        "--mem=128G "
+        # "-p tenenbaum "
+        f"--job-name={job_name} "
+        f"--array={start_seed}-{start_seed+num_seeds-1} "
+        f"-o {logfile_pattern} {temp_run_file}")
     print(f"Running command: {cmd}")
     output = subprocess.getoutput(cmd)
     if "command not found" in output:

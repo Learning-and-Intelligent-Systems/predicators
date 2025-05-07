@@ -8,20 +8,24 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.settings import CFG
-from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, ParameterizedOption, Predicate, State, Task, \
-    Type, ConceptPredicate
+from predicators.structs import Action, ConceptPredicate, Dataset, \
+    InteractionRequest, InteractionResult, Metrics, ParameterizedOption, \
+    Predicate, State, Task, Type
 from predicators.utils import ExceptionWithInfo
 
 
 class BaseApproach(abc.ABC):
     """Base approach."""
 
-    def __init__(self, initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task],
-                 initial_concept_predicates: Set[ConceptPredicate],
-                 ) -> None:
+    def __init__(
+        self,
+        initial_predicates: Set[Predicate],
+        initial_options: Set[ParameterizedOption],
+        types: Set[Type],
+        action_space: Box,
+        train_tasks: List[Task],
+        initial_concept_predicates: Set[ConceptPredicate],
+    ) -> None:
         """All approaches are initialized with only the necessary information
         about the environment."""
         self._initial_predicates = initial_predicates

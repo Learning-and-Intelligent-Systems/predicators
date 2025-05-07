@@ -16,7 +16,7 @@ import tempfile
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from itertools import islice, chain
+from itertools import chain, islice
 from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
 
@@ -27,10 +27,10 @@ from predicators import utils
 from predicators.option_model import _OptionModelBase
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
-    DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
+from predicators.structs import NSRT, AbstractPolicy, ConceptPredicate, \
+    DefaultState, DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, ConceptPredicate
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -110,6 +110,7 @@ def sesame_plan(
     raise ValueError("Unrecognized sesame_task_planner: "
                      f"{CFG.sesame_task_planner}")
 
+
 def _sesame_plan_with_astar(
     task: Task,
     option_model: _OptionModelBase,
@@ -128,14 +129,16 @@ def _sesame_plan_with_astar(
     allow_noops: bool = False,
     use_visited_state_set: bool = False,
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
-    """The default version of SeSamE, which runs A* to produce skeletons.
-    """
-    concept_predicates = set([pred for pred in predicates.copy() if 
-                              isinstance(pred, ConceptPredicate)])
+    """The default version of SeSamE, which runs A* to produce skeletons."""
+    concept_predicates = set([
+        pred for pred in predicates.copy()
+        if isinstance(pred, ConceptPredicate)
+    ])
     # TODO: make sure it expands until no more new predicates are added
-    concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
-                                in concept_predicates if p.auxiliary_concepts))
-    init_atoms = utils.abstract(task.init, predicates|concept_predicates)
+    concept_predicates |= set(
+        chain.from_iterable(p.auxiliary_concepts for p in concept_predicates
+                            if p.auxiliary_concepts))
+    init_atoms = utils.abstract(task.init, predicates | concept_predicates)
     logging.debug(f"Solving task w. \nInit: {init_atoms} \nGoals: {task.goal}")
     objects = list(task.init)
     start_time = time.perf_counter()
@@ -145,8 +148,10 @@ def _sesame_plan_with_astar(
     metrics: Metrics = defaultdict(float)
     # Make a copy of the predicates set to avoid modifying the input set,
     # since we may be adding NotCausesFailure predicates to the set.
-    predicates = set([pred for pred in predicates.copy() if not 
-                      isinstance(pred, ConceptPredicate)])
+    predicates = set([
+        pred for pred in predicates.copy()
+        if not isinstance(pred, ConceptPredicate)
+    ])
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
@@ -159,8 +164,8 @@ def _sesame_plan_with_astar(
                                        check_dr_reachable, allow_noops)
         try:
             heuristic = utils.create_task_planning_heuristic(
-                task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
-                predicates | concept_predicates, objects)
+                task_planning_heuristic, init_atoms, task.goal,
+                reachable_nsrts, predicates | concept_predicates, objects)
         except Exception as e:
             logging.error(f"Error creating heuristic: {e}")
             logging.error(f"Init atoms: {init_atoms}")
@@ -298,7 +303,7 @@ def filter_nsrts(
         ]
     else:
         reachable_nsrts = nonempty_ground_nsrts
-    
+
     if CFG.sesame_filter_nsrts_with_repeated_objects:
         # Filter nsrts that have the same object appear twice in its params
         reachable_nsrts = [
@@ -545,14 +550,15 @@ def _skeleton_generator(
 
                 # Should remove all the previous concept preds atoms before
                 # adding new ones
-                child_atoms = {atom for atom in child_atoms if not 
-                                isinstance(atom.predicate, ConceptPredicate)}
+                child_atoms = {
+                    atom
+                    for atom in child_atoms
+                    if not isinstance(atom.predicate, ConceptPredicate)
+                }
 
                 # Compute and add the concept predicate ground atoms
                 concept_atoms = utils.abstract_with_concept_predicates(
-                                                        child_atoms, 
-                                                        concept_predicates,
-                                                        current_objects)
+                    child_atoms, concept_predicates, current_objects)
 
                 # logging.debug(f"Applying nsrt: {nsrt.short_str}")
                 # logging.debug(f"Existing atoms: {child_atoms}")
@@ -561,7 +567,6 @@ def _skeleton_generator(
 
                 child_atoms |= concept_atoms
                 # logging.debug(f"All atoms: {child_atoms}")
-
 
                 if use_visited_state_set:
                     frozen_atoms = frozenset(child_atoms)

@@ -8,8 +8,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.base_approach import ApproachFailure, \
     ApproachTimeout, BaseApproach, BaseApproachWrapper
-from predicators.structs import ParameterizedOption, Predicate, Task, Type,\
-    ConceptPredicate
+from predicators.structs import ConceptPredicate, ParameterizedOption, \
+    Predicate, Task, Type
 
 __all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
 
@@ -47,14 +47,21 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
                                         train_tasks)
         # Find wrapper.
         wrapper_cls = _get_wrapper_cls_from_name(wrapper_name)
-        return wrapper_cls(base_approach, initial_predicates, 
-                           initial_options,
-                           types, action_space, train_tasks,
-                           )
+        return wrapper_cls(
+            base_approach,
+            initial_predicates,
+            initial_options,
+            types,
+            action_space,
+            train_tasks,
+        )
 
     # Handle main approaches.
     cls = _get_approach_cls_from_name(name)
-    return cls(initial_predicates, 
-               initial_options, types, action_space,
-               train_tasks,
-               )
+    return cls(
+        initial_predicates,
+        initial_options,
+        types,
+        action_space,
+        train_tasks,
+    )

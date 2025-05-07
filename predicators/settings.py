@@ -875,7 +875,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_cover_typed_options":
-                        "oracle_cover_typed_options",
+                    "oracle_cover_typed_options",
                     "pybullet_cover_weighted": "oracle_cover_typed_options",
                     "pybullet_blocks": "oracle_blocks",
                     "pybullet_balance": "oracle_balance",
@@ -985,12 +985,12 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # "cover_place_hard": 1,
                 })[args.get("env", "")],
             cover_block_widths=defaultdict(
-                lambda: [0.06,0.06,0.06,0.04],
+                lambda: [0.06, 0.06, 0.06, 0.04],
                 {
                     # "cover_place_hard": [0.1],
                 })[args.get("env", "")],
             cover_target_widths=defaultdict(
-                lambda: [0.02,0.02,0.02,0.02],
+                lambda: [0.02, 0.02, 0.02, 0.02],
                 {
                     # "cover_place_hard": [0.05],
                 })[args.get("env", "")],

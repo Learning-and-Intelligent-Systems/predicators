@@ -68,6 +68,7 @@ assert os.environ.get("PYTHONHASHSEED") == "0", \
 
 # sys.setrecursionlimit(1000000)
 
+
 def main() -> None:
     """Main entry point for running approaches in environments."""
     script_start = time.perf_counter()
@@ -159,8 +160,8 @@ def main() -> None:
         # task.init.state_image.save(
         #     os.path.join(img_dir, f"init_unlab{i}.png"))
         if hasattr(task.init, "labeled_image"):
-            task.init.labeled_image.save(os.path.join(img_dir, 
-                                                    f"trn_init_labeled{i}.png"))
+            task.init.labeled_image.save(
+                os.path.join(img_dir, f"trn_init_labeled{i}.png"))
         if i == 10:
             break
     # We assume that a train Task can be constructed from a EnvironmentTask.
@@ -198,8 +199,7 @@ def main() -> None:
     approach_name = CFG.approach
     if CFG.approach_wrapper:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
-    approach = create_approach(approach_name, preds, options, 
-                               env.types,
+    approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, approach_train_tasks)
     if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
@@ -400,7 +400,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
     if CFG.approach != "oracle":
         test_tasks = [task.replace_goal_with_alt_goal() for task in test_tasks]
-    
+
     # Save the init images
     for i, task in enumerate(test_tasks):
         img_dir = os.path.join(CFG.log_file, "images")
@@ -408,8 +408,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
         # task.init.state_image.save(
         #     os.path.join(img_dir, f"init_unlab{i}.png"))
         if hasattr(task.init, "labeled_image"):
-            task.init.labeled_image.save(os.path.join(img_dir, 
-                                        f"tst_init_labeled{i}.png"))
+            task.init.labeled_image.save(
+                os.path.join(img_dir, f"tst_init_labeled{i}.png"))
         if i == 10:
             break
     # # Check rendering by saving the image of the init state of tasks
@@ -477,7 +477,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                         logging.info("Task is unsolvable and is recognized")
                         num_solved += 1
 
-            # If the e is goal not reachable, check the task whether it is 
+            # If the e is goal not reachable, check the task whether it is
             # actually not reachable. Compute accuracy accordingly.
 
             if isinstance(e, ApproachTimeout):

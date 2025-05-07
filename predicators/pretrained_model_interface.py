@@ -491,10 +491,6 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         return responses
 
 
-
-
-
-
 class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     """Interface to the Google Gemini VLM (1.5).
 

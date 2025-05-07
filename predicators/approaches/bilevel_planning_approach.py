@@ -17,30 +17,33 @@ from predicators.option_model import _OptionModelBase, create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once, sesame_plan
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option,\
-    ConceptPredicate
+from predicators.structs import NSRT, Action, ConceptPredicate, GroundAtom, \
+    Metrics, ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
+    _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
     """Bilevel planning approach."""
 
-    def __init__(self,
-                 initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption],
-                 types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task],
-                 task_planning_heuristic: str = "default",
-                 max_skeletons_optimized: int = -1,
-                 bilevel_plan_without_sim: Optional[bool] = None,
-                 option_model: Optional[_OptionModelBase] = None,
-                 initial_concept_predicates: Set[ConceptPredicate] = set(),
-                 ) -> None:
-        super().__init__(initial_predicates, 
-                        initial_options, types,
-                        action_space, train_tasks,
-                        initial_concept_predicates=initial_concept_predicates)
+    def __init__(
+            self,
+            initial_predicates: Set[Predicate],
+            initial_options: Set[ParameterizedOption],
+            types: Set[Type],
+            action_space: Box,
+            train_tasks: List[Task],
+            task_planning_heuristic: str = "default",
+            max_skeletons_optimized: int = -1,
+            bilevel_plan_without_sim: Optional[bool] = None,
+            option_model: Optional[_OptionModelBase] = None,
+            initial_concept_predicates: Set[ConceptPredicate] = set(),
+    ) -> None:
+        super().__init__(initial_predicates,
+                         initial_options,
+                         types,
+                         action_space,
+                         train_tasks,
+                         initial_concept_predicates=initial_concept_predicates)
         if task_planning_heuristic == "default":
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
         if max_skeletons_optimized == -1:
@@ -191,12 +194,13 @@ class BilevelPlanningApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates | self._initial_concept_predicates
-    
+
     def _get_current_concept_predicates(self) -> Set[ConceptPredicate]:
-        """Get the current set of concept predicates.
-        """
-        cnpt_preds = set([pred for pred in self._get_current_predicates() if
-                          isinstance(pred, ConceptPredicate)])
+        """Get the current set of concept predicates."""
+        cnpt_preds = set([
+            pred for pred in self._get_current_predicates()
+            if isinstance(pred, ConceptPredicate)
+        ])
         return cnpt_preds
 
     def get_option_model(self) -> _OptionModelBase:

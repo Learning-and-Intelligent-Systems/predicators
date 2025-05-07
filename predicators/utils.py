@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import random
 import contextlib
 import copy
 import functools
@@ -15,6 +14,7 @@ import itertools
 import logging
 import os
 import pkgutil
+import random
 import re
 import shutil
 import subprocess
@@ -60,15 +60,15 @@ from predicators.pretrained_model_interface import GoogleGeminiLLM, \
     VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
-from predicators.structs import NSRT, Action, Array, Dataset, \
-    DerivedPredicate, DummyOption, EntToEntSub, GroundAtom, \
+from predicators.structs import NSRT, Action, Array, ConceptPredicate, \
+    Dataset, DerivedPredicate, DummyOption, EntToEntSub, GroundAtom, \
     GroundAtomTrajectory, GroundNSRTOrSTRIPSOperator, Image, LDLRule, \
     LiftedAtom, LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, \
     Mask, Metrics, NSRTOrSTRIPSOperator, Object, ObjectOrVariable, \
     Observation, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
     STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, VLMPredicate, \
     _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity, ConceptPredicate
+    _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -364,11 +364,16 @@ def count_classification_result_for_ops(
 
     # Create a dictionary with entries for overall tp, tn, etc, and the score
     # for each option
-    n_tot = (sum_tp+sum_tn+sum_fp+sum_fn)
-    score_dic = {"overall": {
-                    "tp": sum_tp, "tn": sum_tn, "fp": sum_fp,
-                    "fn": sum_fn, 
-                    "acc": ((sum_tp+sum_tn) / n_tot) if n_tot > 0 else 0}}
+    n_tot = (sum_tp + sum_tn + sum_fp + sum_fn)
+    score_dic = {
+        "overall": {
+            "tp": sum_tp,
+            "tn": sum_tn,
+            "fp": sum_fp,
+            "fn": sum_fn,
+            "acc": ((sum_tp + sum_tn) / n_tot) if n_tot > 0 else 0
+        }
+    }
 
     for optn_str, g_optn_dict in accuracy_dict.items():
         tp = tn = fp = fn = 0
@@ -377,7 +382,7 @@ def count_classification_result_for_ops(
             tn += tn_state_dict[optn_str][g_optn]['n_tn']
             fp += fp_state_dict[optn_str][g_optn]['n_fp']
             fn += fn_state_dict[optn_str][g_optn]['n_fn']
-        
+
         # Check to avoid division by zero for each option's accuracy
         n_tot = tp + tn + fp + fn
         score_dic[optn_str] = {"acc": ((tp + tn) / n_tot) if n_tot > 0 else 0}
@@ -445,7 +450,7 @@ def summarize_results_in_str(
         for (g_optn, acc) in option_dict[optn_str]:
             if n_g_optn_shown == max_num_groundings: break
             # Show max_num_groundins whose accuracy are less than 1.
-            
+
             if acc < 1 or show_when_acc_is_one:
                 n_g_optn_shown += 1
             # else:
@@ -488,11 +493,11 @@ def summarize_results_in_str(
             # when both n_tp and n_fp, show this
             # when show_when_acc_is_one, show this
             # when n_fp is 0 but n_failed_state
-            # want to add when n_neg, but is this always 
+            # want to add when n_neg, but is this always
             # when invent from effect, when there are not enough states, we
             #   also show positive states for options with with no fp state
             # when invent from pos and neg, we show tp and tn when num images
-            #   is 0 
+            #   is 0
             if ((n_tp and n_fp) or show_when_acc_is_one
                 # (n_fp == 0 and n_fail_states and not show_when_acc_is_one)
                 ) and\
@@ -505,7 +510,6 @@ def summarize_results_in_str(
                             max_num_examples, "tp",
                             state_hash_to_id, ite)
 
-
             # GT Negative
             # if n_fail_states:
             # if n_fp and "fp" in categories_to_show:
@@ -516,7 +520,7 @@ def summarize_results_in_str(
                         append_classification_result_for_ops(
                             result_str, state_str_set, g_optn, fp_states,
                             max_num_examples, "fp", state_hash_to_id, ite)
-            
+
             if n_fail_states and show_when_acc_is_one and\
                 CFG.vlm_invention_propose_nl_properties:
                 # when there is no fp, but there are failed states
@@ -1844,10 +1848,10 @@ class RawState(PyBulletState):
                         "rot",
                         "fingers"
                 ]) or (object_features and attribute not in [
-                    "is_heavy",
-                    # "grasp",
-                    # "held",
-                    # "is_held",
+                        "is_heavy",
+                        # "grasp",
+                        # "held",
+                        # "is_held",
                 ]):
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
@@ -3322,6 +3326,7 @@ def create_llm_by_name(
         return GoogleGeminiLLM(model_name)
     return OpenAILLM(model_name)
 
+
 def parse_model_output_into_option_plan(
     model_prediction: str, objects: Collection[Object],
     types: Collection[Type], options: Collection[ParameterizedOption],
@@ -3640,17 +3645,19 @@ def query_vlm_for_atom_vals(
             true_atoms.add(vlm_atoms[i])
     return true_atoms
 
+
 class PredicateEvaluationError(Exception):
+
     def __init__(self, message, pred):
         super().__init__(message)
         self.pred = pred
 
+
 def _abstract_with_concept_predicates(
-                    abs_state: Set[GroundAtom],
-                    preds: Collection[ConceptPredicate],
-                    objects: Collection[Object]) -> Set[GroundAtom]:
-    """Get the atoms based on the existing atomic state and concept predicates.
-    """
+        abs_state: Set[GroundAtom], preds: Collection[ConceptPredicate],
+        objects: Collection[Object]) -> Set[GroundAtom]:
+    """Get the atoms based on the existing atomic state and concept
+    predicates."""
     atoms: Set[GroundAtom] = set()
     for pred in preds:
         for choice in get_object_combinations(objects, pred.types):
@@ -3659,19 +3666,17 @@ def _abstract_with_concept_predicates(
                     atoms.add(GroundAtom(pred, choice))
             except Exception as e:
                 logging.error(f"Error in evaluating concept predicate {pred}: "
-                            f"{e}")
+                              f"{e}")
                 # raise e
                 raise PredicateEvaluationError(
-                        f"Error in evaluating concept predicate {pred}: {e}", 
-                        pred)
+                    f"Error in evaluating concept predicate {pred}: {e}", pred)
     return atoms
 
+
 def abstract_with_concept_predicates(
-                    atoms: Set[GroundAtom],
-                    cnpt_preds: Collection[ConceptPredicate],
-                    objects: Collection[Object]) -> Set[GroundAtom]:
-    """Compute the fixed point of concept predicate atoms.
-    """    
+        atoms: Set[GroundAtom], cnpt_preds: Collection[ConceptPredicate],
+        objects: Collection[Object]) -> Set[GroundAtom]:
+    """Compute the fixed point of concept predicate atoms."""
     primitive_atoms = atoms
     new_concept_atoms = set()
     prev_new_concept_atoms = set()
@@ -3680,9 +3685,7 @@ def abstract_with_concept_predicates(
         # All the concept atoms that holds; all the previous atoms
         atoms = primitive_atoms | new_concept_atoms
         new_concept_atoms = _abstract_with_concept_predicates(
-                                                    atoms, 
-                                                    cnpt_preds, 
-                                                    objects)
+            atoms, cnpt_preds, objects)
         # logging.debug(f"ite {counter} concept atoms: {new_concept_atoms}")
         converged = new_concept_atoms == prev_new_concept_atoms
         if converged:
@@ -3691,6 +3694,7 @@ def abstract_with_concept_predicates(
         prev_new_concept_atoms = new_concept_atoms
         counter += 1
     return new_concept_atoms
+
 
 def abstract(state: State,
              preds: Collection[Predicate],
@@ -3702,13 +3706,14 @@ def abstract(state: State,
     Duplicate arguments in predicates are allowed.
     """
     # Filter out the concept predicates
-    cnpt_preds = set(pred for pred in preds if isinstance(pred, 
-                                                            ConceptPredicate))
-    prim_preds = set(pred for pred in preds if not isinstance(pred, 
-                                                            ConceptPredicate))
+    cnpt_preds = set(pred for pred in preds
+                     if isinstance(pred, ConceptPredicate))
+    prim_preds = set(pred for pred in preds
+                     if not isinstance(pred, ConceptPredicate))
 
     # Start by pulling out all VLM predicates.
-    vlm_preds = set(pred for pred in prim_preds if isinstance(pred, VLMPredicate))
+    vlm_preds = set(pred for pred in prim_preds
+                    if isinstance(pred, VLMPredicate))
     # For NSPredicates, first evaluate the base NSPs, then cache the values,
     #   then evaluate the derived NSPs.
     # derived_preds = set(pred for pred in prim_preds
@@ -3727,8 +3732,9 @@ def abstract(state: State,
                     if pred.holds(state, choice):
                         pred_atoms.add(GroundAtom(pred, choice))
             except Exception as e:
-                logging.error(f"Error in evaluating symbolic predicate {pred}: "
-                                f"{e}")
+                logging.error(
+                    f"Error in evaluating symbolic predicate {pred}: "
+                    f"{e}")
                 prim_preds.remove(pred)
             else:
                 atoms |= pred_atoms
@@ -3753,7 +3759,7 @@ def abstract(state: State,
             try:
                 for choice in get_object_combinations(list(state), pred.types):
                     eval_result = pred.holds(state, choice)
-                    
+
                     ground_atom = GroundAtom(pred, choice)
                     if eval_result == True:
                         # If the ground predicate returns true -> add it to atoms
@@ -3766,7 +3772,8 @@ def abstract(state: State,
                         pred_queries.append(query)
                         # vlm_queries.append(query)
                     elif eval_result != False:
-                        logging.error(f"invalid evaluation result: {eval_result}")
+                        logging.error(
+                            f"invalid evaluation result: {eval_result}")
             except Exception as e:
                 # If error, move on to the next predicate
                 logging.error(f"Error in evaluating NS predicate {pred}: {e}")
@@ -3790,14 +3797,14 @@ def abstract(state: State,
     # logging.debug(f"preds before evaluating concept predicates: {preds}")
     if len(cnpt_preds) > 0:
         try:
-            atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
-                                                  list(state))
+            atoms |= abstract_with_concept_predicates(atoms, cnpt_preds,
+                                                      list(state))
         except PredicateEvaluationError as e:
             buggy_pred = e.pred
             # logging.debug(f"preds before {buggy_pred} is removed: {preds}")
             cnpt_preds.remove(buggy_pred)
             # logging.debug(f"preds after {buggy_pred} is removed: {preds}")
-            return abstract(state, prim_preds | cnpt_preds, vlm, 
+            return abstract(state, prim_preds | cnpt_preds, vlm,
                             return_valid_preds)
 
     if return_valid_preds:
@@ -3805,7 +3812,7 @@ def abstract(state: State,
     else:
         return atoms
 
-    #     atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
+    #     atoms |= abstract_with_concept_predicates(atoms, cnpt_preds,
     #                                                 list(state))
     # return atoms
 
@@ -3878,7 +3885,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 # Add any remaining queries to the last group
                 if combined_queries:
                     query_groups[group_index] = combined_queries
-                
+
         # pred_name_to_queries = defaultdict(list)
         # if CFG.query_vlm_for_each_predicate:
         #     # group querys by their lifted predicates
@@ -4472,10 +4479,11 @@ def create_dataset_filename_str(
 
 
 def create_ground_atom_dataset(
-            trajectories: Sequence[LowLevelTrajectory],
-            predicates: Set[Predicate],
-        ) -> List[GroundAtomTrajectory]:
+    trajectories: Sequence[LowLevelTrajectory],
+    predicates: Set[Predicate],
+) -> List[GroundAtomTrajectory]:
     """Apply all predicates to all trajectories in the dataset.
+
     Predicates here are primitive predicates.
     """
     ground_atom_dataset = []
@@ -4483,6 +4491,7 @@ def create_ground_atom_dataset(
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
     return ground_atom_dataset
+
 
 def prune_ground_atom_dataset(
         ground_atom_dataset: List[GroundAtomTrajectory],
@@ -5403,8 +5412,9 @@ def parse_config_excluded_predicates(
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
 
-def parse_config_excluded_concept_predicates(env: BaseEnv
-                                             ) -> Set[ConceptPredicate]:
+
+def parse_config_excluded_concept_predicates(
+        env: BaseEnv) -> Set[ConceptPredicate]:
     """Parse the CFG.excluded_predicates string, given an environment.
 
     Return a tuple of (included predicate set, excluded predicate set).
@@ -5746,9 +5756,11 @@ def add_text_to_draw_img(
     draw.text(position, text, fill="red", font=font)
     return draw
 
+
 def nsrt_has_repeated_objects(ground_nsrt: _GroundNSRT) -> bool:
     """Check if an NSRT has repeated objects."""
     return len(ground_nsrt.objects) != len(set(ground_nsrt.objects))
+
 
 def op_has_repeated_objects(ground_op: _GroundSTRIPSOperator) -> bool:
     """Check if an NSRT has repeated objects."""

@@ -32,40 +32,35 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
-    ("ONLINE_LEARNING_CYCLE", "cycle"),  # add to select model at specific cycle
+    ("ONLINE_LEARNING_CYCLE",
+     "cycle"),  # add to select model at specific cycle
     ("AVG_NUM_FAILED_PLAN", "avg_num_skeletons_optimized"),
     ("PERC_PLANS_USED", "perc_skeletons_optimized"),
 ]
 
-DERIVED_KEYS = [("perc_solved",
-                 lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
-            ("perc_skeletons_optimized",
-            lambda r: 100 
-                        * ((0 if math.isinf(r["avg_num_skeletons_optimized"]) 
-                                else r["avg_num_skeletons_optimized"]) 
-                        * r["num_solved"] 
-                    + (8 if r["env"] in
-                                    ["pybullet_cover_typed_options",
-                                     "pybullet_cover_weighted",
-                                     "pybullet_blocks",
-                                     "pybullet_balance"
-                    ] else 100) * (r["num_test_tasks"] - r["num_solved"])) /
-                    ((8 if r["env"] in
-                                    ["pybullet_cover_typed_options",
-                                     "pybullet_cover_weighted",
-                                     "pybullet_blocks",
-                                     "pybullet_balance"
-                    ] else 100) * r["num_test_tasks"])),
-            # lambda r: 100 * 
-            #     ((r["num_solved"] / r["num_test_tasks"]) * 
-            #         r["avg_num_skeletons_optimized"] / (8 if r["env"] in
-            #                         ["pybullet_cover_typed_options",
-            #                          "pybullet_cover_weighted",
-            #                          "pybullet_blocks",
-            #                          "pybullet_balance"
-            #                          ] else 100)) +
-            #     (1-(r["num_solved"] / r["num_test_tasks"])) * 1),
-            ] 
+DERIVED_KEYS = [
+    ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+    ("perc_skeletons_optimized", lambda r: 100 *
+     ((0 if math.isinf(r["avg_num_skeletons_optimized"]) else r[
+         "avg_num_skeletons_optimized"]) * r["num_solved"] +
+      (8 if r["env"] in [
+          "pybullet_cover_typed_options", "pybullet_cover_weighted",
+          "pybullet_blocks", "pybullet_balance"
+      ] else 100) * (r["num_test_tasks"] - r["num_solved"])) / (
+          (8 if r["env"] in [
+              "pybullet_cover_typed_options", "pybullet_cover_weighted",
+              "pybullet_blocks", "pybullet_balance"
+          ] else 100) * r["num_test_tasks"])),
+    # lambda r: 100 *
+    #     ((r["num_solved"] / r["num_test_tasks"]) *
+    #         r["avg_num_skeletons_optimized"] / (8 if r["env"] in
+    #                         ["pybullet_cover_typed_options",
+    #                          "pybullet_cover_weighted",
+    #                          "pybullet_blocks",
+    #                          "pybullet_balance"
+    #                          ] else 100)) +
+    #     (1-(r["num_solved"] / r["num_test_tasks"])) * 1),
+]
 
 TOP_ROW_LABEL = "\\bf{Environment}"
 HEADER_LABEL_SIZE = ""  # change to "\\scriptsize " for smaller headers
@@ -76,8 +71,8 @@ HEADER_LABEL_SIZE = ""  # change to "\\scriptsize " for smaller headers
 ROW_GROUPS = [
     ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
     ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
-    ("Cover\_Heavy", pd_create_equal_selector("ENV", 
-                                             "pybullet_cover_weighted")),
+    ("Cover\_Heavy", pd_create_equal_selector("ENV",
+                                              "pybullet_cover_weighted")),
     ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
     ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
 ]

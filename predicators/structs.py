@@ -313,6 +313,7 @@ DefaultState = State({})
 #     right: int
 #     upper: int
 
+
 @dataclass(frozen=True, order=False, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states)."""
@@ -474,9 +475,10 @@ class Predicate:
     def __lt__(self, other: Predicate) -> bool:
         return str(self) < str(other)
 
+
 @dataclass(frozen=True, order=False, repr=False)
 class ConceptPredicate(Predicate):
-    """Struct defining a concept predicate"""
+    """Struct defining a concept predicate."""
     name: str
     types: Sequence[Type]
     # The classifier takes in a complete state and a sequence of objects
@@ -484,16 +486,16 @@ class ConceptPredicate(Predicate):
     # treated "specially" by the classifier.
     _classifier: Callable[[Set[GroundAtom], Sequence[Object]],
                           bool] = field(compare=False)
-    untransformed_predicate: Optional[Predicate] = field(default=None, 
+    untransformed_predicate: Optional[Predicate] = field(default=None,
                                                          compare=False)
     auxiliary_concepts: Optional[Set[ConceptPredicate]] = field(default=None,
                                                                 compare=False)
 
-    def update_auxiliary_concepts(self, 
+    def update_auxiliary_concepts(
+            self,
             auxiliary_concepts: Set[ConceptPredicate]) -> ConceptPredicate:
         """Create a new ConceptPredicate with updated auxiliary_concepts."""
         return replace(self, auxiliary_concepts=auxiliary_concepts)
-
 
     @cached_property
     def _hash(self) -> int:
@@ -518,7 +520,6 @@ class ConceptPredicate(Predicate):
                             objects: Sequence[Object]) -> bool:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
-
 
 
 @dataclass(frozen=True, repr=False, eq=False)

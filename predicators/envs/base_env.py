@@ -13,9 +13,9 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultEnvironmentTask, \
-    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Task, \
-    Type, Video, ConceptPredicate
+from predicators.structs import Action, ConceptPredicate, \
+    DefaultEnvironmentTask, EnvironmentTask, GroundAtom, Object, Observation, \
+    Predicate, State, Task, Type, Video
 
 
 class BaseEnv(abc.ABC):
@@ -70,10 +70,10 @@ class BaseEnv(abc.ABC):
     def predicates(self) -> Set[Predicate]:
         """Get the set of predicates that are given with this environment."""
         raise NotImplementedError("Override me!")
-    
+
     @property
     def concept_predicates(self) -> Set[ConceptPredicate]:
-        """Get the set of concept predicates"""
+        """Get the set of concept predicates."""
         return set()
 
     def oracle_proposed_predicates(self) -> Set[Predicate]:

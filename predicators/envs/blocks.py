@@ -22,8 +22,8 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type, ConceptPredicate
+from predicators.structs import Action, Array, ConceptPredicate, \
+    EnvironmentTask, GroundAtom, Object, Predicate, State, Type
 
 
 class BlocksEnv(BaseEnv):
@@ -64,10 +64,10 @@ class BlocksEnv(BaseEnv):
             "color_b"
         ] + (bbox_features if CFG.env_include_bbox_features else []))
         self._robot_type = Type(
-            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
+            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
             (bbox_features if CFG.env_include_bbox_features else []))
-        self._table_type = Type("table", 
-            (bbox_features if CFG.env_include_bbox_features else []))
+        self._table_type = Type(
+            "table", (bbox_features if CFG.env_include_bbox_features else []))
 
         # Predicates
         self._On = Predicate(
@@ -83,7 +83,7 @@ class BlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
-        self._Clear_abs = ConceptPredicate("Clear", [self._block_type], 
+        self._Clear_abs = ConceptPredicate("Clear", [self._block_type],
                                            self._Clear_CP_holds)
 
         # Static objects (always exist no matter the settings).
@@ -210,8 +210,8 @@ class BlocksEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._OnTable, self._GripperOpen, self._Holding,
-            self._Clear_abs if CFG.blocks_use_derived_predicates 
-            else self._Clear
+            self._Clear_abs
+            if CFG.blocks_use_derived_predicates else self._Clear
         }
 
     @property
@@ -461,8 +461,8 @@ class BlocksEnv(BaseEnv):
         block, = objects
         return self._get_held_block(state) == block
 
-    def _Clear_CP_holds(self, atoms: Set[GroundAtom], objects: Sequence[Object]
-                        ) -> bool:
+    def _Clear_CP_holds(self, atoms: Set[GroundAtom],
+                        objects: Sequence[Object]) -> bool:
         block, = objects
         for atom in atoms:
             if atom.predicate == self._On:
@@ -481,15 +481,14 @@ class BlocksEnv(BaseEnv):
                 return False
         return True
 
-    def _Clear_holds_abs(self, atoms: Set[GroundAtom], 
-                         objects: Sequence[Object]) -> bool:  
-        blocks, = objects                 
+    def _Clear_holds_abs(self, atoms: Set[GroundAtom],
+                         objects: Sequence[Object]) -> bool:
+        blocks, = objects
         for atom in atoms:
             if atom.predicate == self._On:
                 if atom.objects[1] == blocks:
                     return False
         return True
-                
 
     def _get_held_block(self, state: State) -> Optional[Object]:
         for block in state:

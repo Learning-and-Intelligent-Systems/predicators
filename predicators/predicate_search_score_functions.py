@@ -1,5 +1,4 @@
-"""Score functions used for searching over predicate and operator sets.
-"""
+"""Score functions used for searching over predicate and operator sets."""
 
 from __future__ import annotations
 
@@ -21,9 +20,9 @@ from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
     task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
-    STRIPSOperator, Task, _GroundSTRIPSOperator, ConceptPredicate
+from predicators.structs import NSRT, ConceptPredicate, GroundAtom, \
+    GroundAtomTrajectory, LowLevelTrajectory, Object, OptionSpec, Predicate, \
+    Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
 
 
 def create_score_function(
@@ -47,7 +46,7 @@ def create_score_function(
             initial_predicates, atom_dataset, candidates, train_tasks,
             ["hadd"])
     match = re.match(r"([a-z\,]+)_(\w+)_lookaheaddepth(\d+)",
-                        score_function_name)
+                     score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
@@ -144,11 +143,11 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         logging.debug(
             f"Evaluating predicates: {sorted(candidate_predicates)}," +
             f" with total cost {total_cost}")
-        # expand the set of candidate predicates to include the auxiliary 
+        # expand the set of candidate predicates to include the auxiliary
         # predicates
         # TODO: make sure it expands until no more new predicates are added
         candidates_with_aux = set(chain.from_iterable(p.auxiliary_concepts for p
-                            in candidate_predicates if 
+                            in candidate_predicates if
                                         isinstance(p, ConceptPredicate) and\
                                         p.auxiliary_concepts))
         candidates_with_aux |= candidate_predicates
@@ -156,8 +155,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
 
         start_time = time.perf_counter()
         pruned_atom_data = utils.prune_ground_atom_dataset(
-            self._atom_dataset,
-            candidates_with_aux | self._initial_predicates)
+            self._atom_dataset, candidates_with_aux | self._initial_predicates)
         segmented_trajs = [
             segment_trajectory(ll_traj, set(candidates_with_aux), atom_seq)
             for (ll_traj, atom_seq) in pruned_atom_data
@@ -203,9 +201,9 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         option_specs = [pnad.option_spec for pnad in pnads]
         try:
             op_score = self.evaluate_with_operators(candidate_predicates,
-                                                low_level_trajs,
-                                                segmented_trajs, strips_ops,
-                                                option_specs)
+                                                    low_level_trajs,
+                                                    segmented_trajs,
+                                                    strips_ops, option_specs)
         except RecursionError as e:
             logging.warning(f"Recursion error {e} in evaluating candidates: "
                             f"{candidate_predicates}")
@@ -263,8 +261,8 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
                                 option_specs: List[OptionSpec]) -> float:
         del candidate_predicates, low_level_trajs, segmented_trajs
         nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-        score_dic, _, _ = utils.count_classification_result_for_ops(nsrts, 
-                            self.succ_optn_dict, self.fail_optn_dict)
+        score_dic, _, _ = utils.count_classification_result_for_ops(
+            nsrts, self.succ_optn_dict, self.fail_optn_dict)
         # accuracy = round(
         #     (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0
         tp, tn, fp, fn, accuracy = score_dic["overall"]["tp"], \
@@ -394,11 +392,15 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
         assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
         # Make a copy of the candidate_predicates
         candidate_predicates_cp = candidate_predicates.copy()
-        concept_predicates = set([pred for pred in candidate_predicates_cp if 
-                                  isinstance(pred, ConceptPredicate)])
+        concept_predicates = set([
+            pred for pred in candidate_predicates_cp
+            if isinstance(pred, ConceptPredicate)
+        ])
         # TODO: make sure it expands until no more new predicates are added
-        concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
-                                in concept_predicates if p.auxiliary_concepts))
+        concept_predicates |= set(
+            chain.from_iterable(p.auxiliary_concepts
+                                for p in concept_predicates
+                                if p.auxiliary_concepts))
         candidate_predicates_cp |= concept_predicates
         logging.debug(f"With aux concepts: {sorted(concept_predicates)}")
 
@@ -426,8 +428,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, goal,
-                ground_nsrts, candidate_predicates_cp|self._initial_predicates,
-                objects)
+                ground_nsrts,
+                candidate_predicates_cp | self._initial_predicates, objects)
 
             # # Debug
             # if concept_predicates:
@@ -447,18 +449,21 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
             assert not CFG.sesame_use_visited_state_set
-            logging.debug(f"task: {ll_traj.train_task_idx}, init_atom: {init_atoms}, goal: {goal}")
-            generator = task_plan(init_atoms,
-                                goal,
-                                ground_nsrts,
-                                reachable_atoms,
-                                heuristic,
-                                CFG.seed,
-                                CFG.grammar_search_task_planning_timeout,
-                                max_skeletons,
-                                use_visited_state_set=False,
-                                concept_predicates=concept_predicates,
-                                task=self._train_tasks[ll_traj.train_task_idx])
+            logging.debug(
+                f"task: {ll_traj.train_task_idx}, init_atom: {init_atoms}, goal: {goal}"
+            )
+            generator = task_plan(
+                init_atoms,
+                goal,
+                ground_nsrts,
+                reachable_atoms,
+                heuristic,
+                CFG.seed,
+                CFG.grammar_search_task_planning_timeout,
+                max_skeletons,
+                use_visited_state_set=False,
+                concept_predicates=concept_predicates,
+                task=self._train_tasks[ll_traj.train_task_idx])
             try:
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):

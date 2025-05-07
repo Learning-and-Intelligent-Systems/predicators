@@ -15,26 +15,27 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.ground_truth_models import get_gt_nsrts
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
-from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
-    Type, ConceptPredicate
+from predicators.structs import NSRT, ConceptPredicate, ParameterizedOption, \
+    Predicate, Task, Type
 
 
 class OracleApproach(BilevelPlanningApproach):
     """A bilevel planning approach that uses hand-specified NSRTs."""
 
-    def __init__(self,
-                 initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption],
-                 types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task],
-                 task_planning_heuristic: str = "default",
-                 max_skeletons_optimized: int = -1,
-                 bilevel_plan_without_sim: Optional[bool] = None,
-                 nsrts: Optional[Set[NSRT]] = None,
-                 option_model: Optional[_OptionModelBase] = None,
-                 initial_concept_predicates: Set[ConceptPredicate] = set(),
-                 ) -> None:
+    def __init__(
+            self,
+            initial_predicates: Set[Predicate],
+            initial_options: Set[ParameterizedOption],
+            types: Set[Type],
+            action_space: Box,
+            train_tasks: List[Task],
+            task_planning_heuristic: str = "default",
+            max_skeletons_optimized: int = -1,
+            bilevel_plan_without_sim: Optional[bool] = None,
+            nsrts: Optional[Set[NSRT]] = None,
+            option_model: Optional[_OptionModelBase] = None,
+            initial_concept_predicates: Set[ConceptPredicate] = set(),
+    ) -> None:
         super().__init__(initial_predicates,
                          initial_options,
                          types,

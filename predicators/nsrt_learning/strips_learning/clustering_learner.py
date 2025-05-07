@@ -10,9 +10,9 @@ from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, Datastore, DummyOption, GroundAtom, \
-    GroundOptionRecord, LiftedAtom, Object, ParameterizedOption, Predicate, \
-    State, STRIPSOperator, VarToObjSub, ConceptPredicate
+from predicators.structs import PNAD, ConceptPredicate, Datastore, \
+    DummyOption, GroundAtom, GroundOptionRecord, LiftedAtom, Object, \
+    ParameterizedOption, Predicate, State, STRIPSOperator, VarToObjSub
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
@@ -151,10 +151,9 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         """Optionally postprocess to learn ignore effects."""
         _ = self  # unused, but may be used in subclasses
         return pnads
-    
+
     def _postprocessing_remove_concept_predicate_effect(
-        self, pnads: List[PNAD]
-    ) -> List[PNAD]:
+            self, pnads: List[PNAD]) -> List[PNAD]:
         """Remove the effects of concept predicates from the operators."""
         new_pnads = []
         for pnad in pnads:
@@ -277,8 +276,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                     (s, ab_s, optn_rec.optn_objs))
 
         for pnad in pnads:
-            temp_precon = self._induce_preconditions_via_intersection(
-                pnad)
+            temp_precon = self._induce_preconditions_via_intersection(pnad)
             logging.debug(f"\nPrecondition before processing: {temp_precon}")
             logging.debug(f"it's learned from {len(pnad.datastore)} segments")
             # Take the data from the other PNAD of the same option as negative
@@ -340,13 +338,16 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         score_func = functools.partial(self._score_preconditions, pnad,
                                        succ_data, fail_data)
         if CFG.precondition_search_algorithm == "gbfs":
-            path, _ = utils.run_gbfs(
-                initial_state, check_goal, self._get_precondition_successors, 
-                score_func)
+            path, _ = utils.run_gbfs(initial_state, check_goal,
+                                     self._get_precondition_successors,
+                                     score_func)
         elif CFG.precondition_search_algorithm == "hill_climbing":
             path, _, heuristics = utils.run_hill_climbing(
-                initial_state, check_goal, self._get_precondition_successors,
-                score_func, enforced_depth=5)
+                initial_state,
+                check_goal,
+                self._get_precondition_successors,
+                score_func,
+                enforced_depth=5)
             # logging.info("\nHill climbing summary:")
             # for i in range(1, len(path)):
             #     new_additions = path[i] - path[i - 1]
@@ -418,22 +419,25 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
 
             # filter the ground_ops with repeated arguments
             if CFG.sesame_filter_nsrts_with_repeated_objects:
-                # Filter ops that have the same object appear twice in its 
+                # Filter ops that have the same object appear twice in its
                 # params
-                ground_ops = [gop for gop in ground_ops
-                                if not utils.op_has_repeated_objects(gop)]
+                ground_ops = [
+                    gop for gop in ground_ops
+                    if not utils.op_has_repeated_objects(gop)
+                ]
 
-            # if any([gop.preconditions.issubset(atom_state) for gop in 
+            # if any([gop.preconditions.issubset(atom_state) for gop in
             #         ground_ops
             # ]):
-            if any(gop.preconditions.issubset(atom_state) for gop in 
-                   ground_ops):
+            if any(
+                    gop.preconditions.issubset(atom_state)
+                    for gop in ground_ops):
                 fp_states += 1
                 # fp_states.append(state)
             else:
                 tn_states += 1
                 # tn_states.append(state)
-            
+
             # Explicitly delete variables to release memory
             del ground_ops
 
@@ -468,7 +472,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
     #     for i in range(len(preconditions_sorted)):
     #         successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
     #         yield i, frozenset(successor), 1.0
-    
+
     @staticmethod
     def _get_precondition_successors(
         preconditions: FrozenSet[LiftedAtom]
@@ -478,8 +482,10 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         length = len(preconditions_sorted)
         for i in range(length):
             # Use generator expression to avoid creating intermediate lists
-            successor = (preconditions_sorted[j] for j in range(length) if j != i)
+            successor = (preconditions_sorted[j] for j in range(length)
+                         if j != i)
             yield i, frozenset(successor), 1.0
+
 
 class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,

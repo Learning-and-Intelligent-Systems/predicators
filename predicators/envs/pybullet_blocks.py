@@ -19,6 +19,7 @@ from predicators.structs import Array, EnvironmentTask, Object, Predicate, \
     State, Type
 from predicators.utils import NSPredicate, RawState, VLMQuery
 
+
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
