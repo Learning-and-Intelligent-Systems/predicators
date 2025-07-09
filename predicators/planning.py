@@ -284,8 +284,10 @@ def task_plan_grounding(
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             if allow_noops or (ground_nsrt.add_effects
-                               | ground_nsrt.delete_effects):
+                            | ground_nsrt.delete_effects):
                 ground_nsrts.append(ground_nsrt)
+                if CFG.single_grounding:
+                    break
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
     reachable_nsrts = [
         nsrt for nsrt in ground_nsrts

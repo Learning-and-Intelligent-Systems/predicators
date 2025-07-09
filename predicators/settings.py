@@ -512,6 +512,9 @@ class GlobalSettings:
     enable_harmless_op_pruning = False  # some methods may want this to be True
     precondition_soft_intersection_threshold_percent = 0.8  # between 0 and 1
     backchaining_check_intermediate_harmlessness = False
+    backward_forward_load_initial = False
+    single_grounding = False
+    pnad_search_load_initial = False
     pnad_search_without_del = False
     pnad_search_timeout = 10.0
     compute_sidelining_objective_value = False

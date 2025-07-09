@@ -1,0 +1,14 @@
+NSRT-Move0:
+    Parameters: [?x0:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), insameroomasrobot(?x0:obj_type), onfloor(?x0:obj_type)]
+    Add Effects: [inreachofrobot(?x0:obj_type)]
+    Delete Effects: []
+    Ignore Effects: [inreachofrobot]
+    Option Spec: Move()
+NSRT-Actions.open0:
+    Parameters: [?x0:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), inreachofrobot(?x0:obj_type), insameroomasrobot(?x0:obj_type), onfloor(?x0:obj_type)]
+    Add Effects: [openable(?x0:obj_type)]
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: Actions.open()

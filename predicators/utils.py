@@ -1473,7 +1473,8 @@ def _get_entity_combinations(
                 this_choices.append(ent)
         choices.append(this_choices)
     for choice in itertools.product(*choices):
-        yield list(choice)
+        if len(set(choice)) == len(choice):
+            yield list(choice)
 
 
 def get_object_combinations(objects: Collection[Object],
