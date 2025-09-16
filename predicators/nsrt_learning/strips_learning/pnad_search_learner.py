@@ -11,7 +11,8 @@ from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
+    ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator, NSRT, Variable, LiftedAtom
+import re
 
 
 class _PNADSearchOperator(abc.ABC):
@@ -101,6 +102,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         # that are unnecessary.
         new_pnads = self._learner.recompute_pnads_from_effects(
             sorted(new_pnads))
+        print(len(new_pnads))
         return new_pnads
 
     def _get_backchaining_results(
@@ -267,6 +269,70 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             pnad_map[p.option_spec[0]].append(p)
         new_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
         return new_pnads
+    
+    
+    def parse_nsrt_block(self, block: str) -> PNAD:
+        """Parses a single NSRT block into an PNAD object."""
+        lines = block.strip().split("\n")
+        
+        name_match = re.match(r"(\S+):", lines[0])
+        name = name_match.group(1) if name_match else ""
+
+        parameters = re.findall(r"\?x\d+:\w+", lines[1])
+        
+        def extract_effects(label: str) -> Set[str]:
+            """Extracts a list of predicates from labeled sections."""
+            for line in lines:
+                if line.strip().startswith(label):
+                    return set(re.findall(r"\w+\(.*?\)", line))
+            return set()
+        
+        preconditions = extract_effects("Preconditions")
+        add_effects = extract_effects("Add Effects")
+        delete_effects = extract_effects("Delete Effects")
+        ignore_effects = extract_effects("Ignore Effects")
+
+        option_spec_match = re.search(r"Option Spec:\s*(.*)", block)
+        option_spec = option_spec_match.group(1) if option_spec_match else ""
+
+        objects = set()
+        atoms = set()
+        option_specs = {}
+        for traj in self._segmented_trajs:
+            for segment in traj:
+                for state in segment.states:
+                    for k, v in state.items():
+                        objects.add(k)
+                atoms |= segment.init_atoms | segment.final_atoms
+                option_specs[segment.get_option().parent.name] = segment.get_option().parent
+        all_predicates_list = [(atom.predicate.name,atom.predicate) for atom in atoms]
+        def get_predicate(name, entities):
+            for pred_name, pred in all_predicates_list:
+                if pred_name == pred_name and pred.arity == len(entities):
+                    valid_types = True
+                    for i, ent in enumerate(entities):
+                        if ent.type != pred.types[i]:
+                            valid_types = False
+                    if valid_types:
+                        return pred
+            raise NotImplementedError
+            
+        types = {obj.type.name:obj.type for obj in objects}
+
+        def extract_parameters(predicate: str) -> Set[str]:
+            parameter_pattern = re.compile(r"\?x\d+:\w+")  # Matches variables like ?x0:obj_type
+            matches = parameter_pattern.findall(predicate)
+            return matches
+        
+        parameters = [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in parameters]
+        preconditions = set([LiftedAtom(get_predicate(pre.split("(")[0], [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in extract_parameters(pre)]), [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in extract_parameters(pre)]) for pre in preconditions])
+        add_effects = set([LiftedAtom(get_predicate(add.split("(")[0], [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in extract_parameters(add)]), [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in extract_parameters(add)]) for add in add_effects])
+        delete_effects = set([LiftedAtom(get_predicate(dle.split("(")[0], [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in extract_parameters(dle)]), [Variable(param.split(":")[0], types[param.split(":")[1]]) for param in extract_parameters(dle)]) for dle in delete_effects])
+        ignore_effects = set([get_predicate(ige, None) for ige in ignore_effects])
+        option_spec = (option_specs[option_spec.split("(")[0]], [])
+
+        nsrt = NSRT(name, parameters, preconditions, add_effects, delete_effects, ignore_effects, option_spec, [], None)
+        return PNAD(nsrt.op, [], option_spec)
 
     def _learn(self) -> List[PNAD]:
         # Set up hill-climbing search over PNAD sets.
@@ -285,6 +351,16 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 for i, child in enumerate(op.get_successors(pnads)):
                     yield (op, i), child, 1.0  # cost always 1
 
+        # Load initial pnad set
+        if CFG.pnad_search_load_initial:
+            initial_state = None
+            with open("test_saved.NSRTs.txt", "r") as file:
+                content = file.read()
+            nsrt_strs = ["NSRT-" + nsrt_str for nsrt_str in content.split("NSRT-") if nsrt_str != '']
+            pnads = [self.parse_nsrt_block(nsrt_str) for nsrt_str in nsrt_strs]
+            self._recompute_datastores_from_segments(pnads)
+            initial_state = frozenset(pnads)
+
         # Run hill-climbing search.
         path, _, _ = utils.run_hill_climbing(initial_state=initial_state,
                                              check_goal=lambda _: False,
@@ -296,6 +372,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Extract the best PNADs set.
         final_pnads = path[-1]
         sorted_final_pnads = sorted(final_pnads)
+
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PNAD]] = {
             p.option_spec[0]: []

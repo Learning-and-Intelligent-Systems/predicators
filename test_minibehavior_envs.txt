@@ -1,0 +1,24 @@
+python3 test_solve_task.py --env "MiniGrid-CollectMisplacedItems-16x16-N2-v0" --save True --seed 0
+
+[
+    'MiniGrid-BoxingBooksUpForStorage-16x16-N2-v0',
+    'MiniGrid-CleaningACar-16x16-N2-v0',
+    'MiniGrid-CleaningShoes-16x16-N2-v0', #1
+    'MiniGrid-CleaningUpTheKitchenOnly-16x16-N2-v0',
+    'MiniGrid-CollectMisplacedItems-16x16-N2-v0',
+    'MiniGrid-InstallingAPrinter-16x16-N2-v0',
+    'MiniGrid-LayingWoodFloors-16x16-N2-v0',
+    'MiniGrid-MakingTea-16x16-N2-v0',
+    'MiniGrid-MovingBoxesToStorage-16x16-N2-v0',
+    'MiniGrid-OpeningPackages-16x16-N2-v0',
+    'MiniGrid-OrganizingFileCabinet-16x16-N2-v0',
+    [DEBUG]'MiniGrid-PreparingSalad-16x16-N2-v0',
+    'MiniGrid-PuttingAwayDishesAfterCleaning-16x16-N2-v0',
+    'MiniGrid-SettingUpCandles-16x16-N2-v0', #1
+    'MiniGrid-SortingBooks-16x16-N2-v0',
+    'MiniGrid-StoringFood-16x16-N2-v0',
+    [DEBUG]'MiniGrid-ThawingFrozenFood-16x16-N2-v0',
+    'MiniGrid-ThrowingAwayLeftovers-16x16-N2-v0',
+    'MiniGrid-WashingPotsAndPans-16x16-N2-v0',
+    'MiniGrid-WateringHouseplants-16x16-N2-v0'
+]

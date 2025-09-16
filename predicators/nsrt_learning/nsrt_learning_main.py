@@ -119,7 +119,8 @@ def learn_nsrts_from_data(
     if CFG.strips_learner != "oracle" or CFG.sampler_learner != "oracle" or \
        CFG.option_learner != "no_learning":
         # Updates the PNADs in-place.
-        _learn_pnad_options(pnads, known_options, action_space)
+        if CFG.option_learner != "no_learning":
+            _learn_pnad_options(pnads, known_options, action_space)
 
     # STEP 4: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
