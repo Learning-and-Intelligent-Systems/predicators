@@ -45,7 +45,7 @@ class RandomAgent():
         self.name = name
         self.actions = None
 
-    def reset(self, task_name):
+    def reset(self, task_name, learn=False):
         pass
 
     def policy(self, obs, env):
@@ -571,7 +571,7 @@ class GroundTruthAgent(OperatorLearningAgent):
         self.i = 0
         self.actions = None
     
-    def reset(self, task_name):
+    def reset(self, task_name, learn=False):
         self.dataset = []
         self.ground_atom_dataset = []
         self.tasks = []
@@ -764,11 +764,11 @@ print("#"*30)
 print(tasks)
 
 all_agents = [
-                #GroundTruthAgent("ground-truth"),
+                GroundTruthAgent("ground-truth"),
                 #DummyAgent("dummy", strips_learner="dummy"),
                 #OperatorLearningAgent("cluster-intersect", strips_learner="cluster_and_intersect"),
                 #OperatorLearningAgent("backchaining", strips_learner="backchaining"),
-                OperatorLearningAgent("hill-climbing", strips_learner="pnad_search"),
+                #OperatorLearningAgent("hill-climbing", strips_learner="pnad_search"),
                 #OperatorLearningAgent("llm", strips_learner="llm"),
                 #OperatorLearningAgent("backward-forward", strips_learner="backward-forward"),
             ]
