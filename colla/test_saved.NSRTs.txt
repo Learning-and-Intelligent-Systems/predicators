@@ -1,0 +1,91 @@
+NSRT-Op4:
+    Parameters: [?x0:obj_type, ?x1:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x1:obj_type, ?x1:obj_type), onfloor(?x0:obj_type), onfloor(?x1:obj_type), ~inreachofrobot(?x1:obj_type), ~insameroomasrobot(?x0:obj_type), ~insameroomasrobot(?x1:obj_type)]
+    Add Effects: [inreachofrobot(?x1:obj_type), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:obj_type)]
+    Delete Effects: [~inreachofrobot(?x1:obj_type), ~insameroomasrobot(?x0:obj_type), ~insameroomasrobot(?x1:obj_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op5:
+    Parameters: [?x0:obj_type, ?x1:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x1:obj_type, ?x1:obj_type), inhandofrobot(?x0:obj_type), inreachofrobot(?x0:obj_type), inreachofrobot(?x1:obj_type), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:obj_type), onfloor(?x1:obj_type), ~atsamelocation(?x0:obj_type, ?x1:obj_type), ~atsamelocation(?x1:obj_type, ?x0:obj_type), ~onTop(?x0:obj_type, ?x1:obj_type), ~onfloor(?x0:obj_type)]
+    Add Effects: [atsamelocation(?x0:obj_type, ?x1:obj_type), atsamelocation(?x1:obj_type, ?x0:obj_type), handempty(), onTop(?x0:obj_type, ?x1:obj_type), onfloor(?x0:obj_type), ~inhandofrobot(?x0:obj_type)]
+    Delete Effects: [inhandofrobot(?x0:obj_type), ~atsamelocation(?x0:obj_type, ?x1:obj_type), ~atsamelocation(?x1:obj_type, ?x0:obj_type), ~onTop(?x0:obj_type, ?x1:obj_type), ~onfloor(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Actions.drop_2()
+NSRT-Op1:
+    Parameters: [?x0:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), handempty(), inreachofrobot(?x0:obj_type), insameroomasrobot(?x0:obj_type), onfloor(?x0:obj_type), ~openable(?x0:obj_type)]
+    Add Effects: [openable(?x0:obj_type)]
+    Delete Effects: [~openable(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Actions.open()
+NSRT-Op11:
+    Parameters: [?x0:obj_type, ?x1:obj_type, ?x2:surface_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x0:obj_type, ?x2:surface_type), atsamelocation(?x1:obj_type, ?x1:obj_type), atsamelocation(?x1:obj_type, ?x2:surface_type), atsamelocation(?x2:surface_type, ?x0:obj_type), atsamelocation(?x2:surface_type, ?x1:obj_type), atsamelocation(?x2:surface_type, ?x2:surface_type), handempty(), inreachofrobot(?x0:obj_type), inreachofrobot(?x2:surface_type), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:obj_type), insameroomasrobot(?x2:surface_type), nextto(?x0:obj_type, ?x1:obj_type), nextto(?x1:obj_type, ?x0:obj_type), onTop(?x0:obj_type, ?x2:surface_type), onTop(?x1:obj_type, ?x2:surface_type), onfloor(?x0:obj_type), onfloor(?x1:obj_type), onfloor(?x2:surface_type), ~inhandofrobot(?x0:obj_type)]
+    Add Effects: [inhandofrobot(?x0:obj_type), ~atsamelocation(?x0:obj_type, ?x2:surface_type), ~atsamelocation(?x2:surface_type, ?x0:obj_type), ~nextto(?x0:obj_type, ?x1:obj_type), ~nextto(?x1:obj_type, ?x0:obj_type), ~onTop(?x0:obj_type, ?x2:surface_type), ~onfloor(?x0:obj_type)]
+    Delete Effects: [atsamelocation(?x0:obj_type, ?x2:surface_type), atsamelocation(?x2:surface_type, ?x0:obj_type), handempty(), nextto(?x0:obj_type, ?x1:obj_type), nextto(?x1:obj_type, ?x0:obj_type), onTop(?x0:obj_type, ?x2:surface_type), onfloor(?x0:obj_type), ~inhandofrobot(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Actions.pickup_2()
+NSRT-Op12:
+    Parameters: [?x0:obj_type, ?x1:surface_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x1:surface_type, ?x1:surface_type), inreachofrobot(?x1:surface_type), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:surface_type), onfloor(?x0:obj_type), onfloor(?x1:surface_type), ~inreachofrobot(?x0:obj_type)]
+    Add Effects: [inreachofrobot(?x0:obj_type), ~inreachofrobot(?x1:surface_type)]
+    Delete Effects: [inreachofrobot(?x1:surface_type), ~inreachofrobot(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op2:
+    Parameters: [?x0:obj_type, ?x1:obj_type, ?x2:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x1:obj_type, ?x1:obj_type), atsamelocation(?x2:obj_type, ?x2:obj_type), handempty(), insameroomasrobot(?x1:obj_type), insameroomasrobot(?x2:obj_type), onfloor(?x0:obj_type), onfloor(?x1:obj_type), onfloor(?x2:obj_type), ~atsamelocation(?x0:obj_type, ?x2:obj_type), ~atsamelocation(?x2:obj_type, ?x0:obj_type), ~inhandofrobot(?x0:obj_type), ~inreachofrobot(?x0:obj_type), ~inreachofrobot(?x2:obj_type), ~insameroomasrobot(?x0:obj_type), ~onTop(?x0:obj_type, ?x2:obj_type)]
+    Add Effects: [inreachofrobot(?x0:obj_type), insameroomasrobot(?x0:obj_type), ~insameroomasrobot(?x1:obj_type), ~insameroomasrobot(?x2:obj_type)]
+    Delete Effects: [insameroomasrobot(?x1:obj_type), insameroomasrobot(?x2:obj_type), ~inreachofrobot(?x0:obj_type), ~insameroomasrobot(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op3:
+    Parameters: [?x0:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), handempty(), inreachofrobot(?x0:obj_type), insameroomasrobot(?x0:obj_type), onfloor(?x0:obj_type), ~inhandofrobot(?x0:obj_type)]
+    Add Effects: [inhandofrobot(?x0:obj_type), ~onfloor(?x0:obj_type)]
+    Delete Effects: [handempty(), onfloor(?x0:obj_type), ~inhandofrobot(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Actions.pickup_0()
+NSRT-Op6:
+    Parameters: [?x0:obj_type, ?x1:obj_type, ?x2:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x0:obj_type, ?x1:obj_type), atsamelocation(?x0:obj_type, ?x2:obj_type), atsamelocation(?x1:obj_type, ?x0:obj_type), atsamelocation(?x1:obj_type, ?x1:obj_type), atsamelocation(?x1:obj_type, ?x2:obj_type), atsamelocation(?x2:obj_type, ?x0:obj_type), atsamelocation(?x2:obj_type, ?x1:obj_type), atsamelocation(?x2:obj_type, ?x2:obj_type), handempty(), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:obj_type), insameroomasrobot(?x2:obj_type), onTop(?x1:obj_type, ?x0:obj_type), onTop(?x1:obj_type, ?x2:obj_type), onTop(?x2:obj_type, ?x0:obj_type), onfloor(?x0:obj_type), onfloor(?x1:obj_type), onfloor(?x2:obj_type), under(?x2:obj_type, ?x1:obj_type), ~inhandofrobot(?x1:obj_type), ~inreachofrobot(?x0:obj_type), ~inreachofrobot(?x1:obj_type), ~inreachofrobot(?x2:obj_type)]
+    Add Effects: [inreachofrobot(?x0:obj_type), inreachofrobot(?x1:obj_type), inreachofrobot(?x2:obj_type)]
+    Delete Effects: [~inreachofrobot(?x0:obj_type), ~inreachofrobot(?x1:obj_type), ~inreachofrobot(?x2:obj_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op9:
+    Parameters: [?x0:surface_type, ?x1:obj_type]
+    Preconditions: [atsamelocation(?x0:surface_type, ?x0:surface_type), atsamelocation(?x1:obj_type, ?x1:obj_type), inhandofrobot(?x1:obj_type), inreachofrobot(?x0:surface_type), inreachofrobot(?x1:obj_type), insameroomasrobot(?x0:surface_type), insameroomasrobot(?x1:obj_type), onfloor(?x0:surface_type), ~atsamelocation(?x0:surface_type, ?x1:obj_type), ~atsamelocation(?x1:obj_type, ?x0:surface_type), ~inside(?x1:obj_type, ?x0:surface_type), ~onTop(?x0:surface_type, ?x1:obj_type), ~onfloor(?x1:obj_type)]
+    Add Effects: [atsamelocation(?x0:surface_type, ?x1:obj_type), atsamelocation(?x1:obj_type, ?x0:surface_type), handempty(), inside(?x1:obj_type, ?x0:surface_type), onTop(?x0:surface_type, ?x1:obj_type), onfloor(?x1:obj_type), ~inhandofrobot(?x1:obj_type)]
+    Delete Effects: [inhandofrobot(?x1:obj_type), ~atsamelocation(?x0:surface_type, ?x1:obj_type), ~atsamelocation(?x1:obj_type, ?x0:surface_type), ~inside(?x1:obj_type, ?x0:surface_type), ~onTop(?x0:surface_type, ?x1:obj_type), ~onfloor(?x1:obj_type)]
+    Ignore Effects: []
+    Option Spec: Actions.drop_in()
+NSRT-Op0:
+    Parameters: [?x0:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), insameroomasrobot(?x0:obj_type), onfloor(?x0:obj_type), ~inreachofrobot(?x0:obj_type)]
+    Add Effects: [inreachofrobot(?x0:obj_type)]
+    Delete Effects: [~inreachofrobot(?x0:obj_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op10:
+    Parameters: [?x0:obj_type, ?x1:surface_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x0:obj_type, ?x1:surface_type), atsamelocation(?x1:surface_type, ?x0:obj_type), atsamelocation(?x1:surface_type, ?x1:surface_type), handempty(), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:surface_type), onTop(?x0:obj_type, ?x1:surface_type), onfloor(?x0:obj_type), onfloor(?x1:surface_type), ~inhandofrobot(?x0:obj_type), ~inreachofrobot(?x0:obj_type), ~inreachofrobot(?x1:surface_type)]
+    Add Effects: [inreachofrobot(?x0:obj_type), inreachofrobot(?x1:surface_type)]
+    Delete Effects: [~inreachofrobot(?x0:obj_type), ~inreachofrobot(?x1:surface_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op8:
+    Parameters: [?x0:surface_type, ?x1:obj_type, ?x2:obj_type]
+    Preconditions: [atsamelocation(?x0:surface_type, ?x0:surface_type), atsamelocation(?x1:obj_type, ?x1:obj_type), atsamelocation(?x1:obj_type, ?x2:obj_type), atsamelocation(?x2:obj_type, ?x1:obj_type), atsamelocation(?x2:obj_type, ?x2:obj_type), inreachofrobot(?x1:obj_type), inreachofrobot(?x2:obj_type), insameroomasrobot(?x0:surface_type), insameroomasrobot(?x1:obj_type), insameroomasrobot(?x2:obj_type), onTop(?x2:obj_type, ?x1:obj_type), onfloor(?x0:surface_type), onfloor(?x1:obj_type), onfloor(?x2:obj_type), ~inreachofrobot(?x0:surface_type)]
+    Add Effects: [inreachofrobot(?x0:surface_type), ~inreachofrobot(?x1:obj_type), ~inreachofrobot(?x2:obj_type)]
+    Delete Effects: [inreachofrobot(?x1:obj_type), inreachofrobot(?x2:obj_type), ~inreachofrobot(?x0:surface_type)]
+    Ignore Effects: []
+    Option Spec: Move()
+NSRT-Op7:
+    Parameters: [?x0:obj_type, ?x1:obj_type, ?x2:obj_type, ?x3:obj_type, ?x4:obj_type]
+    Preconditions: [atsamelocation(?x0:obj_type, ?x0:obj_type), atsamelocation(?x0:obj_type, ?x1:obj_type), atsamelocation(?x0:obj_type, ?x2:obj_type), atsamelocation(?x0:obj_type, ?x3:obj_type), atsamelocation(?x0:obj_type, ?x4:obj_type), atsamelocation(?x1:obj_type, ?x0:obj_type), atsamelocation(?x1:obj_type, ?x1:obj_type), atsamelocation(?x1:obj_type, ?x4:obj_type), atsamelocation(?x2:obj_type, ?x0:obj_type), atsamelocation(?x2:obj_type, ?x2:obj_type), atsamelocation(?x2:obj_type, ?x3:obj_type), atsamelocation(?x3:obj_type, ?x0:obj_type), atsamelocation(?x3:obj_type, ?x2:obj_type), atsamelocation(?x3:obj_type, ?x3:obj_type), atsamelocation(?x4:obj_type, ?x0:obj_type), atsamelocation(?x4:obj_type, ?x1:obj_type), atsamelocation(?x4:obj_type, ?x4:obj_type), handempty(), inreachofrobot(?x0:obj_type), inreachofrobot(?x2:obj_type), inreachofrobot(?x3:obj_type), insameroomasrobot(?x0:obj_type), insameroomasrobot(?x1:obj_type), insameroomasrobot(?x2:obj_type), insameroomasrobot(?x3:obj_type), insameroomasrobot(?x4:obj_type), nextto(?x1:obj_type, ?x2:obj_type), nextto(?x1:obj_type, ?x3:obj_type), nextto(?x2:obj_type, ?x1:obj_type), nextto(?x2:obj_type, ?x4:obj_type), nextto(?x3:obj_type, ?x1:obj_type), nextto(?x3:obj_type, ?x4:obj_type), nextto(?x4:obj_type, ?x2:obj_type), nextto(?x4:obj_type, ?x3:obj_type), onTop(?x1:obj_type, ?x0:obj_type), onTop(?x1:obj_type, ?x4:obj_type), onTop(?x2:obj_type, ?x0:obj_type), onTop(?x2:obj_type, ?x3:obj_type), onTop(?x3:obj_type, ?x0:obj_type), onTop(?x4:obj_type, ?x0:obj_type), onfloor(?x0:obj_type), onfloor(?x1:obj_type), onfloor(?x2:obj_type), onfloor(?x3:obj_type), onfloor(?x4:obj_type), under(?x3:obj_type, ?x2:obj_type), under(?x4:obj_type, ?x1:obj_type), ~inhandofrobot(?x2:obj_type)]
+    Add Effects: [inhandofrobot(?x2:obj_type), ~atsamelocation(?x0:obj_type, ?x2:obj_type), ~atsamelocation(?x2:obj_type, ?x0:obj_type), ~atsamelocation(?x2:obj_type, ?x3:obj_type), ~atsamelocation(?x3:obj_type, ?x2:obj_type), ~nextto(?x1:obj_type, ?x2:obj_type), ~nextto(?x2:obj_type, ?x1:obj_type), ~nextto(?x2:obj_type, ?x4:obj_type), ~nextto(?x4:obj_type, ?x2:obj_type), ~onTop(?x2:obj_type, ?x0:obj_type), ~onTop(?x2:obj_type, ?x3:obj_type), ~onfloor(?x2:obj_type), ~under(?x3:obj_type, ?x2:obj_type)]
+    Delete Effects: [atsamelocation(?x0:obj_type, ?x2:obj_type), atsamelocation(?x2:obj_type, ?x0:obj_type), atsamelocation(?x2:obj_type, ?x3:obj_type), atsamelocation(?x3:obj_type, ?x2:obj_type), handempty(), nextto(?x1:obj_type, ?x2:obj_type), nextto(?x2:obj_type, ?x1:obj_type), nextto(?x2:obj_type, ?x4:obj_type), nextto(?x4:obj_type, ?x2:obj_type), onTop(?x2:obj_type, ?x0:obj_type), onTop(?x2:obj_type, ?x3:obj_type), onfloor(?x2:obj_type), under(?x3:obj_type, ?x2:obj_type), ~inhandofrobot(?x2:obj_type)]
+    Ignore Effects: []
+    Option Spec: Actions.pickup_2()
