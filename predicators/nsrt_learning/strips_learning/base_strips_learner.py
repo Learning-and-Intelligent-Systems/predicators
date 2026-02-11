@@ -185,12 +185,15 @@ class BaseSTRIPSLearner(abc.ABC):
                 continue
             objects = set(seg_traj[0].states[0])
             for segment in seg_traj:
+                print(f"Finding best matching PNAD for segment")
                 best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
                     segment, objects, pnads, check_only_preconditions, check_assertion, any_matching)
+                print(f"Best matching Substitution: {best_sub}")
                 if best_pnad is not None:
                     assert best_sub is not None
                     best_pnad.add_to_datastore((segment, best_sub),
                                                check_effect_equality=False)
+        print("Finished recomputing datastores...")
 
     def _find_best_matching_pnad_and_sub(
         self,
@@ -234,6 +237,10 @@ class BaseSTRIPSLearner(abc.ABC):
             if param_opt != segment_param_option:
                 if not any_matching:
                     continue
+            #####
+            if len(pnad.op.parameters) > CFG.max_operator_arity:
+                continue
+            #####
             isub = dict(zip(opt_vars, segment_option_objs))
             if segment in pnad.seg_to_keep_effects_sub:
                 # If there are any variables only in the keep effects,

@@ -515,6 +515,7 @@ class GlobalSettings:
     backward_forward_load_initial = False
     single_grounding = False
     pnad_search_load_initial = False
+    max_operator_arity = 4  # maximum number of parameters allowed per operator
     pnad_search_without_del = False
     pnad_search_timeout = 10.0
     compute_sidelining_objective_value = False

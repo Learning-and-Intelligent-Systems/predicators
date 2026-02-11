@@ -1,7 +1,0 @@
-NSRT-Move0:
-    Parameters: [?x0:obj_type]
-    Preconditions: []
-    Add Effects: [inreachofrobot(?x0:obj_type)]
-    Delete Effects: [~inreachofrobot(?x0:obj_type)]
-    Ignore Effects: [inreachofrobot, ~inreachofrobot]
-    Option Spec: Move()
