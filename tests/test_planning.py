@@ -350,6 +350,7 @@ def test_sesame_check_static_object_changes():
 def test_planning_determinism():
     """Tests that planning is deterministic when there are multiple ways of
     achieving a goal."""
+    utils.reset_config({"env": "cover"})
     robot_type = Type("robot_type", ["asleep", "cried"])
     robot_var = robot_type("?robot")
     robby = robot_type("robby")

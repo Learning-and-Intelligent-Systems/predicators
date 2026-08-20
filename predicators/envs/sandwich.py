@@ -85,7 +85,7 @@ class SandwichEnv(BaseEnv):
     on_tol: ClassVar[float] = 0.01
     pick_tol: ClassVar[float] = 0.0001
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -580,7 +580,10 @@ class SandwichEnv(BaseEnv):
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, _ = objects
-        return self._get_held_object(state) == obj
+        held_obj = self._get_held_object(state)
+        if held_obj is None:
+            return False
+        return held_obj == obj
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -834,7 +837,7 @@ class SandwichEnvClear(SandwichEnv):
     the predicates are a function of only their argument's states.
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Add attribute.

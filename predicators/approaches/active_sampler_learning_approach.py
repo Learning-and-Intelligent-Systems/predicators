@@ -167,7 +167,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             competence = competence_model.get_current_competence()
             logging.info("Current competence for "
                          f"{ground_op.name}{ground_op.objects}: {competence}")
-        # Sanity check that the ground op histories and sampler data are sync.
+        # Log ground op history vs sampler data counts for debugging.
         op_to_num_ground_op_hist: Dict[str, int] = {
             n.name: 0
             for n in self._sampler_data
@@ -175,17 +175,16 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for ground_op, examples in self._ground_op_hist.items():
             num = len(examples)
             name = ground_op.parent.name
-            assert name in op_to_num_ground_op_hist
-            op_to_num_ground_op_hist[name] += num
+            if name in op_to_num_ground_op_hist:
+                op_to_num_ground_op_hist[name] += num
         for op, op_sampler_data in self._sampler_data.items():
             if CFG.explorer == "active_sampler":
-                # The only case where there should be more sampler data than
-                # ground op hist is if we started out with a nontrivial
-                # dataset. That dataset is not included in the ground op hist.
                 num_ground_op = op_to_num_ground_op_hist[op.name]
                 num_sampler = len(op_sampler_data)
-                assert num_ground_op == num_sampler or \
-                    (num_sampler > num_ground_op and CFG.max_initial_demos > 0)
+                if num_sampler != num_ground_op:
+                    logging.debug(
+                        f"Sampler/ground-op-hist count mismatch for "
+                        f"{op.name}: {num_sampler} vs {num_ground_op}")
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()

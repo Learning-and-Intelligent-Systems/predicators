@@ -16,19 +16,20 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
-    Optional, Sequence, Set, Tuple
+from typing import Any, Callable, Collection, Dict, FrozenSet, Iterator, \
+    List, Optional, Sequence, Set, Tuple, Union, cast
 
 import numpy as np
+from tqdm.auto import tqdm  # type: ignore[import-untyped]
 
 from predicators import utils
 from predicators.option_model import _OptionModelBase
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
-    DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
+from predicators.structs import NSRT, AbstractPolicy, CausalProcess, \
+    DefaultState, GroundAtom, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option
+    _GroundCausalProcess, _GroundNSRT, _GroundSTRIPSOperator, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -59,7 +60,7 @@ def sesame_plan(
     max_policy_guided_rollout: int = 0,
     refinement_estimator: Optional[BaseRefinementEstimator] = None,
     check_dr_reachable: bool = True,
-    allow_noops: bool = False,
+    allow_waits: bool = False,
     use_visited_state_set: bool = False
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """Run bilevel planning.
@@ -77,7 +78,7 @@ def sesame_plan(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
             abstract_policy, max_policy_guided_rollout, refinement_estimator,
-            check_dr_reachable, allow_noops, use_visited_state_set)
+            check_dr_reachable, allow_waits, use_visited_state_set)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -119,11 +120,12 @@ def _sesame_plan_with_astar(
     max_policy_guided_rollout: int = 0,
     refinement_estimator: Optional[BaseRefinementEstimator] = None,
     check_dr_reachable: bool = True,
-    allow_noops: bool = False,
+    allow_waits: bool = False,
     use_visited_state_set: bool = False
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
+    logging.debug(f"Initial atoms: {init_atoms}")
     objects = list(task.init)
     start_time = time.perf_counter()
     ground_nsrts = sesame_ground_nsrts(task, init_atoms, nsrts, objects,
@@ -142,7 +144,7 @@ def _sesame_plan_with_astar(
         # that we need to do this inside the while True here, because an NSRT
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
         reachable_nsrts = filter_nsrts(task, init_atoms, ground_nsrts,
-                                       check_dr_reachable, allow_noops)
+                                       check_dr_reachable, allow_waits)
         heuristic = utils.create_task_planning_heuristic(
             task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
             predicates, objects)
@@ -170,6 +172,8 @@ def _sesame_plan_with_astar(
                            key=lambda s: estimator.get_cost(task, *s)))
             refinement_start_time = time.perf_counter()
             for skeleton, atoms_sequence in gen:
+                logging.debug(
+                    f"Found skeleton: {[n.short_str for n in skeleton]}")
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
                         skeleton, atoms_sequence, task.goal)
@@ -194,6 +198,9 @@ def _sesame_plan_with_astar(
                     return plan, skeleton, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
+                    logging.debug("Exiting search due to timeout.")
+                    logging.debug(
+                        f"Partial refinements: {partial_refinements}")
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
@@ -247,13 +254,13 @@ def filter_nsrts(
     init_atoms: Set[GroundAtom],
     ground_nsrts: List[_GroundNSRT],
     check_dr_reachable: bool = True,
-    allow_noops: bool = False,
+    allow_waits: bool = False,
 ) -> List[_GroundNSRT]:
     """Helper function for _sesame_plan_with_astar(); optionally filter out
     NSRTs with empty effects and/or those that are unreachable."""
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts
-        if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
+        if allow_waits or (nsrt.add_effects | nsrt.delete_effects)
     ]
     all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
                                                     init_atoms)
@@ -269,9 +276,10 @@ def filter_nsrts(
 def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    nsrts: Collection[NSRT],
-    allow_noops: bool = False,
-) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
+    nsrts: Collection[Union[NSRT, CausalProcess]],
+    allow_waits: bool = False,
+    compute_reachable_atoms: bool = True,
+) -> Tuple[List[Union[_GroundNSRT, _GroundCausalProcess]], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
     filtering out ones that are unreachable or have empty effects.
 
@@ -283,15 +291,22 @@ def task_plan_grounding(
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            if allow_noops or (ground_nsrt.add_effects
+            if allow_waits or (ground_nsrt.add_effects
                                | ground_nsrt.delete_effects):
                 ground_nsrts.append(ground_nsrt)
-    reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
-    reachable_nsrts = [
-        nsrt for nsrt in ground_nsrts
-        if nsrt.preconditions.issubset(reachable_atoms)
-    ]
-    return reachable_nsrts, reachable_atoms
+    if compute_reachable_atoms:
+        reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
+    else:
+        reachable_atoms = set()
+
+    if CFG.planning_filter_unreachable_nsrt:
+        reachable_nsrts = [
+            nsrt for nsrt in ground_nsrts
+            if nsrt.preconditions.issubset(reachable_atoms)
+        ]
+    else:
+        reachable_nsrts = ground_nsrts
+    return reachable_nsrts, reachable_atoms  # type: ignore[return-value]
 
 
 def task_plan(
@@ -460,12 +475,13 @@ def _skeleton_generator(
             # Generate primitive successors.
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
-                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+                child_atoms = utils.apply_operator(nsrt, set(
+                    node.atoms))  # type: ignore[type-var]
                 if use_visited_state_set:
                     frozen_atoms = frozenset(child_atoms)
                     if frozen_atoms in visited_atom_sets:
                         continue
-                child_skeleton = node.skeleton + [nsrt]
+                child_skeleton = (node.skeleton + [nsrt])  # type: ignore
                 child_skeleton_tup = tuple(child_skeleton)
                 if child_skeleton_tup in visited_skeletons:  # pragma: no cover
                     continue
@@ -491,6 +507,173 @@ def _skeleton_generator(
     raise _SkeletonSearchTimeout
 
 
+def run_backtracking_refinement(
+    init_state: State,
+    option_model: _OptionModelBase,
+    n_steps: int,
+    max_tries: List[int],
+    sample_fn: Callable[[int, State, np.random.Generator], _Option],
+    validate_fn: Callable[[int, State, _Option, State, int], Tuple[bool, str]],
+    rng: np.random.Generator,
+    timeout: float,
+    on_env_failure: Optional[Callable[[int, _Option, EnvironmentFailure],
+                                      None]] = None,
+    on_step_fail: Optional[Callable[[int, List[Optional[_Option]], str],
+                                    None]] = None,
+    on_exhausted: Optional[Callable[[List[Optional[_Option]]], None]] = None,
+    step_times: Optional[List[float]] = None,
+    step_samples_cumulative: Optional[List[int]] = None,
+    termination_reason: Optional[List[str]] = None,
+    elapsed_holder: Optional[List[float]] = None,
+    progress_bar: Optional[bool] = None,
+) -> Tuple[List[Optional[_Option]], bool, int]:
+    """Backtracking search over continuous parameters.
+
+    Core loop shared by SeSamE low-level search and agent bilevel
+    refinement.  Samples options via ``sample_fn``, executes them through
+    ``option_model``, and validates transitions via ``validate_fn``.
+    Backtracks when a step exhausts its sampling budget.
+
+    Returns ``(plan, success, total_samples)`` where plan entries are
+    ``None`` for unrefined steps.
+
+    Callbacks ``on_env_failure``, ``on_step_fail``, and ``on_exhausted``
+    may raise to abort the search (e.g. for failure propagation).
+
+    Optional mutable output containers (same pattern as ``step_times``):
+    ``step_samples_cumulative[i]`` accumulates every attempt at step i
+    across backtracks (the in-loop ``num_tries_arr`` resets on
+    backtrack, so it only reflects the live frontier).
+    ``termination_reason`` is set to ``"success"``, ``"timeout"`` or
+    ``"exhausted"`` on exit.  ``elapsed_holder[0]`` is set to total
+    wall-clock seconds.
+    """
+    start_time = time.perf_counter()
+    cur_idx = 0
+    num_tries_arr = [0] * n_steps
+    plan: List[Optional[_Option]] = [None] * n_steps
+    traj: List[Optional[State]] = [init_state] + [None] * n_steps
+    total_samples = 0
+    backtrack_count = 0
+    max_depth = 0
+
+    use_bar = (CFG.refinement_progress_bar
+               if progress_bar is None else progress_bar)
+    progress: Optional[tqdm] = None
+    prev_root_level: Optional[int] = None
+    if use_bar:
+        # Suppress refinement chatter on all handlers (terminal + log
+        # files) for the duration of the search; the progress bar replaces
+        # it. Raise above ERROR so warnings (state reconstruction drift,
+        # BiRRT fallbacks) and error-level lines (collision warnings that
+        # the search recovers from) are also hidden; CRITICAL still passes.
+        root_logger = logging.getLogger()
+        prev_root_level = root_logger.level
+        root_logger.setLevel(logging.CRITICAL)
+        progress = tqdm(total=n_steps,
+                        desc="Refinement",
+                        leave=False,
+                        dynamic_ncols=True)
+
+    def _update_bar() -> None:
+        if progress is None:
+            return
+        progress.n = max_depth
+        progress.set_postfix_str(
+            f"step={cur_idx}/{n_steps} samples={total_samples} "
+            f"backtracks={backtrack_count}",
+            refresh=False)
+        progress.refresh()
+
+    def _finish(reason: str) -> None:
+        if termination_reason is not None:
+            termination_reason.clear()
+            termination_reason.append(reason)
+        if elapsed_holder is not None:
+            elapsed_holder.clear()
+            elapsed_holder.append(time.perf_counter() - start_time)
+
+    try:
+        while cur_idx < n_steps:
+            if time.perf_counter() - start_time > timeout:
+                logging.debug(
+                    "Backtracking refinement timed out at step "
+                    "%d/%d.", cur_idx, n_steps)
+                _finish("timeout")
+                return plan, False, total_samples
+
+            attempt_start = time.perf_counter()
+            num_tries_arr[cur_idx] += 1
+            total_samples += 1
+            if step_samples_cumulative is not None:
+                step_samples_cumulative[cur_idx] += 1
+            state = traj[cur_idx]
+            assert state is not None
+
+            option = sample_fn(cur_idx, state, rng)
+            plan[cur_idx] = option
+
+            can_continue = False
+            fail_reason = "not initiable"
+
+            if option.initiable(state):
+                try:
+                    next_state, num_actions = \
+                        option_model.get_next_state_and_num_actions(
+                            state, option)
+                except EnvironmentFailure as e:
+                    fail_reason = f"env failure: {e}"
+                    if on_env_failure is not None:
+                        on_env_failure(cur_idx, option, e)
+                else:
+                    if num_actions == 0:
+                        fail_reason = (getattr(option_model,
+                                               'last_execution_failure', None)
+                                       or "0 actions")
+                    else:
+                        traj[cur_idx + 1] = next_state
+                        can_continue, fail_reason = validate_fn(
+                            cur_idx, state, option, next_state, num_actions)
+
+            if step_times is not None:
+                step_times[cur_idx] += time.perf_counter() - attempt_start
+
+            if can_continue:
+                cur_idx += 1
+                if cur_idx > max_depth:
+                    max_depth = cur_idx
+                _update_bar()
+            else:
+                logging.debug("  Step %d/%d FAIL (attempt %d/%d): %s", cur_idx,
+                              n_steps, num_tries_arr[cur_idx],
+                              max_tries[cur_idx], fail_reason)
+                if on_step_fail is not None:
+                    on_step_fail(cur_idx, plan, fail_reason)
+                while num_tries_arr[cur_idx] >= max_tries[cur_idx]:
+                    logging.debug(
+                        "  Step %d/%d exhausted %d samples, "
+                        "backtracking", cur_idx, n_steps, max_tries[cur_idx])
+                    num_tries_arr[cur_idx] = 0
+                    plan[cur_idx] = None
+                    traj[cur_idx + 1] = None
+                    cur_idx -= 1
+                    backtrack_count += 1
+                    if cur_idx < 0:
+                        if on_exhausted is not None:
+                            on_exhausted(plan)
+                        _finish("exhausted")
+                        return plan, False, total_samples
+                _update_bar()
+
+        _finish("success")
+        return plan, True, total_samples
+    finally:
+        if progress is not None:
+            progress.close()
+        if prev_root_level is not None:
+            logging.getLogger().setLevel(prev_root_level)
+
+
 def run_low_level_search(
     task: Task,
     option_model: _OptionModelBase,
@@ -510,167 +693,139 @@ def run_low_level_search(
     failed refinement, where the last step did not satisfy the skeleton,
     but all previous steps did. Note that there are multiple low-level
     plans in general; we return the first one found (arbitrarily).
+
+    Delegates to ``run_backtracking_refinement`` for the core loop.
     """
-    start_time = time.perf_counter()
-    rng_sampler = np.random.default_rng(seed)
+    if not skeleton:
+        return [], True
+
     assert CFG.sesame_propagate_failures in \
         {"after_exhaust", "immediately", "never"}
-    cur_idx = 0
-    num_tries = [0 for _ in skeleton]
-    # Optimization: if the params_space for the NSRT option is empty, only
-    # sample it once, because all samples are just empty (so equivalent).
+
+    rng = np.random.default_rng(seed)
+    n = len(skeleton)
     max_tries = [
         CFG.sesame_max_samples_per_step
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
     ]
-    plan: List[_Option] = [DummyOption for _ in skeleton]
-    # If refinement_time list is passed, record the refinement time
-    # distributed across each step of the skeleton
+
+    # Per-step timing
     if refinement_time is not None:
         assert len(refinement_time) == 0
         for _ in skeleton:
             refinement_time.append(0)
-    # The number of actions taken by each option in the plan. This is to
-    # make sure that we do not exceed the task horizon.
-    num_actions_per_option = [0 for _ in plan]
-    traj: List[State] = [task.init] + [DefaultState for _ in skeleton]
+
+    # State captured by closures
+    discovered_failures: List[Optional[_DiscoveredFailure]] = [None] * n
     longest_failed_refinement: List[_Option] = []
-    # We'll use a maximum of one discovered failure per step, since
-    # resampling can render old discovered failures obsolete.
-    discovered_failures: List[Optional[_DiscoveredFailure]] = [
-        None for _ in skeleton
-    ]
-    plan_found = False
-    while cur_idx < len(skeleton):
-        if time.perf_counter() - start_time > timeout:
-            return longest_failed_refinement, False
-        assert num_tries[cur_idx] < max_tries[cur_idx]
-        try_start_time = time.perf_counter()
-        # Good debug point #2: if you have a skeleton that you think is
-        # reasonable, but sampling isn't working, print num_tries here to
-        # see at what step the backtracking search is getting stuck.
-        num_tries[cur_idx] += 1
-        state = traj[cur_idx]
-        nsrt = skeleton[cur_idx]
-        # Ground the NSRT's ParameterizedOption into an _Option.
-        # This invokes the NSRT's sampler.
-        option = nsrt.sample_option(state, task.goal, rng_sampler)
-        plan[cur_idx] = option
-        # Increment num_samples metric by 1
+    num_actions_per_option = [0] * n
+
+    # -- callbacks --------------------------------------------------------
+
+    def sample_fn(idx: int, state: State,
+                  rng_: np.random.Generator) -> _Option:
+        discovered_failures[idx] = None
         metrics["num_samples"] += 1
-        # Increment cur_idx. It will be decremented later on if we get stuck.
-        cur_idx += 1
-        if option.initiable(state):
-            try:
-                next_state, num_actions = \
-                    option_model.get_next_state_and_num_actions(state, option)
-            except EnvironmentFailure as e:
-                can_continue_on = False
-                # Remember only the most recent failure.
-                discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
-            else:  # an EnvironmentFailure was not raised
-                discovered_failures[cur_idx - 1] = None
-                num_actions_per_option[cur_idx - 1] = num_actions
-                traj[cur_idx] = next_state
-                # Check if objects that were outside the scope had a change
-                # in state.
-                static_obj_changed = False
-                if CFG.sesame_check_static_object_changes:
-                    static_objs = set(state) - set(nsrt.objects)
-                    for obj in sorted(static_objs):
-                        if not np.allclose(
-                                traj[cur_idx][obj],
-                                traj[cur_idx - 1][obj],
-                                atol=CFG.sesame_static_object_change_tol):
-                            static_obj_changed = True
-                            break
-                if static_obj_changed:
-                    can_continue_on = False
-                # Check if we have exceeded the horizon.
-                elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
-                    can_continue_on = False
-                # Check if the option was effectively a noop.
-                elif num_actions == 0:
-                    can_continue_on = False
-                elif CFG.sesame_check_expected_atoms:
-                    # Check atoms against expected atoms_sequence constraint.
-                    assert len(traj) == len(atoms_sequence)
-                    # The expected atoms are ones that we definitely expect to
-                    # be true at this point in the plan. They are not *all* the
-                    # atoms that could be true.
-                    expected_atoms = {
-                        atom
-                        for atom in atoms_sequence[cur_idx]
-                        if atom.predicate.name != _NOT_CAUSES_FAILURE
-                    }
-                    # This "if all" statement is equivalent to, but faster
-                    # than, checking whether expected_atoms is a subset of
-                    # utils.abstract(traj[cur_idx], predicates).
-                    if all(a.holds(traj[cur_idx]) for a in expected_atoms):
-                        can_continue_on = True
-                        if cur_idx == len(skeleton):
-                            plan_found = True
-                    else:
-                        can_continue_on = False
-                else:
-                    # If we're not checking expected_atoms, we need to
-                    # explicitly check the goal on the final timestep.
-                    can_continue_on = True
-                    if cur_idx == len(skeleton):
-                        if task.goal_holds(traj[cur_idx]):
-                            plan_found = True
-                        else:
-                            can_continue_on = False
-        else:
-            # The option is not initiable.
-            can_continue_on = False
-        if refinement_time is not None:
-            try_end_time = time.perf_counter()
-            refinement_time[cur_idx - 1] += try_end_time - try_start_time
-        if plan_found:
-            return plan, True  # success!
-        if not can_continue_on:  # we got stuck, time to resample / backtrack!
-            # Update the longest_failed_refinement found so far.
-            if cur_idx > len(longest_failed_refinement):
-                longest_failed_refinement = list(plan[:cur_idx])
-            # If we're immediately propagating failures, and we got a failure,
-            # raise it now. We don't do this right after catching the
-            # EnvironmentFailure because we want to make sure to update
-            # the longest_failed_refinement first.
-            possible_failure = discovered_failures[cur_idx - 1]
-            if possible_failure is not None and \
+        option = skeleton[idx].sample_option(state, task.goal, rng_)
+        # Inject Wait target atoms so Wait terminates as soon as the
+        # expected atoms hold rather than running to
+        # max_num_steps_option_rollout. Without this, refinement keeps
+        # hitting "exceeded individual horizon" even when heating /
+        # filling / etc. has already completed.
+        utils.inject_wait_targets_for_option(option, idx, atoms_sequence)
+        logging.info(f"Running option {option}")
+        return option
+
+    def validate_fn(idx: int, pre_state: State, _option: _Option,
+                    post_state: State, num_actions: int) -> Tuple[bool, str]:
+        num_actions_per_option[idx] = num_actions
+        nsrt = skeleton[idx]
+        # Static object change check.
+        if CFG.sesame_check_static_object_changes:
+            static_objs = set(pre_state) - set(nsrt.objects)
+            for obj in sorted(static_objs):
+                if not np.allclose(post_state[obj],
+                                   pre_state[obj],
+                                   atol=CFG.sesame_static_object_change_tol):
+                    return False, "static object changed"
+        # Horizon checks.
+        total_actions = sum(num_actions_per_option[:idx]) + num_actions
+        if total_actions > max_horizon:
+            return False, "exceeded total horizon"
+        if num_actions >= CFG.max_num_steps_option_rollout:
+            return False, "exceeded individual horizon"
+        # Expected-atoms check.
+        if CFG.sesame_check_expected_atoms:
+            expected_atoms = {
+                atom
+                for atom in atoms_sequence[idx + 1]
+                if atom.predicate.name != _NOT_CAUSES_FAILURE
+            }
+            # Use utils.abstract to evaluate atoms so that
+            # DerivedPredicates (which need a Set[GroundAtom], not a
+            # State) are handled correctly.
+            preds: Set[Predicate] = set()
+            for a in expected_atoms:
+                preds.add(a.predicate)
+                aux = getattr(a.predicate, "auxiliary_predicates", None)
+                if aux:
+                    preds.update(aux)
+            current_atoms = utils.abstract(post_state, preds)
+            if expected_atoms.issubset(current_atoms):
+                return True, ""
+            return False, "expected atoms not hold"
+        # No atoms check — verify goal on final step.
+        if idx == n - 1:
+            if not task.goal_holds(post_state):
+                return False, "goal not reached"
+        return True, ""
+
+    def on_env_failure(idx: int, _option: _Option,
+                       e: EnvironmentFailure) -> None:
+        logging.debug(f"Discovered a failure: {e}")
+        discovered_failures[idx] = _DiscoveredFailure(e, skeleton[idx])
+
+    def on_step_fail(idx: int, plan: List[Optional[_Option]],
+                     _reason: str) -> None:
+        nonlocal longest_failed_refinement
+        partial = [p for p in plan[:idx + 1] if p is not None]
+        if len(partial) > len(longest_failed_refinement):
+            longest_failed_refinement = list(partial)
+        pf = discovered_failures[idx]
+        if pf is not None and \
                 CFG.sesame_propagate_failures == "immediately":
+            raise _DiscoveredFailureException(
+                "Discovered a failure", pf,
+                {"longest_failed_refinement": longest_failed_refinement})
+
+    def on_exhausted(_plan: List[Optional[_Option]]) -> None:
+        for pf in discovered_failures:
+            if pf is not None and \
+                    CFG.sesame_propagate_failures == "after_exhaust":
                 raise _DiscoveredFailureException(
-                    "Discovered a failure", possible_failure,
+                    "Discovered a failure", pf,
                     {"longest_failed_refinement": longest_failed_refinement})
-            # Decrement cur_idx to re-do the step we just did. If num_tries
-            # is exhausted, backtrack.
-            cur_idx -= 1
-            assert cur_idx >= 0
-            while num_tries[cur_idx] == max_tries[cur_idx]:
-                num_tries[cur_idx] = 0
-                plan[cur_idx] = DummyOption
-                num_actions_per_option[cur_idx] = 0
-                traj[cur_idx + 1] = DefaultState
-                cur_idx -= 1
-                if cur_idx < 0:
-                    # Backtracking exhausted. If we're only propagating failures
-                    # after exhaustion, and if there are any failures,
-                    # propagate up the EARLIEST one so that high-level search
-                    # restarts. Otherwise, return a partial refinement so that
-                    # high-level search continues.
-                    for possible_failure in discovered_failures:
-                        if possible_failure is not None and \
-                            CFG.sesame_propagate_failures == "after_exhaust":
-                            raise _DiscoveredFailureException(
-                                "Discovered a failure", possible_failure, {
-                                    "longest_failed_refinement":
-                                    longest_failed_refinement
-                                })
-                    return longest_failed_refinement, False
-    # Should only get here if the skeleton was empty.
-    assert not skeleton
-    return [], True
+
+    # -- run --------------------------------------------------------------
+
+    plan, success, _ = run_backtracking_refinement(
+        init_state=task.init,
+        option_model=option_model,
+        n_steps=n,
+        max_tries=max_tries,
+        sample_fn=sample_fn,
+        validate_fn=validate_fn,
+        rng=rng,
+        timeout=timeout,
+        on_env_failure=on_env_failure,
+        on_step_fail=on_step_fail,
+        on_exhausted=on_exhausted,
+        step_times=refinement_time,
+    )
+
+    if success:
+        return [cast(_Option, p) for p in plan], True
+    return longest_failed_refinement, False
 
 
 def _update_nsrts_with_failure(
@@ -900,10 +1055,10 @@ def task_plan_with_option_plan_constraint(
     ground_nsrts, _ = task_plan_grounding(init_atoms,
                                           objects,
                                           dummy_nsrts,
-                                          allow_noops=True)
+                                          allow_waits=True)
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
-        predicates, objects)
+        predicates, objects)  # type: ignore[type-var]
 
     def _check_goal(
             searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
@@ -921,26 +1076,35 @@ def task_plan_with_option_plan_constraint(
 
         gt_param_option = option_plan[idx_into_traj][0]
         gt_objects = option_plan[idx_into_traj][1]
-        for applicable_nsrt in utils.get_applicable_operators(
-                ground_nsrts, atoms):
-            # NOTE: we check that the ParameterizedOptions are equal before
-            # attempting to ground because otherwise, we might
-            # get a parameter mismatch and trigger an AssertionError
-            # during grounding.
-            if applicable_nsrt.option != gt_param_option:
+        applicable = utils.get_applicable_operators(
+            ground_nsrts,  # type: ignore[type-var]
+            atoms)
+        for applicable_nsrt in applicable:
+            # NOTE: we check that the ParameterizedOptions
+            # are equal before attempting to ground because
+            # otherwise, we might get a parameter mismatch
+            # and trigger an AssertionError during grounding.
+            nsrt_option = applicable_nsrt.option  # type: ignore[attr-defined]
+            if nsrt_option != gt_param_option:
                 continue
-            if applicable_nsrt.option_objs != gt_objects:
+            nsrt_objs = applicable_nsrt.option_objs  # type: ignore[attr-defined]  # pylint: disable=line-too-long
+            if nsrt_objs != gt_objects:
                 continue
-            if atoms_seq is not None and not \
-                applicable_nsrt.preconditions.issubset(
+            preconds = applicable_nsrt.preconditions  # type: ignore[attr-defined]  # pylint: disable=line-too-long
+            if atoms_seq is not None and \
+                not preconds.issubset(
                     atoms_seq[idx_into_traj]):
                 continue
-            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
+            next_atoms = utils.apply_operator(
+                applicable_nsrt, set(atoms))  # type: ignore[type-var]
             # The returned cost is uniform because we don't
             # actually care about finding the shortest path;
             # just one that matches!
-            yield (applicable_nsrt, (frozenset(next_atoms), idx_into_traj + 1),
-                   1.0)
+            yield (
+                applicable_nsrt,
+                (frozenset(next_atoms),
+                 idx_into_traj + 1),  # type: ignore[misc]
+                1.0)
 
     init_atoms_frozen = frozenset(init_atoms)
     init_searchnode_state = (init_atoms_frozen, 0)
@@ -1204,20 +1368,21 @@ def run_task_plan_once(
         assert task_planning_heuristic is not None
         heuristic = utils.create_task_planning_heuristic(
             task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
-            objects)
+            objects)  # type: ignore[type-var]
         duration = time.perf_counter() - start_time
         timeout -= duration
         plan, atoms_seq, metrics = next(
-            task_plan(init_atoms,
-                      goal,
-                      ground_nsrts,
-                      reachable_atoms,
-                      heuristic,
-                      seed,
-                      timeout,
-                      max_skeletons_optimized=1,
-                      use_visited_state_set=True,
-                      **kwargs))
+            task_plan(
+                init_atoms,
+                goal,
+                ground_nsrts,  # type: ignore[arg-type]
+                reachable_atoms,
+                heuristic,
+                seed,
+                timeout,
+                max_skeletons_optimized=1,
+                use_visited_state_set=True,
+                **kwargs))
         if len(plan) > max_horizon:
             raise PlanningFailure(
                 "Skeleton produced by A-star exceeds horizon!")

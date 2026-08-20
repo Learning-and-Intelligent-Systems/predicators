@@ -84,7 +84,7 @@ class LLMStripsLearner(BaseSTRIPSLearner):
         closing_paren_loc = name_and_args.find(")")
         name_str = name_and_args[:opening_paren_loc]
         arg_str = name_and_args[opening_paren_loc + 1:closing_paren_loc]
-        args = arg_str.split()
+        args = arg_str.replace(",", "").split()  # remove commas
         arg_dict = {}
         for i in range(0, len(args), 3):
             arg_name = args[i]
@@ -119,8 +119,13 @@ class LLMStripsLearner(BaseSTRIPSLearner):
                 prec_arg_vars.append(op_var_name_to_op_var[prec_arg])
             if not all_args_valid:
                 continue  # pragma: no cover
-            ret_atoms.add(
-                LiftedAtom(pred_name_to_pred[prec_name], prec_arg_vars))
+            try:
+                ret_atoms.add(
+                    LiftedAtom(pred_name_to_pred[prec_name], prec_arg_vars))
+            except (KeyError, ValueError, TypeError):
+                # This can happen if the predicate is not valid for the
+                # given types. We just ignore it.
+                pass
         return ret_atoms
 
     # NOTE: we actually do test this function, but the many sub-cases

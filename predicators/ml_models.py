@@ -29,7 +29,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    State, _GroundNSRT, _Option
+    Predicate, State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1334,7 +1334,8 @@ class MapleQFunction(MLPRegressor):
                  discount: float = 0.8,
                  num_lookahead_samples: int = 5,
                  replay_buffer_max_size: int = 1000000,
-                 replay_buffer_sample_with_replacement: bool = True) -> None:
+                 replay_buffer_sample_with_replacement: bool = True,
+                 predicates: Optional[Set[Predicate]] = None) -> None:
         super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
                          clip_value, learning_rate, weight_decay,
                          use_torch_gpu, train_print_every, n_iter_no_change)
@@ -1344,6 +1345,8 @@ class MapleQFunction(MLPRegressor):
         self._replay_buffer_max_size = replay_buffer_max_size
         self._replay_buffer_sample_with_replacement = \
             replay_buffer_sample_with_replacement
+        self._predicates = predicates if predicates is not None \
+            else set()
 
         # Updated once, after the first round of learning.
         self._ordered_objects: List[Object] = []
@@ -1536,12 +1539,19 @@ class MapleQFunction(MLPRegressor):
         return vec
 
     def _vectorize_option(self, option: _Option) -> Array:
-        matches = [
-            i for (n, i) in self._ground_nsrt_to_idx.items()
-            if n.option == option.parent
-            and tuple(n.objects) == tuple(option.objects)
-        ]
-        assert len(matches) == 1
+        if CFG.maple_q_same_hla_option_param_space:
+            matches = [
+                i for (n, i) in self._ground_nsrt_to_idx.items()
+                if n.option == option.parent
+                and tuple(n.objects) == tuple(option.objects)
+            ]
+            assert len(matches) == 1
+        else:
+            matches = [
+                i for (n, i) in self._ground_nsrt_to_idx.items()
+                if n.option == option.parent
+                and tuple(n.option_objs) == tuple(option.objects)
+            ]
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
         discrete_vec[matches[0]] = 1.0
@@ -1570,25 +1580,41 @@ class MapleQFunction(MLPRegressor):
             self,
             state: State,
             num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
-        """Use NSRTs to sample options in the current state."""
-        # Create all applicable ground NSRTs.
+        """Use ground NSRTs or endogenous processes to sample options.
+
+        Applicability is checked via NSRT preconditions if available, or
+        via process condition_at_start for ground processes.
+        """
+        # Create all applicable ground high-level actions (NSRTs or processes).
         state_objs = set(state)
-        applicable_nsrts = [
-            o for o in self._ordered_ground_nsrts if \
-                set(o.objects).issubset(state_objs) and all(
-                a.holds(state) for a in o.preconditions)
+        abs_state = utils.abstract(state, self._predicates)
+
+        def is_applicable(ground_hla: Any) -> bool:
+            # Objects subset check
+            if not set(ground_hla.objects).issubset(state_objs):
+                return False
+            # NSRT case
+            if hasattr(ground_hla, "preconditions"):
+                return all(a.holds(state) for a in ground_hla.preconditions)
+            # Process case (endogenous): use condition_at_start
+            if hasattr(ground_hla, "condition_at_start"):
+                return ground_hla.condition_at_start.issubset(abs_state)
+            # Default to applicable if no info (defensive)
+            return True
+
+        applicable_ground = [
+            o for o in self._ordered_ground_nsrts if is_applicable(o)
         ]
-        # Randomize order of applicable NSRTs to assure that the output order
-        # of this function is completely randomized.
-        indices = list(range(len(applicable_nsrts)))
+        # Randomize order to ensure fully randomized sampling order.
+        indices = list(range(len(applicable_ground)))
         self._rng.shuffle(indices)
-        applicable_nsrts = [applicable_nsrts[i] for i in indices]
-        # Sample options per NSRT.
+        applicable_ground = [applicable_ground[i] for i in indices]
+        # Sample options per applicable high-level action.
         sampled_options: List[_Option] = []
-        for app_nsrt in applicable_nsrts:
+        for app_hla in applicable_ground:
             for _ in range(num_samples_per_applicable_nsrt):
                 # Sample an option.
-                option = app_nsrt.sample_option(
+                option = app_hla.sample_option(
                     state,
                     goal=set(),  # goal not used
                     rng=self._rng)

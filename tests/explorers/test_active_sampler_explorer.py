@@ -428,7 +428,7 @@ def test_active_sampler_explorer():
         competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs,
-        pursue_task_goal_first=True)
+        pursue_task_goal_first=False)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     with pytest.raises(NotImplementedError) as e:

@@ -43,7 +43,7 @@ class SatellitesEnv(BaseEnv):
     id_tol: ClassVar[float] = 1e-3
     location_tol: ClassVar[float] = 1e-3
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types

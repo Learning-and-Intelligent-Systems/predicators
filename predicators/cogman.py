@@ -8,8 +8,10 @@ whether to re-query the approach at each time step based on the states.
 
 The name "CogMan" is due to Leslie Kaelbling.
 """
+import dataclasses
 import logging
 import time
+import traceback
 from collections import defaultdict
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
@@ -17,10 +19,11 @@ from typing import Type as TypingType
 from predicators import utils
 from predicators.approaches import BaseApproach
 from predicators.envs import BaseEnv
+from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
-from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
+from predicators.structs import Action, Dataset, EnvironmentTask, \
     InteractionRequest, InteractionResult, LowLevelTrajectory, Metrics, \
     Observation, State, Task, Video, _Option
 
@@ -34,7 +37,7 @@ class CogMan:
         self._perceiver = perceiver
         self._exec_monitor = execution_monitor
         self._current_policy: Optional[Callable[[State], Action]] = None
-        self._current_goal: Optional[Set[GroundAtom]] = None
+        self._current_solve_task: Optional[Task] = None
         self._override_policy: Optional[Callable[[State], Action]] = None
         self._termination_fn: Optional[Callable[[State], bool]] = None
         self._current_env_task: Optional[EnvironmentTask] = None
@@ -47,9 +50,10 @@ class CogMan:
         """Start a new episode of environment interaction."""
         logging.info("[CogMan] Reset called.")
         self._episode_num += 1
+        self._approach.reset_for_new_episode()
         task = self._perceiver.reset(env_task)
         self._current_env_task = env_task
-        self._current_goal = task.goal
+        self._current_solve_task = task
         self._reset_policy(task)
         self._exec_monitor.reset(task)
         self._exec_monitor.update_approach_info(
@@ -76,12 +80,16 @@ class CogMan:
             self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
             logging.info("[CogMan] Termination triggered.")
+            logging.debug("[CogMan] step returning None: termination_fn fired")
             return None
         # Check if we should replan.
         if self._exec_monitor.step(state):
             logging.info("[CogMan] Replanning triggered.")
-            assert self._current_goal is not None
-            task = Task(state, self._current_goal)
+            assert self._current_solve_task is not None
+            # Re-solve the episode's task from the current state; every
+            # non-init Task field (goal, goal_nl, evaluator) must survive
+            # a mid-episode replan.
+            task = dataclasses.replace(self._current_solve_task, init=state)
             self._reset_policy(task)
             self._exec_monitor.reset(task)
             self._exec_monitor.update_approach_info(
@@ -118,6 +126,11 @@ class CogMan:
     def is_learning_based(self) -> bool:
         """See BaseApproach docstring."""
         return self._approach.is_learning_based
+
+    @property
+    def get_approach_name(self) -> str:
+        """See BaseApproach docstring."""
+        return self._approach.get_name()
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """See BaseApproach docstring."""
@@ -206,16 +219,39 @@ def run_episode_and_get_observations(
         env.reset(train_or_test, task_idx)
         if monitor is not None:
             monitor.reset(train_or_test, task_idx)
-    obs = env.get_observation()
+    render_obs = True if (
+        cogman.get_approach_name == "oracle" and CFG.offline_data_method
+        == "geo_and_demo_with_vlm_imgs") else CFG.rgb_observation
+    if isinstance(env, PyBulletEnv):
+        obs = env.get_observation(render=render_obs)
+    else:
+        obs = env.get_observation()
     observations = [obs]
     actions: List[Action] = []
+
+    def _certified_solved() -> bool:
+        """Goal atoms/reward hold AND the env accepts the trajectory."""
+        if not env.goal_reached():
+            return False
+        ok, reason = env.check_episode_trajectory(observations, actions)
+        if not ok:
+            logging.info(
+                "[CogMan] Goal atoms hold but the trajectory was "
+                "REJECTED: %s", reason)
+        return ok
+
     curr_option: Optional[_Option] = None
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
     metrics["num_options_executed"] = 0.0
     exception_raised_in_step = False
+    # Whether this episode ran to a clean end, as opposed to being cut short
+    # by an exception. An env driving something outside itself needs the
+    # difference: a prefix of a plan is not a plan.
+    episode_completed = True
+    step_num = -1
     if not (terminate_on_goal_reached and env.goal_reached()):
-        for _ in range(max_num_steps):
+        for step_num in range(max_num_steps):
             monitor_observed = False
             exception_raised_in_step = False
             try:
@@ -223,6 +259,7 @@ def run_episode_and_get_observations(
                 act = cogman.step(obs)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
                 if act is None:
+                    logging.debug("[CogMan] loop break: act is None")
                     break
                 if act.has_option() and act.get_option() != curr_option:
                     curr_option = act.get_option()
@@ -236,25 +273,77 @@ def run_episode_and_get_observations(
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True
-                obs = env.step(act)
+                if isinstance(env, PyBulletEnv):
+                    obs = env.step(act, render_obs=render_obs)
+                else:
+                    obs = env.step(act)
                 actions.append(act)
                 observations.append(obs)
             except Exception as e:
+                logging.debug(f"[CogMan] State at the exception {e}: "
+                              f"{utils.abstract(obs, env.predicates)}")
+                logging.debug(
+                    f"[CogMan] Full traceback:\n{traceback.format_exc()}")
+                # pylint: disable-next=import-outside-toplevel
+                from predicators.agent_sdk.session_base import \
+                    AgentSessionFatalError
+                if isinstance(e, AgentSessionFatalError):
+                    # The agent session backend is unusable; neither
+                    # break_on handling nor keep_failed_demos may absorb
+                    # this into a failed episode - the run terminates.
+                    env.finish_execution(False)
+                    raise
                 if exceptions_to_break_on is not None and \
                    any(issubclass(type(e), c) for c in exceptions_to_break_on):
                     if monitor_observed:
                         exception_raised_in_step = True
+                    # Running out of options is how a plan ENDS. It arrives as
+                    # the same OptionExecutionFailure an actual failure does,
+                    # so without the flag every completed plan would be
+                    # reported as an aborted episode -- and an executor that
+                    # defers its work to the end of a COMPLETED episode would
+                    # then discard every one.
+                    if not getattr(e, "info", {}).get("plan_exhausted"):
+                        episode_completed = False
+                    logging.debug(
+                        f"[CogMan] loop break: exception in break_on set: {e}")
+                    break
+                if CFG.terminate_on_goal_reached_and_option_terminated and \
+                    env.goal_reached():
+                    episode_completed = False
+                    logging.debug(
+                        f"[CogMan] loop break: goal_reached+option_terminated "
+                        f"(exception: {e})")
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
+                if CFG.keep_failed_demos:
+                    cogman.finish_episode(obs)
+                    env.finish_execution(False)
+                    traj = (observations, actions)
+                    solved = _certified_solved()
+                    return traj, solved, metrics
+                env.finish_execution(False)
                 raise e
             if terminate_on_goal_reached and env.goal_reached():
+                logging.debug("[CogMan] loop break: terminate_on_goal_reached")
                 break
+        else:
+            option_str = (None
+                          if curr_option is None else curr_option.simple_str())
+            logging.info(
+                "[CogMan] Reached max_num_steps=%d while executing "
+                "option %s.", max_num_steps, option_str)
+            logging.debug("[CogMan] Final loop step index before horizon: %d",
+                          step_num)
+            logging.debug("[CogMan] Atoms at horizon: %s",
+                          sorted(utils.abstract(obs, env.predicates)))
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
     cogman.finish_episode(obs)
+    env.finish_execution(episode_completed)
     traj = (observations, actions)
-    solved = env.goal_reached()
+    solved = _certified_solved()
     return traj, solved, metrics
 
 

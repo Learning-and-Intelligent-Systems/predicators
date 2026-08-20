@@ -79,7 +79,7 @@ def test_interactive_learning_approach(predicate_classifier_model,
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
-    interaction_results, _ = _generate_interaction_results(
+    interaction_results, _, _ = _generate_interaction_results(
         cogman, env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
@@ -127,7 +127,7 @@ def test_interactive_learning_approach(predicate_classifier_model,
     approach._best_score = -np.inf  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     cogman = CogMan(approach, perceiver, exec_monitor)
-    interaction_results, query_cost = _generate_interaction_results(
+    interaction_results, query_cost, _ = _generate_interaction_results(
         cogman, env, teacher, interaction_requests)
     assert len(interaction_results) == 1
     interaction_result = interaction_results[0]

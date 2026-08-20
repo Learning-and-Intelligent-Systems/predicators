@@ -26,10 +26,13 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--timeout", default=10, type=float)
     parser.add_argument("--make_test_videos", action="store_true")
     parser.add_argument("--make_failure_videos", action="store_true")
+    parser.add_argument("--make_test_images", action="store_true")
+    parser.add_argument("--make_failure_images", action="store_true")
     parser.add_argument("--make_interaction_videos", action="store_true")
     parser.add_argument("--make_demo_videos", action="store_true")
     parser.add_argument("--make_demo_images", action="store_true")
     parser.add_argument("--make_cogman_videos", action="store_true")
+    parser.add_argument("--video_not_break_on_exception", action="store_true")
     parser.add_argument("--load_approach", action="store_true")
     # In the case of online learning approaches, load_approach by itself
     # will try to load an approach on *every* online learning cycle.
@@ -51,4 +54,7 @@ def create_arg_parser(env_required: bool = True,
                         const=logging.DEBUG,
                         default=logging.INFO)
     parser.add_argument("--crash_on_failure", action="store_true")
+    parser.add_argument("--excluded_objects_in_state_str",
+                        default="",
+                        type=str)
     return parser

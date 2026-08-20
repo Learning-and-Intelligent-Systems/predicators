@@ -1,6 +1,7 @@
 __pycache__
 *.pyc
 .DS_Store
+CLAUDE.md
 .vscode
 *.egg-info
 *.pkl
@@ -21,6 +22,7 @@ logs*
 saved_approaches
 saved_datasets
 scripts/results
+scripts/robodisco_getting_started_output/
 pretrained_model_cache*
 tests/datasets/mock_vlm_datasets/cache/
 machines.txt
@@ -33,5 +35,9 @@ Gymnasium-Robotics/
 predicators/datasets/vlm_input_data_prompts/vision_api/prompt.txt
 predicators/datasets/vlm_input_data_prompts/vision_api/response.txt
 
+.mypy_cache/
+
 # Jetbrains IDEs
 .idea/
+
+paper/

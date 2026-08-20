@@ -41,7 +41,7 @@ class DoorsEnv(BaseEnv):
     _room_type = Type("room", ["x", "y"])
     _obstacle_type = Type("obstacle", ["x", "y", "width", "height", "theta"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Predicates
@@ -756,7 +756,7 @@ class DoorKnobsEnv(DoorsEnv):
     _knob_type = Type("knob", ["x", "y", "theta", "rot", "target_rot", "open"])
     open_door_thresh: ClassVar[float] = 0.1
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         self._door_to_knob: Dict[Object, Object] = {}
         self._open_door_target_value = CFG.doorknobs_target_value

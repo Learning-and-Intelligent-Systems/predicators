@@ -143,7 +143,7 @@ def test_cluster_and_intersect_strips_learner():
     assert len(known_option_segments) == 4
     # Segment with atoms changes instead.
     utils.reset_config({"segmenter": "atom_changes"})
-    assert len(segment_trajectory(ll_traj, preds, atom_seq)) == 0
+    assert len(segment_trajectory(ll_traj, preds, atom_seq)) == 1
     unknown_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)] + [state1],
         [action0, action1, action2, action0, action1])

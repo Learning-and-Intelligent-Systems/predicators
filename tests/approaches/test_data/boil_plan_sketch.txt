@@ -1,0 +1,10 @@
+PickJug(robot:robot, jug0:jug) -> {Holding(robot:robot, jug0:jug)}
+Place(robot:robot) -> {JugAtFaucet(jug0:jug, faucet:faucet)}
+SwitchFaucetOn(robot:robot, faucet:faucet) -> {FaucetOn(faucet:faucet)}
+Wait(robot:robot) -> {JugFilled(jug0:jug)}
+SwitchFaucetOff(robot:robot, faucet:faucet) -> {FaucetOff(faucet:faucet)}
+PickJug(robot:robot, jug0:jug) -> {Holding(robot:robot, jug0:jug)}
+Place(robot:robot) -> {JugAtBurner(jug0:jug, burner0:burner)}
+SwitchBurnerOn(robot:robot, burner0:burner) -> {BurnerOn(burner0:burner)}
+Wait(robot:robot) -> {WaterBoiled(jug0:jug)}
+SwitchBurnerOff(robot:robot, burner0:burner) -> {BurnerOff(burner0:burner)}

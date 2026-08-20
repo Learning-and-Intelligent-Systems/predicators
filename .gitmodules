@@ -1,0 +1,3 @@
+[submodule "submodules/BabyRobotPredicator"]
+	path = submodules/BabyRobotPredicator
+	url = git@github.com:BasisResearch/BabyRobotPredicator.git

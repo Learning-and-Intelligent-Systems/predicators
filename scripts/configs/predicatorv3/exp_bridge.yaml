@@ -1,0 +1,17 @@
+# Thin launcher: run the bridge experiment.
+# Usage: python scripts/local/launch_simp.py -c predicatorv3/exp_bridge.yaml --parallel
+# Env definitions live in envs/all.yaml and approach definitions in
+# approaches/all.yaml (all parked by default); this file only un-skips the
+# env + arm(s) it runs. To run a baseline sweep, flip additional arms'
+# SKIP to False here.
+---
+includes:
+  - common.yaml
+  - envs/all.yaml
+  - approaches/all.yaml
+ENVS:
+  bridge:
+    SKIP: False
+APPROACHES:
+  agent_po_predicate_invention_al:
+    SKIP: False

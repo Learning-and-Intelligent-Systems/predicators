@@ -116,10 +116,10 @@ def test_llm_open_loop_approach():
     # Test failure cases of _llm_prediction_to_option_plan().
     objects = set(task.init)
     assert approach._llm_prediction_to_option_plan(ideal_response, objects)  # pylint: disable=protected-access
-    # Case where a line does not contain a valid option.
+    # Case where preamble text precedes valid options (should be skipped).
     response = "garbage\n" + ideal_response
     option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
-    assert not option_plan
+    assert option_plan  # preamble lines are now skipped
     # Case where object types are malformed.
     response = ideal_response.replace(":", "-")
     option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access

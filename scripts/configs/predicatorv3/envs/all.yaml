@@ -1,0 +1,415 @@
+ENVS:
+  # grow:
+  #   NAME: "pybullet_grow"
+  #   FLAGS:
+  #     max_initial_demos: 1
+  #     excluded_predicates: "HandTilted"
+  #     coffee_use_pixelated_jug: True
+  #     grow_weak_pour_terminate_condition: True
+  #     grow_place_option_no_sampler: True
+  #     horizon: 400
+  # OLD domino config (standard chain tasks), superseded by the min-block
+  # variants below. Parked by default. These tasks now also carry a
+  # DominoEvaluator (cascade-legitimacy certificate + per-toppled-blue
+  # reward cost), attached automatically because targets are domino
+  # blocks and no ball/fan component is present.
+  domino:
+    NAME: "pybullet_domino"
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20
+      pybullet_birrt_path_subsample_ratio: 2
+  domino_turns:
+    NAME: "pybullet_domino"
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20
+      pybullet_birrt_path_subsample_ratio: 2
+      domino_test_turn_ratio: 1.0
+  # NEW: reach-limited "minimum-blocks" domino tasks for the system-ID
+  # experiment. Same base flags as the old config, plus the min-block flags:
+  #   - domino_min_block_tasks: start/target pairs bridged near the reach
+  #     limit; each task carries a DominoEvaluator: reward = 1[toppled via
+  #     a legitimate cascade] - domino_block_cost * blues used. K* (min
+  #     blues to topple at the true friction) is offline-metrics only.
+  #   - domino_true_friction: the real env's friction (K* computed at it).
+  #   - span_lo/hi + num_blues: task geometry / blue budget. Recalibrate the
+  #     span with the reach probe if you change domino_true_friction.
+  # Two mismatch directions, one env block each (low/high = the TRUE
+  # friction); the task generator's differentiation filter is
+  # direction-aware, so both reuse the same generation machinery.
+  domino_low_friction:
+    NAME: "pybullet_domino"
+    # Parked by default; exp_domino.yaml un-skips it for the friction
+    # sysID experiment (the heavy-block variant below stays parked).
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      # excluded_predicates is set per-approach: exp_domino.yaml excludes
+      # these (test ours); oracle.yaml leaves them in (test oracle).
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20 # increase this to avoid collisions when placing dominoes
+      pybullet_birrt_path_subsample_ratio: 2
+      # --- min-block / system-ID experiment ---
+      domino_min_block_tasks: True
+      # FORWARD (over-reach) condition: planning friction above true, so an
+      # uncalibrated planner over-estimates reach, UNDER-builds, and the
+      # chain dies short of the target. Primary sysID-learning setting
+      domino_true_friction: 0.1
+      domino_planning_friction: 0.5
+      domino_min_block_span_lo: 0.13
+      domino_min_block_span_hi: 0.30
+      domino_min_block_num_blues: 4
+  domino_high_friction:
+    NAME: "pybullet_domino"
+    # Parked by default; exp_domino.yaml un-skips it for the friction
+    # sysID experiment.
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      # excluded_predicates is set per-approach: exp_domino.yaml excludes
+      # these (test ours); oracle.yaml leaves them in (test oracle).
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20 # increase this to avoid collisions when placing dominoes
+      pybullet_birrt_path_subsample_ratio: 2
+      # --- min-block / system-ID experiment ---
+      domino_min_block_tasks: True
+      # REVERSE (under-reach) condition of domino_low_friction: planning
+      # friction below true, so an uncalibrated planner under-estimates
+      # reach, OVER-builds, and the target topples but the extra blues
+      # pay the per-block reward cost (k_used > K* in the offline
+      # metrics). K* is recomputed at the new true friction, and the
+      # generator's under_reach filter keeps only tasks where the
+      # believed build over-spends within the staged budget.
+      # Geometry retuned 2026-07-12 (anchor probe sweeps; reproduce
+      # with scripts/domino_debug/probe_min_block_bands.py). The old
+      # geometry (spans 0.44-0.65, turn legs ~(0.34, 0.28), K*=2-3)
+      # made the true turn solution the knife-edge 45-degree PAIR
+      # corner, which the LLM oracle arm could not discover within its
+      # session budget (run_20260712_173955 failed exactly its two turn
+      # tasks). Short legs fix this: at true 0.5 a SINGLE natural-yaw
+      # corner blue redirects robustly (2-5 independent corner topplers
+      # per probed cell).
+      #   * Straight spans 0.29-0.31: true K*=1 vs believed 2 (stable
+      #     across probe rounds; 0.28 ties 1v1, 0.32+ is edge).
+      #   * Turn legs entry 0.21-0.24 x exit 0.17-0.20: true K*=2 via a
+      #     natural single corner vs believed 3 (believed k=2 layer dead
+      #     at friction 0.1 on these cells; exit<=0.16 neighbours tie
+      #     2v2 believed-side and sit outside the band - the per-task
+      #     certificates would drop them anyway).
+      # Four staged blues give the believed 3-blue builds a spare blue
+      # (strict k_bel < num_blues, same rationale as the old 5-for-4).
+      domino_true_friction: 0.5
+      domino_planning_friction: 0.1
+      domino_min_block_span_lo: 0.29
+      domino_min_block_span_hi: 0.31
+      domino_min_block_turn_entry_lo: 0.21
+      domino_min_block_turn_entry_hi: 0.24
+      domino_min_block_turn_exit_lo: 0.17
+      domino_min_block_turn_exit_hi: 0.20
+      domino_min_block_num_blues: 4
+      # Double the default per-blue cost: with K* at 1-2, the baseline's
+      # one-extra-blue over-build shows as a 0.10 reward gap per task
+      # instead of 0.05 (0.1 * 4 staged blues < 1, so a certified
+      # success still outscores any failure).
+      domino_block_cost: 0.1
+      online_learning_early_stopping_ignore_reward_bar: True
+  domino_high_friction_turn:
+    NAME: "pybullet_domino"
+    # Parked by default; exp_domino.yaml un-skips it for the friction
+    # sysID experiment.
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      # excluded_predicates is set per-approach: exp_domino.yaml excludes
+      # these (test ours); oracle.yaml leaves them in (test oracle).
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20 # increase this to avoid collisions when placing dominoes
+      pybullet_birrt_path_subsample_ratio: 2
+      # --- min-block / system-ID experiment ---
+      domino_min_block_tasks: True
+      domino_true_friction: 0.5
+      domino_planning_friction: 0.1
+      domino_min_block_span_lo: 0.29
+      domino_min_block_span_hi: 0.31
+      domino_min_block_turn_entry_lo: 0.21
+      domino_min_block_turn_entry_hi: 0.24
+      domino_min_block_turn_exit_lo: 0.17
+      domino_min_block_turn_exit_hi: 0.20
+      domino_min_block_num_blues: 4
+      domino_block_cost: 0.1
+      domino_test_turn_ratio: 1.0
+      online_learning_early_stopping_ignore_reward_bar: True
+  # domino_high_friction_turn, staged on the real scene's physical setup: the
+  # Franka Panda on its short pedestal and the extended table tile.
+  #
+  # Tasks, friction mismatch, span and turn-leg
+  # bands, blue budget and reward semantics are all copied verbatim from the
+  # arm above; only the robot and the table change. The dominoes stay the
+  # SIMULATED ones, so the 2026-07-12 calibration above still holds here --
+  # those bands are a property of the blocks and the friction pair, and
+  # neither moved. A difference between the two arms is therefore
+  # attributable to the robot.
+  #
+  # NOT the same thing as domino_real below: that env throws the generated
+  # tasks away and rebuilds a single one from a perceived scene.
+  domino_high_friction_turn_real:
+    NAME: "pybullet_domino_real_geometry"
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20
+      pybullet_birrt_path_subsample_ratio: 2
+      # --- min-block / system-ID experiment ---
+      domino_min_block_tasks: True
+      domino_true_friction: 0.5
+      domino_planning_friction: 0.1
+      # Straight spans carry over from the arm above unchanged: re-probed on
+      # this setup at 3 reps, true K*=1 vs believed 2 on both 0.29 and 0.31,
+      # matching the Fetch. Train tasks are all straight
+      # (domino_train_turn_ratio defaults to 0.0), so this band feeds training.
+      domino_min_block_span_lo: 0.29
+      domino_min_block_span_hi: 0.31
+      # TURN legs: UNRESOLVED - these are the Fetch values and they do NOT
+      # certify on the Panda, so the TEST split (all turn tasks, since
+      # domino_test_turn_ratio is 1.0) generates ZERO tasks and every cycle
+      # reports "Tasks solved: 0 / 0" over an empty set. Training is
+      # unaffected: train tasks are all straight (domino_train_turn_ratio
+      # defaults to 0.0) and the straight band above does transfer.
+      #
+      # Left at the Fetch values deliberately rather than replaced with
+      # measured ones. Recalibration is blocked on a real bug: on the Panda
+      # (not the Fetch) straight_span_k_star depends on CFG.seed - k=1 at
+      # seeds 0/1 vs k=4/None at seed 2 for the same leg, converging to 1 for
+      # every seed once motion planning is off - because the Push's BiRRT
+      # approach path is stochastic. Any band tuned now inherits that, which
+      # is how the 2026-08-01 attempt produced values that worked for seeds
+      # 0-1 and left seed 2's split empty.
+      # Parked work, measured values and full evidence:
+      #   .claude/worktrees/domino-calibration-probe/CALIBRATION_NOTES.md
+      domino_min_block_turn_entry_lo: 0.21
+      domino_min_block_turn_entry_hi: 0.24
+      domino_min_block_turn_exit_lo: 0.17
+      domino_min_block_turn_exit_hi: 0.20
+      # Kept at the simulated arm's four so this arm stays comparable to it.
+      # The parked calibration wanted five; that belongs with the band retune,
+      # not ahead of it.
+      domino_min_block_num_blues: 4
+      domino_block_cost: 0.1
+      domino_test_turn_ratio: 1.0
+      online_learning_early_stopping_ignore_reward_bar: True
+      # --- the real scene's physical setup ---
+      pybullet_robot: "panda"
+      # REQUIRED, and only the Panda reads it. The closed fingers must reach
+      # the simulated domino's faces or the grasp is never detected: the
+      # domino is 0.015 m thick and the joint value is per-finger travel
+      # from the centerline, so the faces sit at 0.0075; 0.008 rests the
+      # fingers exactly there (detection tolerance is 0.0005).
+      pybullet_closed_fingers: 0.008
+  # Real-world domino: Learning + exploration stay in sim on
+  # the reconstructed real scene; testing moves to the real Franka inside the
+  # env (test mode only). un-skipped by exp_domino_real.yaml. Flags are
+  # sourced from run_online_learning._build_flags MINUS what common.yaml / the
+  # AL approach block already provide, MINUS the min-block task flags. The env
+  # sizes its domino component from the scene JSON, so DO NOT set
+  # domino_{train,test}_num_dominos/targets/pivots here.
+  domino_real:
+    NAME: "pybullet_domino_real"
+    SKIP: True
+    # store_true flags must go in ARGS (emitted bare as --flag); putting them in
+    # FLAGS emits "--flag True", and the stray "True" desyncs the override
+    # pair-parser (utils.parse_args_with_parser).
+    ARGS:
+      - "make_test_images"
+      - "make_failure_images"
+    FLAGS:
+      # -- overrides on common.yaml --
+      num_test_tasks: 1  # one reconstructed scene (common defaults to 5)
+      # -- base domino env (from run_online_learning._build_flags) --
+      max_initial_demos: 0  # no grid-oracle demos (can't solve the real scene)
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      horizon: 400
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20
+      pybullet_birrt_path_subsample_ratio: 2
+      # -- defaults NOT provided by the AL approach block --
+      option_model_use_gui: False
+      agent_bilevel_log_state: False
+      agent_sim_learn_oracle_sim_program: False
+      agent_sim_learn_oracle_sim_params: False
+      code_sim_learning_num_mcmc_steps: 0
+      # -- real-world specifics --
+      pybullet_robot: "panda"
+      domino_use_skill_factories: True
+      # -- real-bench scene + roles (bench geometry defaults live in settings.py;
+      #    override there or here if the bench is re-calibrated) --
+      domino_real_scene: "/home/amberli/babyrobot/BabyRobotPredicator/scenes/domino_straight.json"
+      # Raw capture has no per-domino role; assign by id (green=start,
+      # purple=target, rest movable). Ignored if the scene carries 'role'.
+      domino_real_start_id: 6
+      domino_real_target_id: 5
+      # Rest the closed fingers at the 0.029 m real domino's faces
+      # (0.029 / 2 = 0.0145 per finger, plus the 0.0005 grasp-detection
+      # tolerance).
+      pybullet_closed_fingers: 0.015
+      real_robot_execute: False
+  # heavy-block (immovable obstacle) domino tasks - MASS-only mismatch.
+  domino_heavy:
+    NAME: "pybullet_domino"
+    # Parked by default; exp_domino_heavy.yaml un-skips it.
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      # excluded_predicates is set per-approach: exp_domino.yaml excludes
+      # these (test ours); oracle.yaml leaves them in (test oracle).
+      horizon: 500
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_use_continuous_place: True
+      process_planning_heuristic_weight: 2.0
+      domino_has_glued_dominos: False
+      keep_failed_demos: True
+      predicate_invent_invent_derived_predicates: True
+      pybullet_birrt_extend_num_interp: 20 # increase this to avoid collisions when placing dominoes
+      pybullet_birrt_path_subsample_ratio: 2
+      # --- heavy-block / system-ID experiment ---
+      domino_heavy_block_tasks: True
+      domino_min_block_num_blues: 4
+      domino_test_turn_ratio: 1.0
+  # coffee:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     max_initial_demos: 1
+  #     excluded_predicates: "Twisting,PressingButton,NotSameCup,RobotAboveCup"
+  #     coffee_rotated_jug_ratio: 0
+  #     coffee_num_cups_train: [1]
+  #     coffee_machine_have_light_bar: False
+  #     coffee_move_back_after_place_and_push: True
+  #     coffee_machine_has_plug: False
+  #     coffee_combined_move_and_twist_policy: True
+  #     coffee_use_pixelated_jug: True
+  #     coffee_fill_jug_gradually: True
+  #     max_num_steps_option_rollout: 100
+  #     horizon: 300
+  #     script_option_file_name: "coffee.txt"
+  # boil:
+  #   NAME: "pybullet_boil"
+  #   FLAGS:
+  #     max_initial_demos: 1
+  #     excluded_objects_in_state_str: "switch"
+  #     max_num_steps_option_rollout: 100
+  #     horizon: 500
+  #     boil_goal: "simple"
+  #     boil_require_jug_full_to_heatup: True
+  #     script_option_file_name: "boil.txt"
+  #     boil_water_fill_speed: 0.0015
+  #     pybullet_birrt_path_subsample_ratio: 2
+  #     boil_num_jugs_test: [1]
+  fan:
+    NAME: "pybullet_fan"
+    # Parked by default; exp_fan.yaml and oracle.yaml un-skip it.
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 0
+      excluded_objects_in_state_str: "switch"
+      terminate_on_goal_reached: True
+      process_planning_heuristic_weight: 10.0
+      horizon: 500
+      pybullet_birrt_path_subsample_ratio: 2
+      # Safety net only: with the asymmetric toggle delays in
+      # fan/processes.py (TurnFanOff mu=1) the oracle solves 5/5 and
+      # demos generate with zero replans; keep a small budget for the
+      # agent arms, whose learned models can still misjudge drift.
+      process_planning_max_execution_replans: 3
+  bridge:
+    NAME: "pybullet_bridge"
+    # Parked by default; exp_bridge.yaml un-skips it.
+    SKIP: True
+    FLAGS:
+      max_initial_demos: 1
+      horizon: 3000
+      # Required for the "full" spec (7 blocks / 6 joints): unweighted
+      # skeleton search times out; with weight 10 plans land in ~1.5 s.
+      process_planning_heuristic_weight: 10.0
+      bridge_task_spec_train: ["simple"]
+      bridge_task_spec_test: ["simple"]
+      # The two seat joints cure a few physics steps apart, but each
+      # Wait ends on the FIRST atom change, so the tail of a multi-cure
+      # plan routinely needs a cheap replan-from-current-state (which
+      # reduces to "Wait until the remaining joint cures").
+      process_planning_max_execution_replans: 3
+      # Bail out of a Wait that sees no atom change (the awaited cure
+      # can complete DURING the previous option, stranding the Wait).
+      # Longest legitimate wait: cure_threshold (25) + cure-start
+      # stagger across the preceding option (~60 steps).
+      wait_option_max_steps: 120
+      # Bridge NEEDS validated IK (common.yaml turns it off): placement
+      # accuracy feeds the cure gates, and lateral placement error is
+      # frozen into the weld.
+      pybullet_ik_validate: True
+      # The packed full-variant staging grid leaves ~1-2 cm clearances
+      # that stochastically dip into 2-3 mm grazes; the default 1 mm
+      # margin turns those into unrecoverable BiRRT start/goal
+      # rejections.
+      pybullet_birrt_contact_margin: -0.005
+      pybullet_birrt_path_subsample_ratio: 2

@@ -48,7 +48,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
     _ball_type: ClassVar[Type] = Type("ball", ["x", "y", "radius", "held"])
     _cup_type: ClassVar[Type] = Type("cup", ["x", "y", "radius", "held"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # For noisy simulation.

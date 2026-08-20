@@ -84,7 +84,7 @@ class _PDDLEnv(BaseEnv):
     They have the same object parameters and no continuous parameters.
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \

@@ -93,10 +93,12 @@ def test_pddlenv(domain_str, problem_strs):
 
         @classmethod
         def get_name(cls):
+            """Return the name."""
             return "dummy-pddl"
 
         @classmethod
         def get_domain_str(cls):
+            """Return the domain string."""
             return domain_str
 
         @property
@@ -255,10 +257,12 @@ def test_fixed_tasks_pddlenv(domain_str, problem_strs):
 
         @classmethod
         def get_name(cls):
+            """Return the name."""
             return "dummy_fixed_tasks"
 
         @classmethod
         def get_domain_str(cls):
+            """Return the domain string."""
             return domain_str
 
         @property

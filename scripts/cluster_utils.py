@@ -1,6 +1,8 @@
 """Utility functions for interacting with clusters."""
 
+import copy
 import os
+import shlex
 import subprocess
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
@@ -60,10 +62,27 @@ def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
     return name
 
 
+def _cmd_flag_value(value: Any) -> str:
+    """Render one flag value as a single shell token.
+
+    List/tuple values (e.g. agent_sim_learn_kept_predicates_names) use
+    the space-free bracketed form that utils.string_to_python_object
+    parses back; str(list) would repr into multiple argv tokens and
+    break parse_args' flag/value pairing. shlex.quote keeps the brackets
+    one token under zsh/bash glob expansion.
+    """
+    if isinstance(value, (list, tuple)):
+        inner = ",".join(str(x) for x in value)
+        rendered = f"[{inner}]" if isinstance(value, list) else f"({inner})"
+        return shlex.quote(rendered)
+    return shlex.quote(str(value))
+
+
 def config_to_cmd_flags(cfg: RunConfig) -> str:
     """Create a string of command flags from a run config."""
     arg_str = " ".join(f"--{a}" for a in cfg.args)
-    flag_str = " ".join(f"--{f} {v}" for f, v in cfg.flags.items())
+    flag_str = " ".join(f"--{f} {_cmd_flag_value(v)}"
+                        for f, v in cfg.flags.items())
     args_and_flags_str = (f"--env {cfg.env} "
                           f"--approach {cfg.approach} "
                           f"--experiment_id {cfg.experiment_id} "
@@ -74,13 +93,60 @@ def config_to_cmd_flags(cfg: RunConfig) -> str:
     return args_and_flags_str
 
 
+def _deep_merge(base: Dict[str, Any], override: Dict[str,
+                                                     Any]) -> Dict[str, Any]:
+    """Recursively merge override into base.
+
+    Lists are concatenated, dicts are merged, scalars are overwritten by
+    override.
+    """
+    result = copy.deepcopy(base)
+    for key, value in override.items():
+        if key in result:
+            if isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = _deep_merge(result[key], value)
+            elif isinstance(result[key], list) and isinstance(value, list):
+                result[key] = result[key] + value
+            else:
+                result[key] = value
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
+
+
+def _resolve_config(config_filepath: str) -> Dict[str, Any]:
+    """Load a single YAML file and recursively resolve its 'includes'."""
+    with open(config_filepath, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+    includes = config.pop("includes", [])
+    # Resolve includes relative to the directory of the including file.
+    base_dir = os.path.dirname(config_filepath)
+    merged: Dict[str, Any] = {}
+    for inc_path in includes:
+        inc_filepath = os.path.join(base_dir, inc_path)
+        inc_config = _resolve_config(inc_filepath)
+        merged = _deep_merge(merged, inc_config)
+    # The including file's own keys override the included ones.
+    merged = _deep_merge(merged, config)
+    return merged
+
+
 def parse_configs(config_filename: str) -> Iterator[Dict[str, Any]]:
-    """Parse the YAML config file."""
+    """Parse the YAML config file, resolving any 'includes' directives."""
     scripts_dir = os.path.dirname(os.path.realpath(__file__))
     configs_dir = os.path.join(scripts_dir, "configs")
     config_filepath = os.path.join(configs_dir, config_filename)
+    # If the file uses includes, it must be a single document (no multi-doc).
+    # Try resolving includes first; fall back to multi-doc for legacy files.
     with open(config_filepath, "r", encoding="utf-8") as f:
-        for config in yaml.safe_load_all(f):
+        raw_docs = list(yaml.safe_load_all(f))
+    for raw_config in raw_docs:
+        if raw_config and "includes" in raw_config:
+            yield _resolve_config(config_filepath)
+            return  # includes-based files are single-document
+    # Legacy path: no includes, yield each document as-is.
+    for config in raw_docs:
+        if config is not None:
             yield config
 
 

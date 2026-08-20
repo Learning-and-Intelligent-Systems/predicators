@@ -70,7 +70,8 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                 state.get(block, "pose_y"),
                 state.get(block, "pose_z")
             ])
-            arr = np.r_[block_pose, 0.0].astype(np.float32)
+            arr = np.r_[block_pose,
+                        BlocksEnv.closed_fingers].astype(np.float32)
             arr = np.clip(arr, action_space.low, action_space.high)
             return Action(arr)
 
@@ -94,7 +95,8 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                 0.,
                 block_size,
             ])
-            arr = np.r_[block_pose + relative_grasp, 1.0].astype(np.float32)
+            arr = np.r_[block_pose + relative_grasp,
+                        BlocksEnv.open_fingers].astype(np.float32)
             arr = np.clip(arr, action_space.low, action_space.high)
             return Action(arr)
 
@@ -112,7 +114,7 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
             x = BlocksEnv.x_lb + (BlocksEnv.x_ub - BlocksEnv.x_lb) * x_norm
             y = BlocksEnv.y_lb + (BlocksEnv.y_ub - BlocksEnv.y_lb) * y_norm
             z = BlocksEnv.table_height + 0.5 * block_size
-            arr = np.array([x, y, z, 1.0], dtype=np.float32)
+            arr = np.array([x, y, z, BlocksEnv.open_fingers], dtype=np.float32)
             arr = np.clip(arr, action_space.low, action_space.high)
             return Action(arr)
 
@@ -144,7 +146,7 @@ class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def get_current_fingers(state: State) -> float:
             robot, = state.get_objects(robot_type)
-            return PyBulletBlocksEnv.fingers_state_to_joint(
+            return PyBulletBlocksEnv._fingers_state_to_joint(  # pylint: disable=protected-access
                 pybullet_robot, state.get(robot, "fingers"))
 
         def open_fingers_func(state: State, objects: Sequence[Object],

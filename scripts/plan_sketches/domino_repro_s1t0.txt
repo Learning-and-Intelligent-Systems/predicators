@@ -1,0 +1,7 @@
+Plan:
+Pick(robot:robot, domino_1:domino) -> {Holding(robot:robot, domino_1:domino)}
+Place(robot:robot) -> {HandEmpty(robot:robot), InFront(domino_1:domino, domino_0:domino)}
+Pick(robot:robot, domino_2:domino) -> {Holding(robot:robot, domino_2:domino)}
+Place(robot:robot) -> {HandEmpty(robot:robot), InFront(domino_3:domino, domino_2:domino), InFront(domino_2:domino, domino_1:domino)}
+Push(robot:robot) -> {Toppled(domino_0:domino)}
+Wait(robot:robot) -> {Toppled(domino_3:domino)}

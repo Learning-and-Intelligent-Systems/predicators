@@ -44,6 +44,7 @@ class BaseExplorer(abc.ABC):
         self,
         train_task_idx: int,
         timeout: int,
+        log_info: bool = False,
     ) -> ExplorationStrategy:
         """Wrap the base exploration strategy."""
 
@@ -65,9 +66,10 @@ class BaseExplorer(abc.ABC):
             if actual_remaining_steps <= 0:
                 logging.info("[Base Explorer] terminating due to max steps")
                 return True
-            logging.info(
-                "[Base Explorer] not yet terminating (remaining steps: "
-                f"{actual_remaining_steps})")
+            if log_info:
+                logging.info(
+                    "[Base Explorer] not yet terminating (remaining steps: "
+                    f"{actual_remaining_steps})")
             remaining_steps -= 1
             return False
 

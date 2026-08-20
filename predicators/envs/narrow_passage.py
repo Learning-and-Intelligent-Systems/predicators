@@ -54,7 +54,7 @@ class NarrowPassageEnv(BaseEnv):
     # in order for the door-opening action to work.
     _door_sensor_type = Type("door_sensor", ["x"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         # Predicates
         self._TouchedGoal = Predicate("TouchedGoal",

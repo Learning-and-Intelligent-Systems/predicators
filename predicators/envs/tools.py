@@ -53,7 +53,7 @@ class ToolsEnv(BaseEnv):
     _wrench_type = Type("wrench", ["pose_x", "pose_y", "size", "is_held"])
     _contraption_type = Type("contraption", ["pose_lx", "pose_ly"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Predicates

@@ -26,7 +26,7 @@ class RepeatedNextToEnv(BaseEnv):
     env_ub: ClassVar[float] = 100.0
     grasped_thresh: ClassVar[float] = 0.5
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types

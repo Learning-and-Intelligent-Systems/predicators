@@ -57,7 +57,7 @@ class StickButtonEnv(BaseEnv):
     # Holds the stick up so that it can be grasped by the robot.
     _holder_type = Type("holder", ["x", "y", "theta"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Predicates
@@ -489,7 +489,7 @@ class StickButtonMovementEnv(StickButtonEnv):
     # We add an attribute for the open/closed status of the robot's gripper.
     _robot_type = _robot_type = Type("robot", ["x", "y", "theta", "fingers"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],

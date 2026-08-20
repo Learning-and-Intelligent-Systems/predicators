@@ -1,0 +1,265 @@
+<?xml version="1.0"?>
+<robot name="laser_station">
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+      <material name="laser_station_base_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+  <link name="laser_station_body">
+    <visual>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.0"/>
+      <geometry>
+        <box size="0.06 0.06 0.1"/>
+      </geometry>
+      <material name="laser_station_body_material">
+        <color rgba="1 1 1 1"/>
+        
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.0"/>
+      <geometry>
+        <box size="0.06 0.06 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+    <!-- Laser marker at the front surface -->
+    <link name="laser_station_marker">
+      <visual>
+        <origin xyz="0 0.03 0.07666666666666666" rpy="0 0 0.0"/>
+        <geometry>
+            <box size="0.02 0.001 0.02"/>
+        </geometry>
+        <material name="laser_station_marker_material">
+            <color rgba="1 0 0 1"/>
+        </material>
+      </visual>
+    </link>
+
+
+  <joint name="base_to_laser_station_body" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser_station_body"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="laser_station_body_to_marker" type="fixed">
+    <parent link="laser_station_body"/>
+    <child link="laser_station_marker"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- BEGIN switch.urdf content     -->
+	<link name="base"><inertial><mass value="0.1" /><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1" /></inertial></link>
+	<link name="link_0">
+		<visual name="switch-1">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-14.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-14.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+	<inertial><mass value="0.1" /><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1" /></inertial></link>
+	<joint name="joint_0" type="prismatic">
+		<origin xyz="0 0 0" />
+		<axis xyz="0 1 0" />
+		<child link="link_0" />
+		<parent link="link_1" />
+		<limit effort="30" lower="0" upper="0.2959999999999998" velocity="1.0" />
+	</joint>
+	<link name="link_1">
+		<!-- <visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-4.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual> -->
+		<!-- <visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-3.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual> -->
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-2.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-8.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-13.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-9.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-5.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-6.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-11.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-12.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-7.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<!-- <visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-1.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual> -->
+		<visual name="base_body-2">
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-10.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</visual>
+		<!-- <collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-4.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision> -->
+		<!-- <collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-3.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision> -->
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-2.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-8.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-13.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-9.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-5.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-6.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-11.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-12.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-7.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+		<!-- <collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-1.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision> -->
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="textured_objs/original-10.obj" scale="0.1 0.1 0.1"/>
+			</geometry>
+		</collision>
+	<inertial><mass value="0.1" /><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1" /></inertial></link>
+	<joint name="joint_1" type="fixed">
+		<origin rpy="1.570796326794897 0 -1.570796326794897" xyz="0 0 0" />
+		<child link="link_1" />
+		<parent link="base" />
+	</joint>
+
+
+  <!-- Attach the switch base to middle_plastic at -y    -->
+
+  <joint name="attach_switch_to_snap" type="fixed">
+    <parent link="laser_station_body"/>
+    <child link="base"/>
+    <!-- <origin xyz="0 -0.001 0.08" rpy="0 1.5707963267948966 0"/> -->
+    <origin xyz="0 -0.001 0.08" rpy="0 1.5707963267948966 0"/>
+  </joint>
+
+</robot>

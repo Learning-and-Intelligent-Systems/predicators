@@ -166,7 +166,7 @@ def test_fetch_pybullet_robot(physics_client_id):
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     ee_home_pose = Pose(ee_home_position, ee_orn)
     base_pose = Pose((0.75, 0.7441, 0.0))
-    robot = FetchPyBulletRobot(ee_home_pose, physics_client_id, base_pose)
+    robot = FetchPyBulletRobot(physics_client_id, ee_home_pose, base_pose)
     assert robot.get_name() == "fetch"
     assert robot.arm_joint_names == [
         'shoulder_pan_joint', 'shoulder_lift_joint', 'upperarm_roll_joint',
@@ -178,6 +178,10 @@ def test_fetch_pybullet_robot(physics_client_id):
     # The robot arm is 7 DOF and the left and right fingers are appended last.
     assert robot.left_finger_joint_idx == 7
     assert robot.right_finger_joint_idx == 8
+    # The Fetch keeps PyBullet's default (unlimited) finger motor force: its
+    # finger joint damping (100) is only stable with unlimited motor
+    # authority, and its gripper stalls benignly on grasped objects as-is.
+    assert robot.finger_motor_force is None
 
     robot_state = np.array(ee_home_position + tuple(ee_orn) +
                            (robot.open_fingers, ),
@@ -226,6 +230,59 @@ def test_fetch_pybullet_robot(physics_client_id):
     assert robot.link_from_name("gripper_link")
     with pytest.raises(ValueError):
         robot.link_from_name("non_existent_link")
+
+
+def test_reset_state_skips_ik_for_sign_flipped_quaternion(
+        physics_client_id, monkeypatch):
+    """Authoritative joints + sign-flipped quaternion must use the fast-path.
+
+    When `_set_state` provides joint_positions read from a live `_get_state`,
+    those joints are ground truth, but the requested EE quaternion is rebuilt
+    via `getQuaternionFromEuler(getEulerFromQuaternion(q))` which can flip
+    sign. A naive np.allclose(live_quat, target_quat) then spuriously fails
+    and forces an IK fallback that loses orientation. The rotation-aware
+    comparison must accept q and -q as the same orientation and return
+    without invoking IK.
+    """
+    ee_home_position = (1.35, 0.75, 0.75)
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    ee_home_pose = Pose(ee_home_position, ee_orn)
+    base_pose = Pose((0.75, 0.7441, 0.0))
+    robot = FetchPyBulletRobot(physics_client_id, ee_home_pose, base_pose)
+
+    # Capture the live (joints, EE pose) pair after a normal reset — this
+    # mirrors what _get_state would record during trajectory collection.
+    home_state = np.array(ee_home_position + tuple(ee_orn) +
+                          (robot.open_fingers, ),
+                          dtype=np.float32)
+    robot.reset_state(home_state)
+    live_joints = list(robot.get_joints())
+    live_state = robot.get_state()
+
+    # Build a target whose quaternion is sign-flipped — same rotation,
+    # but np.allclose on the raw components fails by ~2x per element.
+    flipped_state = live_state.copy()
+    flipped_state[3:7] = -live_state[3:7]
+    assert not np.allclose(live_state[3:7], flipped_state[3:7], atol=1e-2)
+
+    # If the fast-path falls through to IK, the test fails loudly.
+    def _no_ik(*_args, **_kwargs):
+        raise AssertionError(
+            "pybullet_inverse_kinematics was called; the fast-path should "
+            "have accepted the sign-flipped quaternion as equivalent.")
+
+    monkeypatch.setattr(
+        "predicators.pybullet_helpers.robots.single_arm."
+        "pybullet_inverse_kinematics", _no_ik)
+
+    robot.reset_state(flipped_state, joint_positions=live_joints)
+
+    # Joints must remain authoritative (no IK perturbation).
+    assert np.allclose(robot.get_joints(), live_joints, atol=1e-6)
+    # And the live EE pose still represents the same rotation.
+    after = robot.get_state()
+    assert np.allclose(after[:3], live_state[:3], atol=1e-3)
+    assert abs(float(np.dot(after[3:7], live_state[3:7]))) >= 1.0 - 1e-3
 
 
 def test_create_single_arm_pybullet_robot(physics_client_id):

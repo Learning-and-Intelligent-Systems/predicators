@@ -1,0 +1,23 @@
+# domino_row_20260817_bridge2.txt with the release lowered 0.57 -> 0.55.
+#
+# The held domino hangs 0.0657 below the gripper (the grasp offset), and rests
+# with its centre 0.075 above the table, so a release at world z R leaves its
+# underside R - 0.4657 above the 0.4 table top: 29 mm at 0.57, 9 mm at 0.55.
+# In sim that difference is free, which is exactly why the sweep never found
+# it -- the same shape of blind spot the 0.082 grasp offset came from. On the
+# real table a 0.15 m domino dropped 29 mm can bounce or settle tilted, and a
+# tilted bridge domino is a hop that does not carry.
+#
+# 0.55 is not free either: the descend phase carries the domino 20 mm closer
+# to the table with check_release_clearance on, so it is the likelier of the
+# two to be refused before the arm ever moves. Use bridge2 first and come here
+# if the placements are the thing that fails.
+#
+# Everything else -- roles, ids, waypoints, heading, grasp, push -- is
+# unchanged from bridge2; read that file for the geometry and the settings.
+Pick(robot:robot, domino_2:domino)[0.065700]
+Place(robot:robot)[0.6247, 1.2900, 0.55, 1.5739]
+Pick(robot:robot, domino_1:domino)[0.065700]
+Place(robot:robot)[0.7567, 1.2896, 0.55, 1.5739]
+Push(robot:robot, domino_3:domino)[0.04, 0.03]
+Wait(robot:robot)[]

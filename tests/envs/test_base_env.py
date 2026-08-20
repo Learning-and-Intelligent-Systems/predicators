@@ -16,8 +16,12 @@ _MODULE_PATH = predicators.envs.__name__
 
 def test_env_creation():
     """Tests for create_new_env() and get_or_create_env()."""
-    utils.reset_config({"num_train_tasks": 5, "num_test_tasks": 5})
     for name, _ in ENV_NAME_AND_CLS:
+        utils.reset_config({
+            "env": name,
+            "num_train_tasks": 5,
+            "num_test_tasks": 5
+        })
         env = create_new_env(name, do_cache=True, use_gui=False)
         assert isinstance(env, BaseEnv)
         other_env = get_or_create_env(name)

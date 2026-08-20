@@ -28,7 +28,10 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   predicates: Dict[str, Predicate],
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
         # Types
-        block_type = types["block"]
+        if "block_derived" in types:
+            block_type = types["block_derived"]
+        else:
+            block_type = types["block"]
         target_type = types["target"]
         robot_type = types["robot"]
 

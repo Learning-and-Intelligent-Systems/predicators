@@ -1,0 +1,25 @@
+# scene   : domino_straight.json
+# goal    : ['Toppled(domino_3:domino)']
+# roles   : start=domino_0 target=domino_3
+# bridge  : 1 domino
+#
+# Place/Push params found by the agent explorer in run_20260807_091533
+# (12/12 at reward 0.95). The GRASP OFFSET is NOT the agent's.
+#
+# The agent chose 0.082, which run_20260807_102548 then failed on the real
+# arm: look 2 reported domino_4 0.1987 m from the twin's prediction while
+# every other domino stayed under 9 mm -- the gripper closed on nothing and
+# the twin went on believing it held the domino.
+#
+# 0.082 puts the fingertips 8.2 mm below the top of a 150 mm domino. In sim
+# that grips as well as anything, because a grasp is a JOINT_FIXED weld
+# formed on 5e-4 proximity and grip depth costs nothing; a real hand slips
+# off it. Higher offsets also clear BiRRT more easily, so a sim optimiser
+# pushes this parameter to the top of the range -- the worst real choice.
+#
+# 0.0657 is _grasp_z_offset() for this hand: fingertips 24.5 mm below the
+# top, the same depth the value tuned on the Fetch gives that arm.
+Pick(robot:robot, domino_4:domino)[0.065700]
+Place(robot:robot)[0.72, 1.28, 0.57, 1.57]
+Push(robot:robot, domino_0:domino)[0.04, 0.03]
+Wait(robot:robot)[]

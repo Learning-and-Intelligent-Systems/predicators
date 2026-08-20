@@ -1,0 +1,47 @@
+Context: You are an expert AI planning researcher. Your task is to design task-specific predicates that can be used in a PDDL-like model to (a) detect unreachable goals early and (b) avoid futile plans.
+
+### Types and Features
+The environment has the following types, each with some features:
+
+{TYPES_IN_ENV}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+{PREDICATES_IN_ENV}
+
+### Robot’s Goal
+The robot's goal in this environment is to make the predicate {GOAL_PREDICATE} true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, which they thought would achieve the goal but did not. The state-feature-action trajectory is provided below.
+
+{EXPERIENCE_IN_ENV}
+
+### Your Task
+Invent a small set of the most essential new predicates whose primary purpose is to expose **blocking conditions**: primitive, easily-checkable properties that must hold somewhere in the environment for the goal to be achievable. If a blocking condition is true (or a required enabling condition is false), a rational planner can conclude that the goal is unreachable under the available actions.
+
+Prioritize:
+- Necessary preconditions for success that the demonstrator overlooked.
+- Irreversible or static properties (e.g., object class, material, color category) that make certain transitions impossible.
+- Local checks that can be evaluated from the provided object features without simulating dynamics.
+
+Note: Features such as colors may encode latent material or affordance classes. You may want to propose predicates that identify such classes when they impose hard constraints on feasible state transitions or interactions (e.g., non-deformable, too-heavy, low-friction, brittle, sealed, non-activatable).
+For every new predicate, explicitly state how its truth value is decided from the listed non-pose features. Use a deterministic rule with concrete feature names and numeric thresholds or categorical equalities (no vague phrases like “such as mass”). If invoking a latent property, tie it to an explicit feature pattern.
+
+### Constraints
+- Geometry/pose prohibition (hard): Do not use or derive from pose fields (x, y, z, yaw, roll, tilt, wrist) or any geometric constructs (distance, proximity, alignment, vector, path, line-of-sight, “within θ”, abs(·)<τ). Predicates mentioning these are invalid.
+- Soft blacklist (names/definitions to avoid): aligned, path, near, distance, airstream, obstructed, adjacency (unless given as a non-pose feature).0
+- Avoid composite predicates (no negation/AND/OR of other predicates). Each proposal should state one primitive property or relation that can be verified from the given features.
+- Assertions must be clear and unambiguous, describing the relationship or properties of variables ?<var1>, ?<var2>, etc., so an external observer could label truth values from the provided object features alone.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; use only types present in the states.
+- Do not use bold or italic fonts.
+- Respond only with the Output section below.
+
+### Output Format
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...

@@ -1,6 +1,6 @@
 """Handle creation of explorers."""
 
-from typing import Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 from gym.spaces import Box
 
@@ -15,6 +15,10 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtom, \
     NSRTSamplerWithEpsilonIndicator, ParameterizedOption, Predicate, State, \
     Task, Type, _GroundSTRIPSOperator
+
+if TYPE_CHECKING:
+    from predicators.agent_sdk.session_manager import SessionManagerProtocol
+    from predicators.agent_sdk.tools import ToolContext
 
 __all__ = ["BaseExplorer"]
 
@@ -43,6 +47,8 @@ def create_explorer(
     seen_train_task_idxs: Optional[Set[int]] = None,
     pursue_task_goal_first: Optional[bool] = None,
     maple_q_function: Optional[MapleQFunction] = None,
+    tool_context: Optional["ToolContext"] = None,
+    agent_session: Optional["SessionManagerProtocol"] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     if max_steps_before_termination is None:
@@ -103,6 +109,13 @@ def create_explorer(
                                action_space, train_tasks,
                                max_steps_before_termination, nsrts,
                                maple_q_function)
+            elif name in ("agent_plan", "agent_bilevel"):
+                assert tool_context is not None
+                assert agent_session is not None
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks,
+                               max_steps_before_termination, tool_context,
+                               agent_session)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,

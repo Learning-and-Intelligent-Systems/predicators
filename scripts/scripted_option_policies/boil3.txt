@@ -1,0 +1,3 @@
+Plan:
+PickJug(robot:robot, jug0:jug)[0.]
+Place(robot:robot)[1.05, 1.35, 0.55, -1.57]

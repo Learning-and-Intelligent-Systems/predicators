@@ -1,0 +1,44 @@
+Context: You are an expert AI planning researcher. Your task is to design task-specific predicates that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+
+### Types and Features
+The environment has the following types, each with some features:
+
+{TYPES_IN_ENV}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+{PREDICATES_IN_ENV}
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate {GOAL_PREDICATE} true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with the goal being achieved. The state-feature-action trajectory is provided below.
+
+{EXPERIENCE_IN_ENV}
+
+### Your Task
+Invent a small set of the *most essential* new predicates. These should be simple, primitive concepts that represent critical **subgoals**, **conditions for subgoals**, or *any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration*.
+
+Note:
+- If a continuous feature represents progress toward a subgoal, define exactly one terminal predicate for its end state (with a high threshold near the value observed when the goal is achieved) and ignore intermediate progress states.
+- Geometry/affordance guardrail: Do not invent predicates that rely on pose or derived geometry (distance, proximity, alignment, path, line-of-sight, “within θ”, abs(·) < τ), or on capabilities (Can*, AbleTo*, Near*), unless such relations are already provided as explicit non-pose features.
+- There maybe some risk or violation condition that must remain safe for the goal to succeed, even if failure is not shown. For such features include a maintenance predicate that keeps it within a safe bound (e.g., T_low ≤ 0.1 for normalized features).
+
+### Constraints
+- Do *not* propose any new predicates that are purely pose-based (i.e., based on raw x, y, z coordinates or 'rot', 'tilt' angles).
+- Avoid composite predicates (no negation/AND/OR of other predicates). Each proposal should state one primitive property or relation that can be verified from the given features.
+- Assertions must be clear and unambiguous, describing the relationship or properties of variables ?<var1>, ?<var2>, etc., so an external observer could label truth values from the provided object features alone.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined below.
+
+### Output Format
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```

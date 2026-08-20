@@ -1,0 +1,79 @@
+<?xml version="1.0" ?>
+<robot name="partnet_af5f4299084775cb4bb0a929135b1b1f">
+	<link name="base"/>
+	<link name="link_1">
+		<!-- Visual meshes for the bucket -->
+		<visual name="base_body-2">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original-4.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original-3.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original-2.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original-5.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body-2">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original-1.obj"/>
+			</geometry>
+		</visual>
+
+		<!-- Simple box collisions to form a container -->
+		<!-- Bottom of bucket -->
+		<collision name="bottom">
+			<origin xyz="0 -0.4 0"/>
+			<geometry>
+				<box size="0.8 0.1 0.8"/>
+			</geometry>
+		</collision>
+		<!-- Wall: positive x side -->
+		<collision name="wall_px">
+			<origin xyz="0.4 0.05 0"/>
+			<geometry>
+				<box size="0.1 0.8 0.8"/>
+			</geometry>
+		</collision>
+		<!-- Wall: negative x side -->
+		<collision name="wall_nx">
+			<origin xyz="-0.4 0.05 0"/>
+			<geometry>
+				<box size="0.1 0.8 0.8"/>
+			</geometry>
+		</collision>
+		<!-- Wall: positive z side -->
+		<collision name="wall_pz">
+			<origin xyz="0 0.05 0.4"/>
+			<geometry>
+				<box size="0.8 0.8 0.1"/>
+			</geometry>
+		</collision>
+		<!-- Wall: negative z side -->
+		<collision name="wall_nz">
+			<origin xyz="0 0.05 -0.4"/>
+			<geometry>
+				<box size="0.8 0.8 0.1"/>
+			</geometry>
+		</collision>
+	</link>
+	<joint name="joint_1" type="fixed">
+		<origin rpy="1.570796326794897 0 -1.570796326794897" xyz="0 0 0"/>
+		<child link="link_1"/>
+		<parent link="base"/>
+	</joint>
+</robot>

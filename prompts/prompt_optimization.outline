@@ -1,0 +1,20 @@
+You are an expert AI research who will help me to optimize my prompt for predicate invention for efficient planning in different domains.
+
+### Prompt template
+The following is a prompt template that I use to prompt LLMs for predicate invention:
+{PROMPT_TEMPLATE}
+
+### Prompt and response examples
+Here is an example actual prompt, model response and target, desired response.
+
+#### Example prompt
+{PROMPT_EXAMPLE}
+
+#### Example response
+{EXAMPLE_RESPONSE}
+
+#### Target response
+{TARGET_RESPONSE}
+
+### Your task
+Modify the prompt in a domain general way so that the LLM can more accurately propose the target predicates while not proposing anything else.

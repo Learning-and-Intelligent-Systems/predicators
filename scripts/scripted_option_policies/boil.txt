@@ -1,0 +1,3 @@
+Plan:
+PickJug(robot:robot, jug0:jug)[0.]
+PlaceUnderFaucet(robot:robot, faucet:faucet)[1.05, 1.27, 0.5, -1.57]

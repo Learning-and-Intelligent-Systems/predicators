@@ -26,7 +26,7 @@ class SokobanEnv(BaseEnv):
 
     object_type = Type("obj", ["row", "column", "type"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Predicates

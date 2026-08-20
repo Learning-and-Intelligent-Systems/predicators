@@ -1,0 +1,10 @@
+You are an AI planning expert tasked to select the appropriate "conditions at start" for some processes, similar to how they are defined in PDDL2.1 or PDDL+.
+
+For each process, the conditions listed below got the same data likelihood. But due to limited data, the highest-likelihood or the simplest conditions might not be the best choice. So we want you to incorporate your world knowledge and reasoning to choose the most suitable "Conditions at start" among the top-scoring ones.
+
+{EXOGENOUS_PROCESS_SKETCH}
+
+{TOP_SCORING_CONDITIONS}
+
+Select the *index* of the condition you judge to be the most suitable. Provide your final answer in a `<answer>...</answer>` tag.
+You should think through the reasoning internally, but only output the final answer.

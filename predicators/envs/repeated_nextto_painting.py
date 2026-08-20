@@ -19,7 +19,7 @@ from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
 class RepeatedNextToPaintingEnv(PaintingEnv):
     """RepeatedNextToPainting domain."""
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Additional Predicates

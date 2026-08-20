@@ -1,0 +1,7 @@
+# Backup: same plan at a mid-band grasp (0.070 -> fingertips 20.2 mm
+# below the top). Use if 0.0657 turns out to clear BiRRT less reliably
+# on the day's scene; still a deep enough grip for a real close.
+Pick(robot:robot, domino_4:domino)[0.070000]
+Place(robot:robot)[0.72, 1.28, 0.57, 1.57]
+Push(robot:robot, domino_0:domino)[0.04, 0.03]
+Wait(robot:robot)[]

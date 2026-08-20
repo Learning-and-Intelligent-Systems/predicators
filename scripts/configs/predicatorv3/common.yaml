@@ -1,0 +1,35 @@
+ARGS:
+  - "debug"
+  # - "use_gui"
+  - "make_failure_videos"
+  - "make_test_videos"
+  - "make_interaction_videos"
+  # - "make_demo_videos"
+  # - "make_demo_images"  # support images
+  # - "make_failure_images"  # query images
+  # - "make_test_images"  # query images
+  # - "save_atoms"
+FLAGS:
+  num_online_learning_cycles: 10
+  online_learning_early_stopping: True
+  online_learning_early_stopping_require_all_attempts: True
+  online_learning_early_stopping_skip_redundant_test: True
+  online_nsrt_learning_requests_per_cycle: 2
+  skill_phase_use_motion_planning: True
+  max_num_steps_interaction_request: 500
+  pretrained_model_service_provider: "openrouter"
+  llm_model_name: "google/gemini-2.5-pro"
+  llm_openai_max_response_tokens: 1e6
+  terminate_on_goal_reached: False
+  pybullet_ik_validate: False
+  num_train_tasks: 1
+  num_test_tasks: 1
+  video_fps: 20
+  pybullet_camera_height: 900
+  pybullet_camera_width: 900
+  planning_filter_unreachable_nsrt: False
+  timeout: 600
+  log: 'logs/'
+  no_repeated_arguments_in_grounding: True
+START_SEED: 0
+NUM_SEEDS: 3

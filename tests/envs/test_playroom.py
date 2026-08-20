@@ -119,8 +119,9 @@ def test_playroom_failure_cases(env_name):
     for o in state:
         if o.type != robot_type:
             assert np.allclose(state[o], next_state[o])
-    # Cannot stack onto no block
-    act = Action(np.array([15, 16, 0.8, -0.5, 0.7]).astype(np.float32))
+    # Cannot stack onto no block (z must be >= table_height + block_size
+    # to trigger stacking instead of putontable)
+    act = Action(np.array([15, 16, 1.0, -0.5, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:

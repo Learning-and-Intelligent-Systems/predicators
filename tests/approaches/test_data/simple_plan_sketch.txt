@@ -1,0 +1,2 @@
+Pick(block0:block) -> {Holding(block0:block)}
+Place(block0:block, block1:block) -> {On(block0:block, block1:block)}

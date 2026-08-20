@@ -1,0 +1,30 @@
+# Thin launcher: run the oracle arm.
+# Usage: python scripts/local/launch_simp.py -c predicatorv3/oracle.yaml
+# Approach definitions live in approaches/all.yaml and env definitions in
+# envs/all.yaml (all parked by default); this file only un-skips the env +
+# arm(s) it runs and sets oracle-specific ENVS overrides.
+---
+includes:
+  - common.yaml
+  - envs/all.yaml
+  - approaches/all.yaml
+ENVS:
+  # Pick the env for the oracle run: fan is active; flip SKIPs to run
+  # domino instead.
+  fan:
+    SKIP: False
+  # Oracle keeps restricted push (target inferred from state). The agent
+  # configs rely on the codebase default (False) so the LLM can name the
+  # trigger domino explicitly via Push(robot, domino).
+  domino:
+    FLAGS:
+      domino_restricted_push: True
+  domino_low_friction:
+    FLAGS:
+      domino_restricted_push: True
+  domino_high_friction:
+    FLAGS:
+      domino_restricted_push: True
+APPROACHES:
+  oracle:
+    SKIP: False

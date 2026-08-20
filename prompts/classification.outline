@@ -1,0 +1,35 @@
+## Task: Identify which of the two query videos belongs to the reference envrionment.
+
+## Inputs
+Reference Video Frames:
+- Frame 1: ref_frame_1
+- Frame 2: ref_frame_2
+- Frame 3: ref_frame_3
+...
+
+Query Video 1 Frames:
+- Frame 1: query1_frame_1
+- Frame 2: query1_frame_2
+- Frame 3: query1_frame_3
+...
+
+Query Video 2 Frames:
+- Frame 1: query2_frame_1
+- Frame 2: query2_frame_2
+- Frame 3: query2_frame_3
+...
+
+## Task Definition
+This task involves the "{ENV_NAME}" environment and its counterfactual variant.
+A reference video captures the dynamics and structure of the reference environment. Given the two query videos, one from the reference environment, another from a counterfactual environment, determine which one is from the reference environment based on dynamics and structural consistency.
+
+## Response Format
+
+Provide your answer in the format:
+%% Reasoning: Explain what is happening in the reference and query videos, and which query video is from the reference world vs a counterfactual world.
+
+%% Matching Video: (Choose either "query_1" for Query Video 1 or "query_2" for Query Video 2)
+
+## Example Response:
+%% Reasoning: <detailed and careful reasoning>
+%% Matching Video: query_1

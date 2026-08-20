@@ -1,0 +1,71 @@
+# scene   : scenes/domino_row_20260817.json  (markerless, camera 30264679)
+# goal    : Toppled(domino_0)  -- the purple domino
+# roles   : start=domino_3 (green, capture id 3)   target=domino_0 (purple, capture id 0)
+#           movables=domino_1, domino_2 (capture ids 1, 2)
+# bridge  : both movables evenly across the 0.396 m start->target gap
+#           -> 0.132 m pitch
+#
+# Settings this plan assumes. The scene JSON carries no role field, so the env
+# reads the roles off these ids, and the four scene records are in id order so
+# capture id N lands in slot N and is named domino_N:
+#
+#   domino_real_scene:     .../BabyRobotPredicator/scenes/domino_row_20260817.json
+#   domino_real_start_id:  3
+#   domino_real_target_id: 0
+#
+# Left at 6 / 5 (domino_straight.json's ids) the scene has no target at all and
+# _task_from_perceived asserts on it.
+#
+# GEOMETRY. All four dominoes are standing: world z 0.4749-0.4760 against the
+# 0.475 a 0.15 m domino standing on the 0.4 table top has, and roll 0.0-5.8
+# deg, all under the 10 deg that reads as toppled. As captured they sit on an
+# arc rather than a row, and every gap is past a domino's reach:
+#
+#   domino_3 -> domino_2   0.199 m
+#   domino_2 -> domino_1   0.159 m
+#   domino_1 -> domino_0   0.182 m
+#
+# Start and target are 0.396 m apart in a straight line. Two movables split
+# that into three 0.132 m hops, and 0.132 m is the shortest longest-hop two
+# movables can give -- with one start, one target and two movables there is no
+# spare domino to buy a fourth hop, and any path that is not the straight line
+# is longer. Both blues are therefore consumed by construction, so a solve
+# scores 1 - 2 * 0.1 = 0.8; there is no cheaper chain to prefer.
+#
+# A domino toppling across 0.132 m strikes its neighbour 0.109 m up, well above
+# the 0.075 m the neighbour's own centre sits at, so the hop has margin in
+# geometry. What it does not have is margin in friction.
+# domino_planning_friction 0.1 is the twin's deliberately wrong belief, and at
+# 0.1 a 0.110 m pitch carried only 3/8 in the domino_straight bridge study.
+# Expect the twin to be pessimistic about this chain and the real table (0.5)
+# to carry it -- that mismatch is the experiment, not a defect in the plan.
+#
+# HEADING. The chain runs almost exactly along world +x, yaw 1.5739 rad (90.18
+# deg), which is where both placements point. The start's own captured heading
+# faces -x, away from the target. _canonical_start_yaw flips it at task-build
+# time, but only for the domino it believes is the start -- one more reason
+# domino_real_start_id has to be 3.
+#
+# ORDER. Build from the push end. Each transport then runs straight out in +y
+# from where the domino stands to where it belongs, about 0.15 m, and crosses
+# nothing already placed.
+#
+# GRASP 0.0657 is _grasp_z_offset() for this hand: fingertips 24.5 mm below the
+# top of a 0.15 m domino. Do not let a sim sweep raise it. A grasp in sim is a
+# weld formed on proximity, so grip depth costs nothing there and higher
+# offsets clear BiRRT more easily; the optimiser walks this parameter to the
+# top of its band, which is the value a real hand slips off
+# (run_20260807_102548, where the gripper closed on nothing and the twin went
+# on believing it held the domino).
+#
+# RELEASE 0.57 leaves the held domino's underside 29 mm above the table, so it
+# is dropped rather than set down. That is the sim sweep's value and sim does
+# not charge for it; if the real placements bounce or land tilted, switch to
+# domino_row_20260817_bridge2_release055.txt, which is this plan with the drop
+# cut to 9 mm.
+Pick(robot:robot, domino_2:domino)[0.065700]
+Place(robot:robot)[0.6247, 1.2900, 0.57, 1.5739]
+Pick(robot:robot, domino_1:domino)[0.065700]
+Place(robot:robot)[0.7567, 1.2896, 0.57, 1.5739]
+Push(robot:robot, domino_3:domino)[0.04, 0.03]
+Wait(robot:robot)[]

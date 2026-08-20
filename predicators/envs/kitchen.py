@@ -109,7 +109,7 @@ class KitchenEnv(BaseEnv):
         ("slide", "off"): (0.15, -0.1, 0.0),
     }
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
 Install from https://github.com/NishanthJKumar/Gymnasium-Robotics. \

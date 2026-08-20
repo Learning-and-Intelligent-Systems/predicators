@@ -1,0 +1,810 @@
+You are an expert AI research who will help me to optimize my prompt for predicate invention for efficient planning in different domains.
+
+### Prompt template
+The following is a prompt template that I use to prompt LLMs for predicate invention:
+```
+Context: You are an expert AI planning researcher. Your task is to design *task-specific state abstraction predicates* that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+### Types and Features
+The environment has the following types, each with some features:
+
+{TYPES_IN_ENV}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+{PREDICATES_IN_ENV}
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate `HumanHappy()` true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with HumanHappy()=True. The state-feature-action trajectory is provided below.
+
+{EXPERIENCE_IN_ENV}
+
+### Your Task
+Invent new predicates that can serve as essential *subgoals* or *conditions* for the goal to become true in the final state, and any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration.
+
+### Output Format
+
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```
+
+### Constraints
+- Do *not* propose any new predicates that are purely position-based.
+- Avoid composite predicates: Focus on proposing primitive predicates that capture a property or relation. Do *not* propose predicates that represent conjunctions (AND) or disjunctions (OR) of existing or proposed predicates—these can be constructed later from primitives.
+- The assertion should be clear, precise, unambiguous, and describe the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined above.
+```
+
+### Prompt and response examples
+Here is an example actual prompt, model response and target, desired response.
+
+#### Example Prompt 1
+```
+Context: You are an expert AI planning researcher. Your task is to design *task-specific state abstraction predicates* that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+### Types and Features
+The environment has the following types, each with some features:
+
+direction: {'dir'}
+domino: {'x', 'y', 'z', 'rot', 'tilt', 'r', 'g', 'b', 'is_held'}
+loc: {'xx', 'yy'}
+robot: {'x', 'y', 'z', 'fingers', 'tilt', 'wrist'}
+rot: {'angle'}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+AdjacentTo(?x:loc, ?y:domino)
+DominoAtPos(?x:domino, ?y:loc)
+DominoAtRot(?x:domino, ?y:rot)
+HandEmpty(?x:robot)
+Holding(?x:robot, ?y:domino)
+InFrontDirection(?x:domino, ?y:domino, ?z:direction)
+MovableBlock(?x:domino)
+PosClear(?x:loc)
+StartBlock(?x:domino)
+Toppled(?x:domino)
+Upright(?x:domino)
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate `HumanHappy()` true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with HumanHappy()=True. The state-feature-action trajectory is provided below.
+
+Starting at state_0 with additional info:
+  {'domino_0:domino': {'x': 0.65, 'y': 1.40, 'z': 0.48, 'rot': 1.57, 'tilt': 0.00, 'r': 0.56, 'g': 0.93, 'b': 0.56, 'is_held': 0.00},
+   'domino_1:domino': {'x': 0.75, 'y': 1.30, 'z': 0.48, 'rot': 0.00, 'tilt': 0.00, 'r': 0.60, 'g': 0.80, 'b': 1.00, 'is_held': 0.00},
+   'domino_2:domino': {'x': 0.85, 'y': 1.40, 'z': 0.48, 'rot': 1.57, 'tilt': 0.00, 'r': 1.00, 'g': 0.75, 'b': 0.80, 'is_held': 0.00},
+   'left:direction': {'dir': 1.00},
+   'right:direction': {'dir': 2.00},
+   'robot:robot': {'x': 0.75, 'y': 1.35, 'z': 0.95, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57},
+   'straight:direction': {'dir': 0.00}}
+
+Action Pick(robot, domino_1) was executed in state_0
+
+This action results in state_1 with additional info:
+  {'domino_0:domino': {'x': 0.65, 'y': 1.40, 'z': 0.47, 'rot': 1.57, 'tilt': -0.00, 'r': 0.56, 'g': 0.93, 'b': 0.56, 'is_held': 0.00},
+   'domino_1:domino': {'x': 0.75, 'y': 1.32, 'z': 0.65, 'rot': 0.07, 'tilt': 0.02, 'r': 0.60, 'g': 0.80, 'b': 1.00, 'is_held': 1.00},
+   'domino_2:domino': {'x': 0.85, 'y': 1.40, 'z': 0.47, 'rot': 1.57, 'tilt': -0.00, 'r': 1.00, 'g': 0.75, 'b': 0.80, 'is_held': 0.00},
+   'left:direction': {'dir': 1.00},
+   'right:direction': {'dir': 2.00},
+   'robot:robot': {'x': 0.75, 'y': 1.32, 'z': 0.73, 'fingers': 0.01, 'tilt': 1.57, 'wrist': 0.06},
+   'straight:direction': {'dir': 0.00}}
+
+Action Place(robot, domino_1, domino_0, pos_y1_x1, rot_90) was executed in state_1
+
+This action results in state_2 with additional info:
+  {'domino_0:domino': {'x': 0.65, 'y': 1.40, 'z': 0.47, 'rot': 1.57, 'tilt': -0.00, 'r': 0.56, 'g': 0.93, 'b': 0.56, 'is_held': 0.00},
+   'domino_1:domino': {'x': 0.75, 'y': 1.41, 'z': 0.47, 'rot': 1.58, 'tilt': -0.00, 'r': 0.60, 'g': 0.80, 'b': 1.00, 'is_held': 0.00},
+   'domino_2:domino': {'x': 0.85, 'y': 1.40, 'z': 0.47, 'rot': 1.57, 'tilt': -0.00, 'r': 1.00, 'g': 0.75, 'b': 0.80, 'is_held': 0.00},
+   'left:direction': {'dir': 1.00},
+   'right:direction': {'dir': 2.00},
+   'robot:robot': {'x': 0.75, 'y': 1.40, 'z': 0.73, 'fingers': 0.03, 'tilt': 1.57, 'wrist': 1.57},
+   'straight:direction': {'dir': 0.00}}
+
+Action Push(robot, domino_0) was executed in state_2
+
+This action results in state_3 with additional info:
+  {'domino_0:domino': {'x': 0.72, 'y': 1.40, 'z': 0.42, 'rot': 1.57, 'tilt': 1.44, 'r': 0.56, 'g': 0.93, 'b': 0.56, 'is_held': 0.00},
+   'domino_1:domino': {'x': 0.83, 'y': 1.41, 'z': 0.42, 'rot': 1.58, 'tilt': 1.44, 'r': 0.60, 'g': 0.80, 'b': 1.00, 'is_held': 0.00},
+   'domino_2:domino': {'x': 0.95, 'y': 1.40, 'z': 0.41, 'rot': 1.58, 'tilt': 1.57, 'r': 1.00, 'g': 0.75, 'b': 0.80, 'is_held': 0.00},
+   'left:direction': {'dir': 1.00},
+   'right:direction': {'dir': 2.00},
+   'robot:robot': {'x': 0.75, 'y': 1.35, 'z': 0.94, 'fingers': 0.03, 'tilt': 1.57, 'wrist': 3.14},
+   'straight:direction': {'dir': 0.00}}
+
+Action Wait(robot) was executed in state_3
+
+This action results in state_4 with additional info:
+  {'domino_0:domino': {'x': 0.72, 'y': 1.40, 'z': 0.42, 'rot': 1.57, 'tilt': 1.44, 'r': 0.56, 'g': 0.93, 'b': 0.56, 'is_held': 0.00},
+   'domino_1:domino': {'x': 0.83, 'y': 1.41, 'z': 0.42, 'rot': 1.58, 'tilt': 1.44, 'r': 0.60, 'g': 0.80, 'b': 1.00, 'is_held': 0.00},
+   'domino_2:domino': {'x': 0.95, 'y': 1.40, 'z': 0.41, 'rot': 1.58, 'tilt': 1.57, 'r': 1.00, 'g': 0.75, 'b': 0.80, 'is_held': 0.00},
+   'left:direction': {'dir': 1.00},
+   'right:direction': {'dir': 2.00},
+   'robot:robot': {'x': 0.75, 'y': 1.35, 'z': 0.94, 'fingers': 0.05, 'tilt': 1.57, 'wrist': 0.46},
+   'straight:direction': {'dir': 0.00}}
+
+### Your Task
+Invent new predicates that can serve as essential *subgoals* or *conditions* for the goal to become true in the final state, and any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration.
+
+### Output Format
+
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```
+
+### Constraints
+- Do *not* propose any new predicates that are purely position-based.
+- Avoid composite predicates: Focus on proposing primitive predicates that capture a property or relation. Do *not* propose predicates that represent conjunctions (AND) or disjunctions (OR) of existing or proposed predicates—these can be constructed later from primitives.
+- The assertion should be clear, precise, unambiguous, and describe the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined above.
+```
+#### Example response
+```
+# Predicate Proposals
+* Aligned(?d1:domino, ?d2:domino): The planar orientations of domino ?d1 and domino ?d2 are approximately the same. This is true if the absolute difference between their 'rot' features, accounting for angular wrap-around, is less than a small threshold.
+* CorrectlySpacedForTopple(?d1:domino, ?d2:domino): Domino ?d1 is positioned and oriented relative to an upright domino ?d2 such that if ?d1 were to topple, it would cause ?d2 to topple. This is true if the distance between them is greater than a minimum collision-avoidance threshold but less than the toppling domino's height, and the vector from ?d1 to ?d2 is aligned with the toppling direction of ?d1 (which is perpendicular to its orientation 'rot').
+* ReachableDomino(?r:robot, ?d:domino): The domino ?d is within the robot's ?r kinematic workspace for manipulation. This is true if the Euclidean distance from the robot's base coordinates ('x', 'y') to the domino's coordinates ('x', 'y') is less than the robot's maximum arm reach.
+* ReachableLoc(?r:robot, ?l:loc): The location ?l is within the robot's ?r kinematic workspace for manipulation. This is true if the Euclidean distance from the robot's base coordinates ('x', 'y') to the location's coordinates ('xx', 'yy') is less than the robot's maximum arm reach.
+* InPushPosition(?r:robot, ?d:domino): The robot ?r is positioned correctly to push the domino ?d and initiate a topple. This is true if the robot's end-effector is located behind the domino, relative to the intended direction of the topple chain, and at an appropriate height to apply force above the domino's center of mass.
+```
+
+#### Target response
+The following is the predicate that I'd like it to propose. The name and logic is not important, the semantic is important.
+```
+    def _InFront_holds(cls, atoms: Set[GroundAtom],
+                       objects: Sequence[Object]) -> bool:
+        """Check if domino1 is in front of domino2 in any direction.
+
+        This derived predicate returns True if there exists any
+        direction such that InFrontDirection(domino1, domino2,
+        direction) is true.
+        """
+        domino1, domino2 = objects
+
+        # Check if there exists any InFrontDirection atom with these dominos
+        for atom in atoms:
+            if (atom.predicate.name == "InFrontDirection"
+                    and len(atom.objects) == 3 and atom.objects[0] == domino1
+                    and atom.objects[1] == domino2):
+                return True
+
+        return False
+```
+
+#### Example prompt 2
+```
+Context: You are an expert AI planning researcher. Your task is to design *task-specific state abstraction predicates* that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+### Types and Features
+The environment has the following types, each with some features:
+
+ball: {'x', 'y', 'z'}
+fan: {'x', 'y', 'z', 'rot', 'facing_side', 'is_on'}
+loc: {'xx', 'yy'}
+robot: {'x', 'y', 'z', 'fingers', 'tilt', 'wrist'}
+side: {'side_idx'}
+switch: {'x', 'y', 'z', 'rot', 'controls_fan', 'is_on'}
+target: {'x', 'y', 'z', 'rot', 'is_hit'}
+wall: {'x', 'y', 'z', 'rot'}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+BallAtLoc(?x:ball, ?y:loc)
+BallAtTarget(?x:ball, ?y:target)
+ClearPos(?x:loc)
+Controls(?x:switch, ?y:fan)
+FanOff(?x:fan)
+FanOn(?x:fan)
+SideOf(?x:loc, ?y:loc, ?z:side)
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate `HumanHappy()` true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with HumanHappy()=True. The state-feature-action trajectory is provided below.
+
+Starting at state_0 with additional info:
+  {'ball:ball': {'x': 0.83, 'y': 1.33, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 0.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 0.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.75, 'y': 1.35, 'z': 0.85, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 0.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+Action SwitchOn(robot, fan_right) was executed in state_0
+
+This action results in state_1 with additional info:
+  {'ball:ball': {'x': 0.82, 'y': 1.33, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 0.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 1.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.68, 'y': 1.09, 'z': 0.50, 'fingers': 0.01, 'tilt': 1.57, 'wrist': -0.01},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 0.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+Action Wait(robot) was executed in state_1
+
+This action results in state_2 with additional info:
+  {'ball:ball': {'x': 0.79, 'y': 1.33, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 0.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 1.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.69, 'y': 1.09, 'z': 0.50, 'fingers': 0.00, 'tilt': 1.55, 'wrist': -1.17},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 0.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+Action SwitchOff(robot, fan_right) was executed in state_2
+
+This action results in state_3 with additional info:
+  {'ball:ball': {'x': 0.75, 'y': 1.33, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 0.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 0.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.68, 'y': 1.11, 'z': 0.51, 'fingers': -0.01, 'tilt': 1.57, 'wrist': 0.00},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 0.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+Action SwitchOn(robot, fan_down) was executed in state_3
+
+This action results in state_4 with additional info:
+  {'ball:ball': {'x': 0.75, 'y': 1.34, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 1.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 0.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.76, 'y': 1.10, 'z': 0.50, 'fingers': 0.01, 'tilt': 1.57, 'wrist': -0.01},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 0.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+Action Wait(robot) was executed in state_4
+
+This action results in state_5 with additional info:
+  {'ball:ball': {'x': 0.75, 'y': 1.37, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 1.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 0.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.76, 'y': 1.10, 'z': 0.50, 'fingers': -0.00, 'tilt': 1.57, 'wrist': -0.00},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 0.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+Action Wait(robot) was executed in state_5
+
+This action results in state_6 with additional info:
+  {'ball:ball': {'x': 0.75, 'y': 1.45, 'z': 0.45},
+   'down:side': {'side_idx': 2.00},
+   'fan_down:fan': {'x': 0.40, 'y': 1.21, 'z': 0.46, 'rot': 1.57, 'facing_side': 2.00, 'is_on': 1.00},
+   'fan_left:fan': {'x': 0.32, 'y': 1.29, 'z': 0.46, 'rot': 0.00, 'facing_side': 0.00, 'is_on': 0.00},
+   'fan_right:fan': {'x': 1.18, 'y': 1.29, 'z': 0.46, 'rot': 3.14, 'facing_side': 1.00, 'is_on': 0.00},
+   'fan_up:fan': {'x': 0.40, 'y': 1.61, 'z': 0.46, 'rot': -1.57, 'facing_side': 3.00, 'is_on': 0.00},
+   'left:side': {'side_idx': 0.00},
+   'right:side': {'side_idx': 1.00},
+   'robot:robot': {'x': 0.76, 'y': 1.10, 'z': 0.50, 'fingers': -0.00, 'tilt': 1.57, 'wrist': -0.00},
+   'target:target': {'x': 0.75, 'y': 1.49, 'z': 0.40, 'rot': 0.00, 'is_hit': 1.00},
+   'up:side': {'side_idx': 3.00},
+   'wall0:wall': {'x': 0.83, 'y': 1.41, 'z': 0.40, 'rot': 0.00}}
+
+### Your Task
+Invent new predicates that can serve as essential *subgoals* or *conditions* for the goal to become true in the final state, and any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration.
+
+### Output Format
+
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```
+
+### Constraints
+- Do *not* propose any new predicates that are purely position-based.
+- Avoid composite predicates: Focus on proposing primitive predicates that capture a property or relation. Do *not* propose predicates that represent conjunctions (AND) or disjunctions (OR) of existing or proposed predicates—these can be constructed later from primitives.
+- The assertion should be clear, precise, unambiguous, and describe the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined above.
+```
+
+#### Example response
+```
+# Predicate Proposals
+* TargetIsHit(?t:target): The assertion is that the target ?t has been successfully struck, corresponding to its 'is_hit' feature being 1.0.
+* FanPushesBallToTarget(?f:fan, ?b:ball, ?t:target): The assertion is that fan ?f is positioned such that turning it on will cause it to push ball ?b in the direction of target ?t along a cardinal axis.
+* BallPathIsClear(?b:ball, ?t:target, ?s:side): The assertion is that there are no walls located on the straight-line path between the current position of ball ?b and the position of target ?t along the direction specified by side ?s.
+* FanAlignedWithBall(?f:fan, ?b:ball): The assertion is that ball ?b is positioned within the fan ?f's effective area of influence, meaning their coordinates are sufficiently aligned on the axis perpendicular to the fan's direction of airflow.
+```
+
+#### Target response
+```
+    def _FanOnSide_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        """Whether the fan is on the specified side of the table.
+
+        True if the fan's side matches the side object's side.
+        """
+        fan, side = objects
+        return state.get(fan, "facing_side") == state.get(side, "side_idx")
+```
+
+#### Example prompt 3
+```
+Context: You are an expert AI planning researcher. Your task is to design *task-specific state abstraction predicates* that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+### Types and Features
+The environment has the following types, each with some features:
+
+burner: {'x', 'y', 'z', 'is_on'}
+faucet: {'x', 'y', 'z', 'rot', 'is_on', 'spilled_level'}
+human: {'happiness_level'}
+jug: {'x', 'y', 'z', 'rot', 'is_held', 'water_volume', 'heat_level'}
+robot: {'x', 'y', 'z', 'fingers', 'tilt', 'wrist'}
+switch: {'x', 'y', 'z', 'rot', 'is_on'}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+BurnerOff(?x:burner)
+BurnerOn(?x:burner)
+FaucetOff(?x:faucet)
+FaucetOn(?x:faucet)
+HandEmpty(?x:robot)
+Holding(?x:robot, ?y:jug)
+HumanHappy(?x:human, ?y:jug, ?z:burner)
+JugAtBurner(?x:jug, ?y:burner)
+JugAtFaucet(?x:jug, ?y:faucet)
+JugNotAtBurnerOrFaucet(?x:jug)
+NoJugAtBurner(?x:burner)
+NoJugAtFaucet(?x:faucet)
+
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate `HumanHappy()` true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with HumanHappy()=True. The state-feature-action trajectory is provided below.
+
+Starting at state_0 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 0.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 0.85, 'y': 1.51, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'water_volume': 0.00, 'heat_level': 0.00},
+   'robot:robot': {'x': 0.75, 'y': 1.35, 'z': 0.85, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action PickJug(robot, jug0) was executed in state_0
+
+This action results in state_1 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 0.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 0.85, 'y': 1.51, 'z': 0.46, 'rot': -1.58, 'is_held': 1.00, 'water_volume': 0.00, 'heat_level': 0.00},
+   'robot:robot': {'x': 0.84, 'y': 1.43, 'z': 0.49, 'fingers': 0.01, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action PlaceUnderFaucet(robot, faucet) was executed in state_1
+
+This action results in state_2 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 0.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 1.05, 'y': 1.36, 'z': 0.46, 'rot': -1.58, 'is_held': 0.00, 'water_volume': 0.00, 'heat_level': 0.00},
+   'robot:robot': {'x': 1.05, 'y': 1.27, 'z': 0.64, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action SwitchFaucetOn(robot, faucet) was executed in state_2
+
+This action results in state_3 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 0.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 1.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 1.05, 'y': 1.36, 'z': 0.46, 'rot': -1.58, 'is_held': 0.00, 'water_volume': 0.10, 'heat_level': 0.00},
+   'robot:robot': {'x': 1.10, 'y': 1.15, 'z': 0.64, 'fingers': 0.00, 'tilt': 1.57, 'wrist': -0.00}}
+
+Action SwitchBurnerOn(robot, burner0) was executed in state_3
+
+This action results in state_4 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 1.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 1.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 1.05, 'y': 1.36, 'z': 0.46, 'rot': -1.58, 'is_held': 0.00, 'water_volume': 0.58, 'heat_level': 0.00},
+   'robot:robot': {'x': 0.68, 'y': 1.15, 'z': 0.65, 'fingers': 0.00, 'tilt': 1.57, 'wrist': -0.00}}
+
+Action SwitchFaucetOff(robot, faucet) was executed in state_4
+
+This action results in state_5 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 1.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 1.05, 'y': 1.36, 'z': 0.46, 'rot': -1.58, 'is_held': 0.00, 'water_volume': 0.84, 'heat_level': 0.00},
+   'robot:robot': {'x': 1.10, 'y': 1.15, 'z': 0.64, 'fingers': 0.00, 'tilt': 1.57, 'wrist': -0.00}}
+
+Action PickJug(robot, jug0) was executed in state_5
+
+This action results in state_6 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 1.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 1.05, 'y': 1.36, 'z': 0.46, 'rot': -1.60, 'is_held': 1.00, 'water_volume': 0.84, 'heat_level': 0.00},
+   'robot:robot': {'x': 1.05, 'y': 1.28, 'z': 0.49, 'fingers': 0.01, 'tilt': 1.56, 'wrist': -2.14}}
+
+Action PlaceOnBurner(robot, burner0) was executed in state_6
+
+This action results in state_7 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 1.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 0.62, 'y': 1.30, 'z': 0.46, 'rot': -1.60, 'is_held': 0.00, 'water_volume': 0.84, 'heat_level': 0.10},
+   'robot:robot': {'x': 0.63, 'y': 1.22, 'z': 0.64, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action Wait(robot) was executed in state_7
+
+This action results in state_8 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 1.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.00},
+   'jug0:jug': {'x': 0.62, 'y': 1.30, 'z': 0.46, 'rot': -1.60, 'is_held': 0.00, 'water_volume': 0.84, 'heat_level': 1.00},
+   'robot:robot': {'x': 0.63, 'y': 1.22, 'z': 0.64, 'fingers': 0.05, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action SwitchBurnerOff(robot, burner0) was executed in state_8
+
+This action results in state_9 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 0.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 0.35},
+   'jug0:jug': {'x': 0.62, 'y': 1.30, 'z': 0.46, 'rot': -1.60, 'is_held': 0.00, 'water_volume': 0.84, 'heat_level': 1.00},
+   'robot:robot': {'x': 0.68, 'y': 1.15, 'z': 0.65, 'fingers': 0.00, 'tilt': 1.57, 'wrist': -0.00}}
+
+Action Wait(robot) was executed in state_9
+
+This action results in state_10 with additional info:
+  {'burner0:burner': {'x': 0.62, 'y': 1.30, 'z': 0.40, 'is_on': 0.00},
+   'faucet:faucet': {'x': 1.05, 'y': 1.50, 'z': 0.60, 'rot': 1.57, 'is_on': 0.00, 'spilled_level': 0.00},
+   'human0:human': {'happiness_level': 1.00},
+   'jug0:jug': {'x': 0.62, 'y': 1.30, 'z': 0.46, 'rot': -1.60, 'is_held': 0.00, 'water_volume': 0.84, 'heat_level': 1.00},
+   'robot:robot': {'x': 0.68, 'y': 1.15, 'z': 0.65, 'fingers': 0.00, 'tilt': 1.57, 'wrist': -0.00}}
+
+### Your Task
+Invent new predicates that can serve as essential *subgoals* or *conditions* for the goal to become true in the final state, and any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration.
+
+### Output Format
+
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```
+
+### Constraints
+- Do *not* propose any new predicates that are purely position-based.
+- Avoid composite predicates: Focus on proposing primitive predicates that capture a property or relation. Do *not* propose predicates that represent conjunctions (AND) or disjunctions (OR) of existing or proposed predicates—these can be constructed later from primitives.
+- The assertion should be clear, precise, unambiguous, and describe the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined above.
+```
+
+#### Example response
+```
+# Predicate Proposals
+* JugEmpty(?j:jug): The jug ?j contains no water. This is true if the feature ?j.water_volume is equal to 0.0.
+* JugHasWater(?j:jug): The jug ?j contains some amount of water. This is true if the feature ?j.water_volume is greater than 0.0.
+* JugFull(?j:jug): The jug ?j is filled with water. This is true if the feature ?j.water_volume is greater than or equal to 0.8.
+* JugCold(?j:jug): The contents of jug ?j are cold. This is true if the feature ?j.heat_level is equal to 0.0.
+* JugHot(?j:jug): The contents of jug ?j are hot. This is true if the feature ?j.heat_level is greater than or equal to 0.9.
+* WaterSpilled(?f:faucet): Water has been spilled from the faucet ?f. This is true if the feature ?f.spilled_level is greater than 0.0.
+```
+
+#### Target response
+```
+* JugFull(?j:jug): The jug ?j is filled with water. This is true if the feature ?j.water_volume is greater than or equal to 0.8.
+* JugHot(?j:jug): The contents of jug ?j are hot. This is true if the feature ?j.heat_level is greater than or equal to 0.9.
+* NoWaterSpilled(?f:faucet): Water has been spilled from the faucet ?f. This is true if the feature ?f.spilled_level is greater than 0.0.
+```
+
+#### Example prompt 4
+```
+Context: You are an expert AI planning researcher. Your task is to design *task-specific state abstraction predicates* that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+### Types and Features
+The environment has the following types, each with some features:
+
+coffee_machine: {'is_on'}
+cup: {'x', 'y', 'z', 'capacity_liquid', 'target_liquid', 'current_liquid'}
+jug: {'x', 'y', 'z', 'rot', 'is_held', 'current_liquid'}
+robot: {'x', 'y', 'z', 'tilt', 'wrist', 'fingers'}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+CupFilled(?x:cup)
+HandEmpty(?x:robot)
+Holding(?x:robot, ?y:jug)
+JugAboveCup(?x:jug, ?y:cup)
+JugInMachine(?x:jug, ?y:coffee_machine)
+MachineOn(?x:coffee_machine)
+NotAboveCup(?x:robot, ?y:jug)
+OnTable(?x:jug)
+
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate `HumanHappy()` true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with HumanHappy()=True. The state-feature-action trajectory is provided below.
+
+Starting at state_0 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 0.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.00},
+   'jug:jug': {'x': 0.96, 'y': 1.29, 'z': 0.46, 'rot': -1.55, 'is_held': 0.00, 'current_liquid': 0.00},
+   'robby:robot': {'x': 0.75, 'y': 1.35, 'z': 0.85, 'tilt': 1.57, 'wrist': -1.57, 'fingers': 0.04}}
+
+Action PickJug(robby, jug) was executed in state_0
+
+This action results in state_1 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 0.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.00},
+   'jug:jug': {'x': 0.96, 'y': 1.29, 'z': 0.46, 'rot': -1.56, 'is_held': 1.00, 'current_liquid': 0.00},
+   'robby:robot': {'x': 0.96, 'y': 1.20, 'z': 0.50, 'tilt': 1.55, 'wrist': -1.99, 'fingers': 0.01}}
+
+Action PlaceJugInMachine(robby, jug, coffee_machine) was executed in state_1
+
+This action results in state_2 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 0.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.00},
+   'jug:jug': {'x': 0.98, 'y': 1.39, 'z': 0.46, 'rot': -1.56, 'is_held': 0.00, 'current_liquid': 0.00},
+   'robby:robot': {'x': 0.98, 'y': 1.21, 'z': 0.49, 'tilt': 1.54, 'wrist': -1.71, 'fingers': 0.04}}
+
+Action TurnMachineOn(robby, coffee_machine) was executed in state_2
+
+This action results in state_3 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 1.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.00},
+   'jug:jug': {'x': 0.98, 'y': 1.39, 'z': 0.46, 'rot': -1.56, 'is_held': 0.00, 'current_liquid': 0.15},
+   'robby:robot': {'x': 0.98, 'y': 1.21, 'z': 0.61, 'tilt': 1.53, 'wrist': -1.58, 'fingers': 0.05}}
+
+Action Wait(robby) was executed in state_3
+
+This action results in state_4 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 1.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.00},
+   'jug:jug': {'x': 0.98, 'y': 1.39, 'z': 0.46, 'rot': -1.56, 'is_held': 0.00, 'current_liquid': 1.00},
+   'robby:robot': {'x': 0.98, 'y': 1.21, 'z': 0.61, 'tilt': 1.53, 'wrist': -1.59, 'fingers': 0.05}}
+
+Action PickJug(robby, jug) was executed in state_4
+
+This action results in state_5 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 1.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.00},
+   'jug:jug': {'x': 0.98, 'y': 1.39, 'z': 0.46, 'rot': -1.57, 'is_held': 1.00, 'current_liquid': 1.00},
+   'robby:robot': {'x': 0.98, 'y': 1.29, 'z': 0.50, 'tilt': 1.56, 'wrist': -1.55, 'fingers': 0.01}}
+
+Action Pour(robby, jug, cup0) was executed in state_5
+
+This action results in state_6 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 1.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.01},
+   'jug:jug': {'x': 0.73, 'y': 1.07, 'z': 0.67, 'rot': -1.53, 'is_held': 1.00, 'current_liquid': 1.00},
+   'robby:robot': {'x': 0.73, 'y': 1.02, 'z': 0.76, 'tilt': 0.85, 'wrist': -1.52, 'fingers': 0.01}}
+
+Action Wait(robby) was executed in state_6
+
+This action results in state_7 with additional info:
+  {'coffee_machine:coffee_machine': {'is_on': 1.00},
+   'cup0:cup': {'x': 0.70, 'y': 1.25, 'z': 0.42, 'current_liquid': 0.04},
+   'jug:jug': {'x': 0.73, 'y': 1.07, 'z': 0.67, 'rot': -1.53, 'is_held': 1.00, 'current_liquid': 1.00},
+   'robby:robot': {'x': 0.73, 'y': 1.02, 'z': 0.76, 'tilt': 0.85, 'wrist': -1.52, 'fingers': 0.01}}
+
+### Your Task
+Invent new predicates that can serve as essential *subgoals* or *conditions* for the goal to become true in the final state, and any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration.
+
+### Output Format
+
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```
+
+### Constraints
+- Do *not* propose any new predicates that are purely position-based.
+- Avoid composite predicates: Focus on proposing primitive predicates that capture a property or relation. Do *not* propose predicates that represent conjunctions (AND) or disjunctions (OR) of existing or proposed predicates—these can be constructed later from primitives.
+- The assertion should be clear, precise, unambiguous, and describe the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined above.
+```
+
+#### Example response
+```
+# Predicate Proposals
+* JugFull(?j:jug): The jug ?j is filled to its capacity with liquid, indicated by its current_liquid feature being at or above a certain threshold (e.g., >= 1.0).
+* JugEmpty(?j:jug): The jug ?j contains a negligible amount of liquid, indicated by its current_liquid feature being at or near zero (e.g., <= 0.01).
+* CupEmpty(?c:cup): The cup ?c contains a negligible amount of liquid, indicated by its current_liquid feature being at or near zero (e.g., <= 0.01).
+* ArmIsTilted(?r:robot): The arm of robot ?r is tilted forward into a pouring posture, indicated by its tilt feature being below a certain threshold (e.g., < 1.2).
+```
+
+#### Target response
+```
+* JugFull(?j:jug): The jug ?j is filled to its capacity with liquid, indicated by its current_liquid feature being at or above a certain threshold (e.g., >= 1.0).
+```
+
+#### Example prompt 5
+```
+Context: You are an expert AI planning researcher. Your task is to design *task-specific state abstraction predicates* that can be used in a PDDL-like model to facilitate effective and efficient robot planning.
+### Types and Features
+The environment has the following types, each with some features:
+
+cup: {'x', 'y', 'z', 'growth', 'r', 'g', 'b'}
+jug: {'x', 'y', 'z', 'rot', 'is_held', 'r', 'g', 'b'}
+robot: {'x', 'y', 'z', 'fingers', 'tilt', 'wrist'}
+
+### Existing Predicates
+You should consider the following existing predicates:
+
+CupOnTable(?x:cup)
+Grown(?x:cup)
+HandEmpty(?x:robot)
+Holding(?x:robot, ?y:jug)
+JugAboveCup(?x:jug, ?y:cup)
+JugOnTable(?x:jug)
+NotAboveCup(?x:robot, ?y:jug)
+
+
+### Robot’s Goal
+The robot's ultimate goal in this environment is to make the predicate `HumanHappy()` true.
+
+### Demonstration Trajectory
+The demonstrator performs a sequence of actions, ending with HumanHappy()=True. The state-feature-action trajectory is provided below.
+
+Starting at state_0 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.94, 'y': 1.33, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.56, 'y': 1.34, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.75, 'y': 1.35, 'z': 0.85, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action PickJug(robot, jug1) was executed in state_0
+
+This action results in state_1 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.94, 'y': 1.33, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.56, 'y': 1.34, 'z': 0.46, 'rot': -1.57, 'is_held': 1.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.57, 'y': 1.25, 'z': 0.50, 'fingers': 0.02, 'tilt': 1.55, 'wrist': 0.69}}
+
+Action Pour(robot, jug1, cup1) was executed in state_1
+
+This action results in state_2 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.10, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.94, 'y': 1.33, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.49, 'y': 1.26, 'z': 0.66, 'rot': -1.60, 'is_held': 1.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.49, 'y': 1.22, 'z': 0.75, 'fingers': 0.02, 'tilt': 0.81, 'wrist': -1.60}}
+
+Action Wait(robot) was executed in state_2
+
+This action results in state_3 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.30, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.94, 'y': 1.33, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.49, 'y': 1.26, 'z': 0.66, 'rot': -1.59, 'is_held': 1.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.49, 'y': 1.22, 'z': 0.75, 'fingers': 0.02, 'tilt': 0.81, 'wrist': -1.60}}
+
+Action Place(robot, jug1) was executed in state_3
+
+This action results in state_4 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.30, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.94, 'y': 1.33, 'z': 0.46, 'rot': -1.57, 'is_held': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.56, 'y': 1.35, 'z': 0.48, 'rot': -1.57, 'is_held': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.57, 'y': 1.26, 'z': 0.52, 'fingers': 0.04, 'tilt': 1.57, 'wrist': -1.57}}
+
+Action PickJug(robot, jug0) was executed in state_4
+
+This action results in state_5 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.30, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.94, 'y': 1.33, 'z': 0.46, 'rot': -1.57, 'is_held': 1.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.56, 'y': 1.35, 'z': 0.46, 'rot': -1.56, 'is_held': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.94, 'y': 1.24, 'z': 0.50, 'fingers': 0.02, 'tilt': 1.56, 'wrist': -1.78}}
+
+Action Pour(robot, jug0, cup0) was executed in state_5
+
+This action results in state_6 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.10, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.30, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.76, 'y': 1.22, 'z': 0.66, 'rot': -1.52, 'is_held': 1.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.56, 'y': 1.35, 'z': 0.46, 'rot': -1.56, 'is_held': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.76, 'y': 1.18, 'z': 0.75, 'fingers': 0.01, 'tilt': 0.86, 'wrist': -1.52}}
+
+Action Wait(robot) was executed in state_6
+
+This action results in state_7 with additional info:
+  {'cup0:cup': {'x': 0.73, 'y': 1.42, 'z': 0.46, 'growth': 0.30, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'cup1:cup': {'x': 0.45, 'y': 1.43, 'z': 0.46, 'growth': 0.30, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'jug0:jug': {'x': 0.76, 'y': 1.22, 'z': 0.66, 'rot': -1.52, 'is_held': 1.00, 'r': 0.05, 'g': 0.04, 'b': 0.60},
+   'jug1:jug': {'x': 0.56, 'y': 1.35, 'z': 0.46, 'rot': -1.56, 'is_held': 0.00, 'r': 0.20, 'g': 0.94, 'b': 0.59},
+   'robot:robot': {'x': 0.76, 'y': 1.18, 'z': 0.75, 'fingers': 0.01, 'tilt': 0.85, 'wrist': -1.52}}
+
+### Your Task
+Invent new predicates that can serve as essential *subgoals* or *conditions* for the goal to become true in the final state, and any conditions that must be maintained to prevent failure, even if failure is not shown in the demonstration.
+
+### Output Format
+
+Provide your predicate proposals in the following format:
+
+```plaintext
+# Predicate Proposals
+* <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+* ...
+```
+
+### Constraints
+- Do *not* propose any new predicates that are purely position-based.
+- Avoid composite predicates: Focus on proposing primitive predicates that capture a property or relation. Do *not* propose predicates that represent conjunctions (AND) or disjunctions (OR) of existing or proposed predicates—these can be constructed later from primitives.
+- The assertion should be clear, precise, unambiguous, and describe the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+- Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+- Do not use bold or italic fonts in your response.
+- Respond only with the output section outlined above.
+```
+
+#### Example response
+```
+# Predicate Proposals
+* ColorMatched(?j:jug, ?c:cup): The RGB color of jug ?j matches the RGB color of cup ?c. This is true if the 'r', 'g', and 'b' feature values for ?j are respectively equal to the 'r', 'g', and 'b' feature values for ?c.
+* IsGrowing(?c:cup): The contents of cup ?c are in the process of growing after having been poured into. This is true if the 'growth' feature of ?c is greater than 0.0 and less than the threshold for the `Grown` predicate to be true.
+* JugUpright(?j:jug): The jug ?j is being held by the robot in an upright, non-pouring orientation. This is true if the 'is_held' feature of ?j is 1.00 and the robot's 'tilt' feature is greater than 1.0.
+```
+
+#### Target response
+```
+* ColorMatched(?j:jug, ?c:cup): The RGB color of jug ?j matches the RGB color of cup ?c. This is true if the 'r', 'g', and 'b' feature values for ?j are respectively equal to the 'r', 'g', and 'b' feature values for ?c.
+```
+
+### Your task
+Modify the prompt in a domain general way so that the LLM can more accurately propose the target predicates while not proposing anything else.

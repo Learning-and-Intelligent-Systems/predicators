@@ -33,7 +33,7 @@ class TouchPointEnv(BaseEnv):
     # is less than action_magnitude * touch_multiplier.
     touch_multiplier: ClassVar[float] = 1.5
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -206,7 +206,7 @@ class TouchOpenEnv(TouchPointEnvParam):
 
     open_door_threshold: ClassVar[float] = 1e-2
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__()
 
         # Add door type.

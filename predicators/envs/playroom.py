@@ -37,7 +37,7 @@ class PlayroomSimpleEnv(BlocksEnv):
     on_tol: ClassVar[float] = pick_tol
     pick_z: ClassVar[float] = 1.5
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -68,6 +68,9 @@ class PlayroomSimpleEnv(BlocksEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._dial = Object("dial", self._dial_type)
+        # Recreate blocks with new type.
+        self._blocks = []
+        self._create_blocks()
         # Hyperparameters from CFG.
         self._num_blocks_train = CFG.playroom_num_blocks_train
         self._num_blocks_test = CFG.playroom_num_blocks_test
@@ -496,7 +499,7 @@ class PlayroomEnv(PlayroomSimpleEnv):
     door_button_z: ClassVar[float] = 3.0
     door_tol: ClassVar[float] = 0.5
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Additional types

@@ -1,0 +1,3 @@
+Plan:
+TurnMachineOn(robby:robot, coffee_machine:coffee_machine)[0., 0.01, 1.57, 0.]
+PickJug(robby:robot, jug:jug)[0.]

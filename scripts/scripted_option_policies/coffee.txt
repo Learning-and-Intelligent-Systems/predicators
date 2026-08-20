@@ -1,0 +1,5 @@
+Plan:
+PickJug(robby:robot, jug:jug)[0.]
+PlaceJugInMachine(robby:robot, jug:jug, coffee_machine:coffee_machine)[0.98, 1.3, 0.5, -1.57]
+PickJug(robby:robot, jug:jug)[0.]
+Pour(robby:robot, jug:jug, cup0:cup)[0.78]

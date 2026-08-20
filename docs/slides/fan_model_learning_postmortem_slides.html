@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fan Env: GT Rules, Learned Rules, Their Problems, and Fixes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/theme/white.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/highlight/monokai.css">
+<style>
+  .reveal { font-size: 28px; }
+  .reveal h1 { font-size: 1.5em; }
+  .reveal h2 { font-size: 1.1em; margin-bottom: 0.55em; }
+  .reveal ul { font-size: 0.8em; line-height: 1.42; display: block; }
+  .reveal ol { font-size: 0.8em; line-height: 1.42; display: block; }
+  .reveal li { margin: 0.26em 0; }
+  .reveal table { font-size: 0.62em; margin: 0 auto; }
+  .reveal table th, .reveal table td { padding: 0.28em 0.6em; }
+  .reveal .small { font-size: 0.58em; color: #555; }
+  .reveal .good { color: #1a7a1a; }
+  .reveal .bad { color: #a01515; }
+  .reveal .hl { color: #b3541e; font-weight: 600; }
+  .reveal img { max-height: 500px; }
+  .reveal pre { font-size: 0.52em; width: 96%; line-height: 1.3; box-shadow: none; border: 1px solid #ddd; }
+  .reveal pre code { max-height: 520px; padding: 0.6em; }
+  .reveal code { color: #2a5d8a; }
+  .reveal p { font-size: 0.8em; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- ======================================================================
+  Postmortem of the fan-env model-learning runs:
+    logs/agent_po_sim_predicate_invention/
+      fan-agent_po_predicate_invention_al/seed{0,1,2}/run_20260808_113951
+  Ground truth quoted from:
+    predicators/ground_truth_models/fan/gt_simulator.py
+    predicators/envs/pybullet_fan.py
+  The content inside the "text/template" block below is plain Markdown;
+  slides are separated by a blank line, "---", a blank line.
+  Speaker notes: lines after "Note:" (press S to view).
+======================================================================= -->
+
+<section data-markdown data-separator="^\r?\n---\r?\n$" data-separator-notes="^Note:">
+<script type="text/template">
+# Fan Env Postmortem
+
+**GT rules vs learned rules, their problems, and proposed fixes**
+
+`agent_po_sim_predicate_invention` (al arm), env `pybullet_fan`<br>
+seeds 0 / 1 / 2, `run_20260808_113951` (2026-08-08)
+<!-- .element: class="small" -->
+
+Note: Three seeds, same online loop: explore, learn (LLM synthesizes simulator.py + predicates.py, MCMC fits params to SSE), test. Seeds 0 and 1 never solved the test task; seed 2 solved the easy test task but went 0/6 on the train task in the real env while its mental sim claimed 5/5.
+
+---
+
+## The environment and the learning problem
+
+- **Task**: blow a ball across a grid to a target using 4 wall-mounted fans, each toggled by a switch. Goal also requires **all fans off** at the end.
+- **Options**: `SwitchOn(robot, fan)`, `SwitchOff(robot, fan)`, `Wait(robot)`.
+- The base PyBullet sim handles robot motion and rigid bodies; the agent must learn the **wind process dynamics** and invent all planning predicates (only `Holding` given).
+- **Partial observability trap**: the grid **boundary walls are real bodies but absent from the state** - the ball visibly stops "for no reason".
+- Training data per seed: 2 interaction trajectories, both **failed** (reward 0.00), both ending with the ball parked against a wall.
+
+Note: Train tasks used a 3x3 grid with 1 obstacle wall; test used a 6x6 grid with 2-3 walls. In seeds 0/1 the training trajectories only ever exercised the y-axis fans, while the test goal needed pure x motion.
+
+---
+
+## Ground-truth process dynamics (`gt_simulator.py`)
+
+```python
+# While ANY fan is on: constant speed, vector-sum direction, every step.
+BALL_STEP_SIZE = 0.00228          # m per env action (measured)
+for fan in on_fans:
+    dx += cos(fan.rot);  dy += sin(fan.rot)
+dx *= ball_speed;  dy *= ball_speed
+
+# Hard stops: obstacle walls + (unobserved) grid boundary walls.
+WALL_CLEARANCE = wall_x_len/2 + sphere_overhang(...)   # = 0.0646
+new_x = _axis_move(bx, by, dx, walls, x_lo, x_hi, clearance)  # x then y:
+new_y = _axis_move(by, new_x, dy, ...)   # blocked axis still slides
+```
+
+- **Level-triggered**: force is continuous while on; ball stops instantly when all fans go off (zero coasting).
+- **No** beam width, **no** distance falloff, **no** occlusion gate.
+- Goal check `BallAtTarget` is an **L-inf box**: `|dx| < 0.04 and |dy| < 0.04`.
+- Only 2 params: `ball_speed`, `wall_clearance`. Everything else is geometry.
+
+Note: The env applies a 0.4 N external force every step to the ball for every on-fan; damping makes it reach steady state within one action, hence constant speed. The GT simulator is 90 lines and its only latent structure is the boundary box, which it reconstructs from the target's grid coordinates.
+
+---
+
+## Run outcomes at a glance
+
+| | seed 0 | seed 1 | seed 2 |
+|---|---|---|---|
+| Core wind model | edge-triggered **puff**, y-only | edge-triggered **one-shot gust** | <span class="good">level-triggered constant rate</span> |
+| Push rate | 0.0019 | <span class="good">0.00228</span> | <span class="good">0.00228</span> (refit -11%) |
+| Fabricated mechanism | wall **occlusion** gate | **beam width** 0.5 gate | **infinite target plane** |
+| Mental sim on train task | `Goal reached: False` (shipped anyway) | 3/3 pass (vacuous) | 5/5 pass |
+| Real env, train task | 0/2 | 0/2 | **0/6** |
+| Real env, test task | <span class="bad">no validated plan, 0 solves</span> | <span class="bad">"ball immobile", 0 solves</span> | <span class="good">solved 2/2 (reward 1.0)</span> |
+
+The one quantity all seeds could identify: the push rate ~0.00228 m/step.
+Everything **structural** was wrong or under-determined.
+<!-- .element: class="small" -->
+
+Note: Seed 2's test task happened to need only one fan and a straight push, which the roughly-correct core rule handled. Its train task (wall directly on the line to the target) exposed everything else.
+
+---
+
+## Seed 0: learned model
+
+```python
+# wind_gust_rule: fires ONCE on a global off->on edge
+if any_on and not latent["prev_any_on"]:        # global edge trigger
+    kick_y = sin(rot) * kick_speed              # y only; x frozen
+displacement = kick * (push_duration            # 6 steps full speed...
+               + geometric_decay(friction_decay))  # ...then decays out
+updates[ball]["y"] = y_at_trigger + displacement   # ~0.0146 m TOTAL
+```
+
+- DECISION RECORD asserts: *"waiting longer never moves the ball further"*.
+- `_wall_blocks`: invented 1-D **occlusion** gate (env has none).
+- `PROCESS_FEATURES = {"ball": ["y"]}`: **ball.x structurally frozen**; test goal needed dx = -0.32, so the deployed model made the task **provably unsolvable**.
+- `PushSettled` fires at 11 steps, truncating every `Wait` to ~3 actions.
+- Trigger never disarms: after the first `SwitchOn` the rule **rewrites ball.y forever**, overriding the base sim.
+
+Note: The fitted 0.0146 m per puff is exactly the distance from the ball's start to wall0's top edge (rest center 1.7086, observed 1.70822). The agent fit a collision-limited displacement and called it a physical constant. The x-generalization was written mid-test but never fit or deployed. Both training episodes were truncated before SwitchOff ran, so the dataset had zero on-to-off edges to refute the puff theory.
+
+---
+
+## Seed 1: learned model
+
+```python
+# ball_push_rule: on a fan's is_on 0->1 edge, freeze a target point
+target = ball + push_magnitude * (cos rot, sin rot)   # 0.079 m, one shot
+# gates: forward half-space AND
+abs(rel_perp) <= beam_half_width                      # 0.5, "beam" gate
+# then advance push_speed=0.00228/step until target, freeze forever
+```
+
+- `push_magnitude = 0.079` is **the distance to the unmodeled boundary wall** (observed stop y = 1.723010 = grid edge to 1e-5). The record calls that trajectory *"unconstrained, nothing in the way"*.
+- `beam_half_width = 0.5`: **zero data support** (fit moved it +0.0%); its **lower bound was raised to 0.45** so it could never invalidate the agent's own train plan.
+- At test start all 4 fans' lateral offsets were 0.52-0.55: model says **ball immobile**. Both test attempts concluded "genuine dead end".
+- Test agent spent ~1100 rollouts measuring "hard cutoffs" at 0.898 and 1.816 - exactly `fan_pos + 0.5`, i.e. **its own parameter** - and believed `evaluate_option_plan` was ground truth (it runs the same learned model).
+
+Note: Also: multi-fan handling is "last rising fan in iteration order wins" (GT: per-axis vector sum); the wall clip is segment-vs-AABB with a tmin > 1e-9 guard, so a ball starting parked at a wall tunnels through; BallAtTarget is a Euclidean r=0.05 circle vs the env's 0.04 L-inf box.
+
+---
+
+## Seed 2: learned model (closest, still fails train)
+
+```python
+# level-triggered, per-axis vector sum -- structurally CORRECT core:
+vel = sum(rate * (cos rot, sin rot) for fans on if forward_half_space)
+# wall clamp, wall_contact_dist = 0.0642  (GT 0.0646: good)
+# BUT: target modeled as an INFINITE collision plane, 1 mm standoff
+_resolve_obstacle_collision(..., half_length=None)  # room-wide barrier
+```
+
+- Target-plane "physics" generalizes **two observed offsets (+/-0.079) to a room-width wall**; the 1 mm `target_contact_dist` is really the env latching `is_hit`, modeled as geometry. And on the tested task the clamp was a **no-op** (ball already on the target line).
+- `ball_at_target_dist = 0.039`: committed on a **knife-edge** gap (0.0022, ~5.6% of range) in direct violation of the sandbox's own protocol.
+- Dominant real failure: `SwitchOff` ran 28 steps **without flipping `is_on`** (4/4 failed train episodes). Declared *"out of scope"*; the mental sim flips it deterministically, so `sim.run` reports 5/5 while the env reports **0/6**. The log admits: *"our own validation tools structurally cannot catch this failure mode."*
+
+Note: Cycle 1 of seed 2 also carried a fabricated claim that Wait does not advance the ball, which drove a toggle-spam plan and survived a full learn-test-explore cycle before being retracted. wall_half_length = 0.06 was explicitly tuned (bounds included) until the agent's own plan became feasible.
+
+---
+
+## Root cause 1: wall collisions misread as wind physics
+
+Every training trajectory ended with the ball parked against a wall,
+often the **invisible boundary wall**. Each seed absorbed that stop into the force law:
+
+| seed | observed stop | what it became in the model |
+|---|---|---|
+| 0 | ball at wall0 top edge (1.7086) | "puff" magnitude `kick*(6 + decay) = 0.0146` |
+| 1 | ball at boundary wall (1.7230) | universal `push_magnitude = 0.079` |
+| 2 | ball latched at target (`is_hit`) | infinite plane, `target_contact_dist = 0.001` |
+
+- The **principled explanation** (continuous force + unseen obstacle) and the **learned one** (finite gust) predict identical data on these trajectories.
+- Nothing in the loop asked: *what experiment discriminates them?* One long `Wait` with the ball in open space would have falsified all three models.
+
+Note: This is the epistemic heart of the postmortem: hypothesis selection under partial observability. When a mechanism is otherwise consistent, prefer adding latent state (an unseen obstacle) over mutating the mechanism itself. The env's hidden boundary walls make this trap almost inevitable for a purely SSE-driven learner.
+
+---
+
+## Root cause 2: fabricated gates, dead parameters
+
+- Seed 0's occlusion gate, seed 1's beam width, seed 2's target plane: **mechanisms with zero positive evidence**, each of which later gated planning.
+- Parameters with **no SSE gradient** shipped at init values, printed as `+0.0%` - indistinguishable from "identified and confirmed":
+  - seed 0 `ball_target_radius`, seed 1 `beam_half_width` / `push_magnitude` / `target_hit_dist`, seed 2 `ball_at_target_dist`.
+- Priors were **tuned to protect the agent's own plan** (seed 1 raised `beam_half_width.lo` to 0.45; seed 2 shrank `wall_half_length.hi` until the puzzle became solvable).
+- All seeds fit `BallAtTarget` as a Euclidean circle (0.0385 / 0.05 / 0.039) vs the env's **L-inf 0.04 box**; two seeds committed knife-edge thresholds against their own protocol.
+
+Note: The common thread: the hypothesis generator (the LLM) is unconstrained, and the fitter cannot push back on structure it has no gradient against. Unidentified parameters must be first-class citizens of the report, and must not be allowed to gate plan-critical predicates.
+
+---
+
+## Root cause 3: the fit signal was vacuous
+
+| seed | fit report | reality |
+|---|---|---|
+| 0 | SSE 0.000841 -> 0.000819 (+2.6%), "94/100 in tol" | worst errors exactly during the moving phase |
+| 1 | SSE 0.000013 -> 0.000012 (+4.4%), 99/100 in tol | ~43 of 1000 transitions contain any motion |
+| 2 | cycle-1 SSE 1.3e-5, "excellent fit" | **67x blowup** when 2 new trajectories arrived |
+
+- ~95% of steps are "ball does not move", so **predict-stationary is an excellent fit**; SSE improvements of a few percent measure almost nothing.
+- `sim.residuals` showed a fixed 100-step window that literally could not see seed 2's rule change (identical report before and after).
+- No held-out scoring anywhere: overfitting was only ever discovered by accident, one cycle too late.
+
+Note: The GT comparison makes this stark: a 2-parameter correct model and a structurally wrong 5-parameter model are nearly indistinguishable under this objective on this data. The objective needs to be conditioned on the dynamic segments, and generalization needs to be measured, not assumed.
+
+---
+
+## Root cause 4: self-confirming validation
+
+- **Subgoal-annotation checking was a no-op**: annotating a step with a *nonexistent predicate name* "succeeded". Seed 0's only SUCCESS evidence was these vacuous verdicts - and the agent had *documented* the bug, then used the signal anyway.
+- `require_goal=True` was never enforced: seed 0 finalized with every `sim.run` printing `Goal reached: False`.
+- Seed 1 believed `evaluate_option_plan` was a **ground-truth oracle**; it runs the learned model, so the model was "confirmed" against itself, twice, at a cost of ~91 minutes.
+- Seed 2's sim **cannot represent** the failure that killed every real episode (`SwitchOff` not landing), so mental-sim validation was structurally blind to it.
+- `physics_sweep` stress-testing silently disabled itself in seed 2 (posterior widths collapsed below threshold), so no plan was ever tested under uncertainty.
+
+Note: Validation must be adversarial to the model, not run inside it. Every seed's declare-done evidence was generated by the same artifact being validated.
+
+---
+
+## Proposed fix 1: exploration that identifies, not just attempts
+
+**Principle: collect data that discriminates hypotheses, not just goal attempts.**
+
+- Exploration objective = expected disagreement between the parameter posterior (already have MCMC) and a small set of structural alternatives - or, minimally, **hard coverage requirements**:
+  - per candidate rule: >= 1 segment where the gate fires and **terminates without a modeled obstacle** (falsifies puff-vs-force in one Wait);
+  - >= 1 **on-to-off edge** per toggled device (seed 0 had zero);
+  - every (rule, object-binding) pair exercised; report **zero-support bindings** in the fit report (seed 0 shipped provably-zero kick for 2 of 4 fans).
+- Fix the mechanics: `max_num_steps_interaction_request=500` truncated seed 0's probe plans before `SwitchOff` ever ran - budget probe plans to fit, or raise the cap.
+
+Note: The cheapest possible version: a scripted "free-field probe" the explorer must run once per device: turn one thing on, wait long, turn it off, from a state where nothing is in the way. That single trajectory refutes all three seeds' core structure.
+
+---
+
+## Proposed fix 2: an honest fit signal
+
+**Principle: score skill where dynamics happen, and measure generalization.**
+
+- Segment trajectories by change-points; gate on **improvement over the do-nothing baseline restricted to moving steps**. (Kills seed 0's "+4% vs base with worst errors while moving" instantly.)
+- **Held-out validation**: fit on n-1 trajectories, score on the held-out one; always score incoming trajectories under the **previous frozen model** and print that first. (Surfaces seed 2's 67x blowup before deployment, not after.)
+- **Identifiability as a first-class output**: zero-gradient params labeled `UNIDENTIFIED`, excluded from posterior-width accounting (un-breaks `physics_sweep`), and **banned from gating plan-critical predicates**.
+- Enforce the knife-edge protocol **in code**: `evaluate_predicate_quality` computes bucket separation itself and hard-rejects thresholds within ~5% of the range, instead of trusting the agent's checklist.
+
+Note: All of these are harness changes, no LLM improvement required: the same synthesis agent, given this reporting, could not have shipped beam_half_width or the 0.039 knife edge without an explicit override.
+
+---
+
+## Proposed fix 3: structural priors and honest latents
+
+**Principle: prefer latent-state explanations over mechanism mutations.**
+
+- Give synthesis a **structural template menu** it must choose from and defend: {continuous-while-on vs impulse-on-edge}, {vector-sum vs winner-take-all}, {occlusion vs none}, {free motion vs latent obstacle}.
+- Each commitment must cite a **discriminating observation** - one the rejected alternative predicts differently - and a verifier (agent or script) checks the citation actually discriminates. (Seed 1's "confirmation" of `push_magnitude` was grid quantization; this check catches it.)
+- **Latent-obstacle template**: if motion terminates while its driving gate still holds, hypothesize a barrier at the stopping locus - do not absorb the stop into rate or duration. This finally uses the latent machinery all three seeds `del`'d.
+- **Scope must cover observed failures**: any feature whose observed transitions diverge from the composed sim (seed 2's `is_on`, 4/4 failures) must enter the model or become a stochastic option-outcome the planner can see. "Out of scope" is not an option.
+- Benchmark decision: if the research target is process dynamics, **expose the boundary walls**; if it is hidden-structure discovery, keep them hidden but grade against the latent-obstacle behavior explicitly.
+
+Note: This is the research-flavored fix. The fan env is a good testbed precisely because the continuous-vs-impulse ambiguity plus hidden boundary walls creates a clean identifiable-only-by-experiment situation.
+
+---
+
+## Proposed fix 4: falsifiable validation
+
+**Principle: validation must be external to the artifact being validated.**
+
+- **Fix the bugs first**: unknown predicate names in annotations = hard error; subgoal atoms actually evaluated.
+- **Harness-enforced done gate** (not prompt-enforced): `sim.refine(require_goal=True)` + continuous `sim.run` + the dynamic-segment residual gate must all pass before a learn cycle can finalize. Seed 0's "finalize with Goal reached: False" becomes structurally impossible.
+- **Close the loop against the env every cycle**: execute the sim-validated plan on the train task; on (sim success, env failure), feed the **first divergence step** into the next synthesis prompt as a labeled discrepancy. Seed 2 had this evidence (5/5 vs 0/6) and the loop never forced the model to account for it.
+- Label every probe/rollout output `[BELIEF - learned model]`; and hard rule for the solve agent: *"the model says unsolvable" is evidence against the model* - always submit the best plan (a refusal collects zero counterexamples).
+- **Plan under uncertainty**: require the refined plan to succeed under k posterior draws and surviving structural alternatives, not just the MAP point.
+
+Note: The env check is cheap because the AL loop already executes interactions; the change is to route the divergence back as a first-class labeled counterexample rather than one more trajectory in the pile.
+
+---
+
+## Priority order and discussion
+
+1. <span class="hl">Bug fixes</span>: subgoal-annotation no-op, harness-enforced `require_goal=True` done gate. *(days, immediate payoff)*
+2. <span class="hl">Fit reporting</span>: dynamic-segment skill, held-out scoring, `UNIDENTIFIED` labeling, knife-edge auto-reject. *(kills the vacuous-SSE class)*
+3. <span class="hl">Exploration requirements</span>: free-field probes, on/off edges, per-binding coverage, truncation fix. *(fixes the data root cause)*
+4. <span class="hl">Structural discipline</span>: template menu + discriminating-evidence verification + latent-obstacle template. *(the interesting science)*
+
+**Discussion**
+
+- Items 1-3 are domain-general harness engineering; item 4 is where a paper lives.
+- Do we expose boundary walls (test process-dynamics learning) or keep them hidden (test latent-structure discovery)? Grading should match the choice.
+- Should `evaluate_option_plan` and belief probes ever be presentable as anything but beliefs?
+
+Note: Everything on the earlier slides is traceable to specific files and log lines in the three run directories; the GT is quoted from gt_simulator.py, which itself documents the measured constants.
+</script>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: true,
+    width: 1280,
+    height: 760,
+    plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ],
+  });
+</script>
+</body>
+</html>

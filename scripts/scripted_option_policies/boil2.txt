@@ -1,0 +1,5 @@
+Plan:
+SwitchFaucetOn(robot:robot, faucet:faucet)[0.05, 0.1]
+SwitchFaucetOff(robot:robot, faucet:faucet)[0.05, 0.1]
+SwitchBurnerOn(robot:robot, burner0:burner)[0.05, 0.1]
+SwitchBurnerOff(robot:robot, burner0:burner)[0.05, 0.1]

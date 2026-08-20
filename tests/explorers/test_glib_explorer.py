@@ -11,18 +11,26 @@ from predicators.option_model import _OracleOptionModel
 @pytest.mark.parametrize("target_predicate", ["Covers", "Holding"])
 def test_glib_explorer(target_predicate):
     """Tests for GLIBExplorer class."""
+    # Bump glib_num_babbles so we reliably sample at least one goal
+    # containing the target predicate. Default 10 babbles from cover's
+    # 7-atom dynamic universe gives a ~3.5% chance of zero Holding
+    # samples, which surfaces as a flake when test ordering shifts the
+    # shared explorer-RNG counter (predicators/explorers/base_explorer.py:15).
     utils.reset_config({
         "env": "cover",
         "explorer": "glib",
         "cover_initial_holding_prob": 0.0,
+        "glib_num_babbles": 100,
     })
     env = CoverEnv()
     options = get_gt_options(env.get_name())
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     option_model = _OracleOptionModel(options, env.simulate)
     train_tasks = [t.task for t in env.get_train_tasks()]
-    # For testing purposes, score everything except target predicate low.
-    score_fn = lambda atoms: target_predicate in str(atoms)
+    # Filter out non-target goals so the explorer never falls through to
+    # plan toward a different predicate when target goals fail.
+    score_fn = lambda atoms: 1.0 if target_predicate in str(atoms) \
+        else -float("inf")
     explorer = create_explorer("glib",
                                env.predicates,
                                get_gt_options(env.get_name()),

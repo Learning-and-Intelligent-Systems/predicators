@@ -2,7 +2,6 @@
 
 import os
 import sys
-import traceback
 
 
 def python_version_supported():
@@ -12,7 +11,6 @@ def python_version_supported():
 if not python_version_supported():
     sys.exit("Error: Translator only supports Python >= 3.6.")
 
-import signal
 from collections import defaultdict
 from copy import deepcopy
 from itertools import product

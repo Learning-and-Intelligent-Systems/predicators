@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import copy
+import datetime
 import functools
 import gc
 import heapq as hq
@@ -14,19 +16,24 @@ import logging
 import os
 import pkgutil
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from argparse import ArgumentParser
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import IO, TYPE_CHECKING, Any, Callable, ClassVar, Collection, \
+    Dict, FrozenSet, Generator, Generic, Hashable, Iterable, Iterator, List, \
+    Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
+import colorlog
 import dill as pkl
 import imageio
 import matplotlib
@@ -34,6 +41,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
 import PIL.Image
+import torch
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
@@ -44,19 +52,22 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
+from predicators.image_patch_wrapper import ImagePatch
 from predicators.pretrained_model_interface import GoogleGeminiLLM, \
-    GoogleGeminiVLM, LargeLanguageModel, OpenAILLM, OpenAIVLM, \
-    VisionLanguageModel
+    GoogleGeminiVLM, LargeLanguageModel, OpenAILLM, OpenAIVLM, OpenRouterLLM, \
+    OpenRouterVLM, VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
-from predicators.structs import NSRT, Action, Array, DummyOption, \
+from predicators.structs import NSRT, Action, Array, AtomOptionTrajectory, \
+    CausalProcess, DelayDistribution, DerivedPredicate, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
-    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
+    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Mask, \
+    Metrics, NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, \
+    OptionSpec, ParameterizedOption, Predicate, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, VLMPredicate, \
+    _GroundEndogenousProcess, _GroundLDLRule, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -964,6 +975,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
             child_memory = memory["child_memory"][current_index]
             assert current_child.initiable(state, child_memory, objects,
                                            params)
+        # logging.debug(f"Executing {current_child.name}")
         return current_child.policy(state, child_memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
@@ -1035,16 +1047,326 @@ class PyBulletState(State):
     @property
     def joint_positions(self) -> JointPositions:
         """Expose the current joints state in the simulator_state."""
-        return cast(JointPositions, self.simulator_state)
+        # if the simulator state is an array
+        if isinstance(self.simulator_state, Dict):
+            jp = self.simulator_state["joint_positions"]
+        else:
+            jp = self.simulator_state
+        return cast(JointPositions, jp)
+
+    @property
+    def state_image(self) -> PIL.Image.Image:
+        """Expose the current image state in the simulator_state."""
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state["unlabeled_image"]
+
+    @property
+    def labeled_image(self) -> Optional[PIL.Image.Image]:
+        """Expose the current image state in the simulator_state."""
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state.get("images")
+
+    @property
+    def obj_mask_dict(self) -> Optional[Dict[Object, Mask]]:
+        """Expose the current object masks in the simulator_state."""
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state.get("obj_mask_dict")
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.
         return State(self.data).allclose(State(other.data))
 
-    def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_positions)
-        return PyBulletState(state_dict_copy, simulator_state_copy)
+    def copy(self) -> PyBulletState:
+        copied = super().copy()
+        state_dict_copy = copied.data
+        # simulator_state_copy = list(self.joint_positions)
+        simulator_state_copy = copied.simulator_state
+        # Forward the hidden blocks `super().copy()` deep-copied: `latent`
+        # (agent belief) and `privileged` (env-hidden ground truth). Both
+        # are dropped if not passed explicitly, since this rebuilds the
+        # PyBulletState rather than returning `copied`.
+        return PyBulletState(state_dict_copy,
+                             simulator_state_copy,
+                             latent=copied.latent,
+                             privileged=copied.privileged)
+
+    def get_obj_mask(self, obj: Object) -> Mask:
+        """Return the mask for the object."""
+        assert self.obj_mask_dict is not None
+        mask = self.obj_mask_dict.get(obj)
+        assert mask is not None
+        return mask
+
+    def label_all_objects(self) -> None:
+        """Label all objects in the simulator state."""
+        state_ip = ImagePatch(self)
+        obj_mask_dict = self.obj_mask_dict
+        assert obj_mask_dict is not None
+        state_ip.label_all_objects(obj_mask_dict)
+        assert isinstance(self.simulator_state, Dict)
+        self.simulator_state["images"] = state_ip.cropped_image_in_PIL
+
+    def add_images_and_masks(self, unlabeled_image: PIL.Image.Image,
+                             masks: Dict[Object, Mask]) -> None:
+        """Add the unlabeled image and object masks to the simulator state."""
+        assert isinstance(self.simulator_state, Dict)
+        self.simulator_state["unlabeled_image"] = unlabeled_image
+        self.simulator_state["obj_mask_dict"] = masks
+        self.label_all_objects()
+
+
+BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
+
+
+@dataclass
+class VLMState(PyBulletState):
+    """PyBulletState extended with VLM/visual perception capabilities."""
+    state_image: PIL.Image.Image = None  # type: ignore[assignment]
+    obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
+    labeled_image: Optional[PIL.Image.Image] = None  # type: ignore[assignment]
+    option_history: Optional[List[str]] = None
+    bbox_features: Dict[Object, np.ndarray] = field(
+        default_factory=lambda: defaultdict(lambda: np.zeros(4)))
+    prev_state: Optional[VLMState] = None
+
+    def __hash__(self) -> int:
+        data_tuple = tuple((k, tuple(v)) for k, v in sorted(self.data.items()))
+        if self.simulator_state is not None:
+            data_tuple += tuple(self.simulator_state)
+        return hash(data_tuple)
+
+    def evaluate_simple_assertion(
+            self, assertion: str, image: Tuple[BoundingBox,
+                                               Sequence[Object]]) -> VLMQuery:
+        """Given an assertion and an image, queries a VLM and returns whether
+        the assertion is true or false."""
+        bbox, objs = image
+        return VLMQuery(assertion, bbox, list(objs))
+
+    def generate_previous_option_message(self) -> str:
+        """Generate the message for the previous option."""
+        assert self.option_history is not None
+        msg = "Evaluate the truth value of the following assertions in the "\
+                "current state as depicted by the image"
+        if CFG.nsp_pred_include_prev_image_in_prompt and \
+            self.prev_state is not None:
+            msg += " labeled with 'curr. state'"
+        if CFG.nsp_pred_include_state_str_in_prompt:
+            msg += " and the information below"
+
+        msg += ".\n"
+
+        if CFG.nsp_pred_include_state_str_in_prompt:
+            msg += "We have the object positions and the robot's "\
+                    "proprioception:\n"
+            msg += self.dict_str(indent=2,
+                                 object_features=False,
+                                 use_object_id=True,
+                                 position_proprio_features=True)
+            msg += "\n"
+
+        if len(self.option_history) == 0:
+            msg += "For context, this is at the beginning of a task, before "\
+                "the robot has done anything.\n"
+        else:
+            msg += "For context, the state is right after the robot has"\
+                " successfully executed the action "\
+                f"{self.option_history[-1]}."
+            if CFG.nsp_pred_include_state_str_in_prompt:
+                if self.prev_state is not None:
+                    msg += " The object position and robot proprioception "\
+                        "before executing the action is:\n"
+                    msg += self.prev_state.dict_str(
+                        indent=2,
+                        object_features=False,
+                        use_object_id=True,
+                        position_proprio_features=True)
+                    msg += "\n"
+            if CFG.nsp_pred_include_prev_image_in_prompt:
+                msg += " The state before executing the action is depicted"\
+                    " by the image labeled with 'prev. state'."
+                msg += " Please carefully examine the images depicting the "\
+                    "'prev. state' and 'curr. state' before making a judgment."
+                msg += "\n"
+        msg += "The assertions to evaluate are:"
+        return msg
+
+    def add_bbox_features(self) -> None:
+        """Add the features about the bounding box to the objects."""
+        for obj, mask in self.obj_mask_dict.items():
+            bbox = mask_to_bbox(mask)
+            for name, value in bbox._asdict().items():
+                self.set(obj, f"bbox_{name}", value)
+
+    def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
+        """Set the value of an object feature by name."""
+        idx = obj.type.feature_names.index(feature_name)
+        standard_feature_len = len(self.data[obj])
+        if idx >= standard_feature_len:
+            self.bbox_features[obj][idx - standard_feature_len] = feature_val
+        else:
+            self.data[obj][idx] = feature_val
+
+    def get(self, obj: Object, feature_name: str) -> Any:
+        idx = obj.type.feature_names.index(feature_name)
+        standard_feature_len = len(self.data[obj])
+        if idx >= standard_feature_len:
+            return self.bbox_features[obj][idx - standard_feature_len]
+        return self.data[obj][idx]
+
+    def dict_str(  # type: ignore[override]
+            self,
+            indent: int = 0,
+            object_features: bool = True,
+            num_decimal_points: int = 2,
+            use_object_id: bool = False,
+            position_proprio_features: bool = False) -> str:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            for attribute, value in zip(
+                    obj.type.feature_names,
+                    np.concatenate([self[obj], self.bbox_features[obj]])
+                    if self.bbox_features else self[obj]):
+                if (position_proprio_features and attribute
+                        in ["rot", "fingers"]) or (object_features
+                                                   and attribute not in [
+                                                       "is_heavy",
+                                                   ]):
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+
+            if use_object_id:
+                obj_name = obj.id_name
+            else:
+                obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
+
+        spaces = " " * indent
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if value_str == "":
+                content_str = f"'{key}'"
+            else:
+                content_str = f"'{key}': {{{value_str}}}"
+            if i == 0:
+                dict_str += f"{content_str},\n"
+            elif i == n_keys - 1:
+                dict_str += spaces + f" {content_str}"
+            else:
+                dict_str += spaces + f" {content_str},\n"
+        dict_str += "}"
+        return dict_str
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, VLMState)
+        if len(self.data) != len(other.data):
+            return False
+        for key, value in self.data.items():
+            if key not in other.data or not np.array_equal(
+                    value, other.data[key]):
+                return False
+        return self.simulator_state == other.simulator_state
+
+    def label_all_objects(self) -> None:
+        state_ip = ImagePatch(self)
+        state_ip.label_all_objects(self.obj_mask_dict)
+        self.labeled_image = state_ip.cropped_image_in_PIL
+
+    def copy(self) -> VLMState:
+        pybullet_state_copy = super().copy()
+        state_image_copy = copy.copy(self.state_image)
+        obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
+        labeled_image_copy = copy.copy(self.labeled_image)
+        option_history_copy = copy.copy(self.option_history)
+        bbox_features_copy = copy.deepcopy(self.bbox_features)
+        prev_state_copy = self.prev_state.copy() if self.prev_state else None
+        # Use kwargs for the VLM-specific fields so positional shifts in
+        # the base `State` dataclass (e.g. the `latent` block added for
+        # the recurrent partial-observability approach) don't reorder
+        # this call.
+        return VLMState(
+            data=pybullet_state_copy.data,
+            simulator_state=pybullet_state_copy.simulator_state,
+            latent=pybullet_state_copy.latent,
+            privileged=pybullet_state_copy.privileged,
+            state_image=state_image_copy,
+            obj_mask_dict=obj_mask_copy,
+            labeled_image=labeled_image_copy,
+            option_history=option_history_copy,
+            bbox_features=bbox_features_copy,
+            prev_state=prev_state_copy,
+        )
+
+    def get_obj_mask(self, obj: Object) -> Mask:
+        """Return the mask for the object."""
+        return self.obj_mask_dict[obj]
+
+    def get_obj_bbox(self, obj: Object) -> BoundingBox:
+        """Get the bounding box of the object in the state image."""
+        mask = self.get_obj_mask(obj)
+        return mask_to_bbox(mask)
+
+    def crop_to_objects(  # pylint: disable=missing-function-docstring
+            self,
+            objects: Sequence[Object],
+            left_margin: int = 30,
+            lower_margin: int = 30,
+            right_margin: int = 30,
+            top_margin: int = 30) -> Tuple[BoundingBox, Sequence[Object]]:
+        bboxes = [self.get_obj_bbox(obj) for obj in objects]
+        bbox = smallest_bbox_from_bboxes(bboxes)
+        return (BoundingBox(
+            max(bbox.left - left_margin, 0), max(bbox.lower - lower_margin, 0),
+            min(bbox.right + right_margin, self.state_image.width),
+            min(bbox.upper + top_margin, self.state_image.height)), objects)
+
+
+@dataclass
+class VLMQuery:
+    """A class to represent a query to a VLM."""
+    query_str: str
+    attention_box: BoundingBox
+    attn_objects: Optional[List[Object]] = None
+    ground_atom: Optional[GroundAtom] = None
+
+
+def mask_to_bbox(mask: Mask) -> BoundingBox:
+    """Return the bounding box of the mask."""
+    y_indices, x_indices = np.where(mask)
+    height = mask.shape[0]
+
+    # Get the bounding box
+    try:
+        left = x_indices.min()
+        right = x_indices.max()
+        lower = height - (y_indices.max() + 1)
+        upper = height - (y_indices.min() + 1)
+    except ValueError:
+        left, lower, right, upper = 0, 0, 0, 0
+        # If the mask is empty, return a bounding box with all zeros
+
+    return BoundingBox(left, lower, right, upper)
+
+
+def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
+    """Return the smallest bounding box that contains all the given
+    bounding."""
+
+    # Initialize the bounding box coordinates
+    left, lower, right, upper = np.inf, np.inf, -np.inf, -np.inf
+    # Iterate over all masks
+    for bbox in bboxes:
+        # Update the bounding box
+        left = min(left, bbox.left)
+        lower = min(lower, bbox.lower)
+        right = max(right, bbox.right)
+        upper = max(upper, bbox.upper)
+    return BoundingBox(left, lower, right, upper)
 
 
 class StateWithCache(State):
@@ -1064,8 +1386,13 @@ class StateWithCache(State):
         return State(self.data).allclose(State(other.data))
 
     def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        return StateWithCache(state_dict_copy, self.cache)
+        copied = super().copy()
+        # The cache (simulator_state) is deliberately shared, not copied;
+        # forward the hidden latent/privileged blocks so they survive.
+        return StateWithCache(copied.data,
+                              self.cache,
+                              latent=copied.latent,
+                              privileged=copied.privileged)
 
 
 class LoggingMonitor(abc.ABC):
@@ -1135,12 +1462,26 @@ def run_policy(
                 start_time = time.perf_counter()
                 act = policy(state)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
+            except Exception as e:  # pylint: disable=broad-except
+                if not CFG.video_not_break_on_exception:
+                    if exceptions_to_break_on is not None and \
+                        type(e) in exceptions_to_break_on:
+                        if monitor_observed:
+                            exception_raised_in_step = True
+                        break
+                    raise e
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(state, None)
+                    monitor_observed = True
+            else:
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(state, act)
+                    monitor_observed = True
+
+            try:
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may use the environment's
                 # internal state.
-                if monitor is not None:
-                    monitor.observe(state, act)
-                    monitor_observed = True
                 state = env.step(act)
                 actions.append(act)
                 states.append(state)
@@ -1150,8 +1491,6 @@ def run_policy(
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
-                if monitor is not None and not monitor_observed:
-                    monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break
@@ -1195,11 +1534,13 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     exception_raised_in_step = False
     if not termination_function(state):
-        for _ in range(max_num_steps):
+        for i in range(max_num_steps):
+            # logging.debug(f"State: {state.pretty_str()}")
             monitor_observed = False
             exception_raised_in_step = False
             try:
                 act = policy(state)
+                # logging.debug(f"Action: {act}")
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
@@ -1207,6 +1548,7 @@ def run_policy_with_simulator(
                 actions.append(act)
                 states.append(state)
             except Exception as e:
+                logging.debug(f"Exception during running policy: {e}")
                 if exceptions_to_break_on is not None and \
                     type(e) in exceptions_to_break_on:
                     if monitor_observed:
@@ -1217,6 +1559,7 @@ def run_policy_with_simulator(
                 raise e
             if termination_function(state):
                 break
+        logging.debug(f"Ran {i + 1} steps")
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
@@ -1267,10 +1610,145 @@ class EnvironmentFailure(ExceptionWithInfo):
         return repr(self)
 
 
+def check_wait_target_atoms(
+    option: _Option,
+    state: State,
+    abstract_function: Callable[[State], Set[GroundAtom]],
+) -> Optional[bool]:
+    """Check if a Wait option's target atoms are satisfied.
+
+    Returns True if targets are met (Wait should terminate), False if
+    not yet met, or None if no targets were specified (caller should
+    fall back to any-atom-change behaviour).
+    """
+    pos = option.memory.get("wait_target_atoms", set())
+    neg = option.memory.get("wait_target_neg_atoms", set())
+    if not pos and not neg:
+        return None
+    cur_atoms = abstract_function(state)
+    return pos.issubset(cur_atoms) and neg.isdisjoint(cur_atoms)
+
+
+def parse_wait_target_annotations(
+    line: str,
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+) -> Tuple[Set[GroundAtom], Set[GroundAtom]]:
+    """Parse ``-> {Pred(...), NOT Pred(...)}`` from a plan line.
+
+    Returns ``(positive_atoms, negative_atoms)`` where positive atoms
+    must become TRUE and negative atoms must become FALSE for the Wait
+    to terminate.
+    """
+    pred_map = {p.name: p for p in predicates}
+    obj_map = {o.name: o for o in objects}
+
+    sg_match = re.search(r'->\s*\{([^}]*)\}', line)
+    if not sg_match:
+        return set(), set()
+
+    pos_atoms: Set[GroundAtom] = set()
+    neg_atoms: Set[GroundAtom] = set()
+    atom_re = re.compile(r'(NOT\s+)?(\w+)\(([^)]*)\)')
+
+    for m in atom_re.finditer(sg_match.group(1)):
+        is_neg = m.group(1) is not None
+        pred_name = m.group(2)
+        obj_names = [n.strip().split(':')[0] for n in m.group(3).split(',')]
+
+        if pred_name not in pred_map:
+            logging.warning("Unknown predicate in Wait target: %s", pred_name)
+            continue
+        pred = pred_map[pred_name]
+        try:
+            objs = [obj_map[n] for n in obj_names]
+        except KeyError as e:
+            logging.warning("Unknown object in Wait target: %s", e)
+            continue
+        if len(objs) != len(pred.types):
+            logging.warning("Arity mismatch for %s: expected %d, got %d",
+                            pred_name, len(pred.types), len(objs))
+            continue
+        atom = GroundAtom(pred, objs)
+        if is_neg:
+            neg_atoms.add(atom)
+        else:
+            pos_atoms.add(atom)
+
+    return pos_atoms, neg_atoms
+
+
+def inject_wait_targets_for_option(
+    option: _Option,
+    step_idx: int,
+    atoms_sequence: Sequence[Set[GroundAtom]],
+) -> None:
+    """Inject Wait target atoms into a single option from atoms_sequence.
+
+    Computes the expected atom delta from ``atoms_sequence[step_idx]``
+    to ``atoms_sequence[step_idx + 1]`` and stores it in the option's
+    memory so that execution terminates on specific atoms rather than
+    any noisy change.  No-op for non-Wait options or out-of-bounds
+    indices.
+    """
+    if option.name != "Wait":
+        return
+    if step_idx + 1 >= len(atoms_sequence):
+        return
+    before = atoms_sequence[step_idx]
+    after = atoms_sequence[step_idx + 1]
+    target_pos = after - before
+    target_neg = before - after
+    if target_pos:
+        option.memory["wait_target_atoms"] = target_pos
+    if target_neg:
+        option.memory["wait_target_neg_atoms"] = target_neg
+
+
+def strip_wait_annotations(text: str) -> str:
+    """Remove ``-> {...}`` annotations from plan text lines."""
+    return re.sub(r'\s*->\s*\{[^}]*\}', '', text)
+
+
+def _format_wait_target_debug(
+        state: State, target_atoms: Set[GroundAtom],
+        abstract_function: Callable[[State], Set[GroundAtom]]) -> str:
+    """Format state details for debugging why Wait has not terminated."""
+    cur_atoms = abstract_function(state)
+    missing_targets = target_atoms - cur_atoms
+    target_objects = sorted(
+        {
+            ent
+            for atom in target_atoms
+            for ent in atom.entities if isinstance(ent, Object)
+        },
+        key=lambda o: o.name)
+    object_details = []
+    for obj in target_objects:
+        feature_values = []
+        for feature_name in obj.type.feature_names:
+            value = state.get(obj, feature_name)
+            if isinstance(value, float):
+                value_str = f"{value:.4f}"
+            else:
+                value_str = str(value)
+            feature_values.append(f"{feature_name}={value_str}")
+        object_details.append(f"{obj}: " + ", ".join(feature_values))
+    details = [
+        f"Targets: {sorted(target_atoms)}",
+        f"Missing: {sorted(missing_targets)}",
+        f"cur_atoms: {sorted(cur_atoms)}",
+    ]
+    if object_details:
+        details.append(f"target_objects: {'; '.join(object_details)}")
+    return "; ".join(details)
+
+
 def option_policy_to_policy(
     option_policy: Callable[[State], _Option],
     max_option_steps: Optional[int] = None,
     raise_error_on_repeated_state: bool = False,
+    abstract_function: Optional[Callable[[State], Set[GroundAtom]]] = None
 ) -> Callable[[State], Action]:
     """Create a policy that executes a policy over options."""
     cur_option = DummyOption
@@ -1296,9 +1774,75 @@ def option_policy_to_policy(
             raise OptionTimeoutFailure(
                 "Encountered repeated state.",
                 info={"last_failed_option": last_option})
+        # logging for debugging
+        # if last_state is not None:
+        #     cur_atoms = abstract_function(state)
+        #     prev_atoms = abstract_function(last_state)
+        #     logging.debug(f"Prev atoms: {sorted(prev_atoms)}")
+        #     logging.info(f"Add atoms: {sorted(cur_atoms-prev_atoms)} "
+        #                     f"Del atoms: {sorted(prev_atoms-cur_atoms)}")
+
+        # whether the noop option should terminate
+        wait_terminate = False
+        if CFG.wait_option_terminate_on_atom_change \
+                and cur_option.name == "Wait":
+            assert abstract_function is not None
+            assert last_state is not None
+            target_atoms = cur_option.memory.get("wait_target_atoms")
+            result = check_wait_target_atoms(cur_option, state,
+                                             abstract_function)
+            if result is True:
+                cur_atoms = abstract_function(state)
+                logging.debug("Wait terminating: target atoms satisfied. "
+                              f"Targets: {target_atoms}, "
+                              f"cur_atoms: {sorted(cur_atoms)}, "
+                              f"num_option_steps={num_cur_option_steps}")
+                wait_terminate = True
+            elif result is False:
+                assert target_atoms is not None
+                if num_cur_option_steps <= 1 or num_cur_option_steps % 25 == 0:
+                    wait_debug = _format_wait_target_debug(
+                        state, target_atoms, abstract_function)
+                    logging.debug(
+                        "Wait continuing: target atoms not yet satisfied. "
+                        "%s, num_option_steps=%d", wait_debug,
+                        num_cur_option_steps)
+            elif result is None:
+                # No targets specified: fall back to any-atom-change
+                cur_atoms = abstract_function(state)
+                prev_atoms = abstract_function(last_state)
+                if cur_atoms != prev_atoms:
+                    logging.debug(f"Wait terminating due to atom change: "
+                                  f"Add: {sorted(cur_atoms-prev_atoms)} "
+                                  f"Del: {sorted(prev_atoms-cur_atoms)}")
+                    wait_terminate = True
+                elif num_cur_option_steps >= CFG.wait_option_max_steps:
+                    # Stranded-Wait bail-out: if the awaited change
+                    # happened DURING the previous option, an
+                    # any-change Wait never fires and the plan stalls
+                    # to the horizon. Terminate and let the plan (or a
+                    # replan, via the next process's necessary-atoms
+                    # check) proceed.
+                    logging.info(
+                        "Wait terminating: no atom change within "
+                        "%d steps (wait_option_max_steps).",
+                        num_cur_option_steps)
+                    wait_terminate = True
+
         last_state = state
 
-        if cur_option is DummyOption or cur_option.terminal(state):
+        option_terminal = cur_option is not DummyOption and \
+            cur_option.terminal(state)
+        if wait_terminate or cur_option is DummyOption or option_terminal:
+            if cur_option is not DummyOption:
+                if wait_terminate:
+                    reason = "atom change during Wait"
+                elif option_terminal:
+                    reason = "option self-terminated"
+                else:
+                    reason = "unknown"
+                logging.info(f"[{cur_option.name}] Terminated: {reason} "
+                             f"(after {num_cur_option_steps} steps)\n")
             try:
                 cur_option = option_policy(state)
             except OptionExecutionFailure as e:
@@ -1308,6 +1852,8 @@ def option_policy_to_policy(
                 raise OptionExecutionFailure(
                     "Unsound option policy.",
                     info={"last_failed_option": last_option})
+            logging.debug(f"[option_policy] Started option {cur_option.name}, "
+                          f"initiable=True")
             num_cur_option_steps = 0
 
         num_cur_option_steps += 1
@@ -1318,23 +1864,39 @@ def option_policy_to_policy(
 
 
 def option_plan_to_policy(
-        plan: Sequence[_Option],
-        max_option_steps: Optional[int] = None,
-        raise_error_on_repeated_state: bool = False
+    plan: Sequence[_Option],
+    max_option_steps: Optional[int] = None,
+    raise_error_on_repeated_state: bool = False,
+    abstract_function: Optional[Callable[[State], Set[GroundAtom]]] = None
 ) -> Callable[[State], Action]:
     """Create a policy that executes a sequence of options in order."""
     queue = list(plan)  # don't modify plan, just in case
+    total_options = len(queue)
 
     def _option_policy(state: State) -> _Option:
         del state  # not used
         if not queue:
-            raise OptionExecutionFailure("Option plan exhausted!")
-        return queue.pop(0)
+            logging.info("Option plan exhausted after %d options.",
+                         total_options)
+            # Flagged, because running out of options is how a plan ENDS, not
+            # how one fails -- and both arrive as the same exception type. A
+            # caller that cannot tell them apart treats every completed plan
+            # as an aborted episode.
+            raise OptionExecutionFailure("Option plan exhausted!",
+                                         info={"plan_exhausted": True})
+        option = queue.pop(0)
+        option_num = total_options - len(queue)
+        next_option = None if not queue else queue[0].simple_str()
+        logging.info("Executing option %d/%d: %s (remaining=%d, next=%s)",
+                     option_num, total_options, option.simple_str(),
+                     len(queue), next_option)
+        return option
 
     return option_policy_to_policy(
         _option_policy,
         max_option_steps=max_option_steps,
-        raise_error_on_repeated_state=raise_error_on_repeated_state)
+        raise_error_on_repeated_state=raise_error_on_repeated_state,
+        abstract_function=abstract_function)
 
 
 def nsrt_plan_to_greedy_option_policy(
@@ -1378,7 +1940,8 @@ def nsrt_plan_to_greedy_policy(
     nsrt_plan: Sequence[_GroundNSRT],
     goal: Set[GroundAtom],
     rng: np.random.Generator,
-    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+    abstract_function: Optional[Callable[[State], Set[GroundAtom]]] = None
 ) -> Callable[[State], Action]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
     any sample will work.
@@ -1388,7 +1951,71 @@ def nsrt_plan_to_greedy_policy(
     """
     option_policy = nsrt_plan_to_greedy_option_policy(
         nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq)
-    return option_policy_to_policy(option_policy)
+    return option_policy_to_policy(option_policy,
+                                   abstract_function=abstract_function)
+
+
+def process_plan_to_greedy_option_policy(
+    process_plan: Sequence[_GroundEndogenousProcess],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+    atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+) -> Callable[[State], _Option]:
+    """Greedily execute a process plan, assuming downward refinability and that
+    any sample will work.
+
+    If an option is not initiable or if the plan runs out, an
+    OptionExecutionFailure is raised.
+    """
+    cur_process: Optional[_GroundEndogenousProcess] = None
+    process_queue = list(process_plan)
+    if necessary_atoms_seq is None:
+        empty_atoms: Set[GroundAtom] = set()
+        necessary_atoms_seq = [
+            empty_atoms for _ in range(len(process_plan) + 1)
+        ]
+    assert len(necessary_atoms_seq) == len(process_plan) + 1
+    necessary_atoms_queue = list(necessary_atoms_seq)
+    step_idx = 0
+
+    def _option_policy(state: State) -> _Option:
+        nonlocal cur_process, step_idx
+        if not process_queue:
+            raise OptionExecutionFailure("Process plan exhausted.")
+        expected_atoms = necessary_atoms_queue.pop(0)
+        if not all(a.holds(state) for a in expected_atoms):
+            raise OptionExecutionFailure(
+                "Executing the process failed to achieve the necessary atoms.")
+        cur_process = process_queue.pop(0)
+        cur_option = cur_process.sample_option(state, goal, rng)
+        if atoms_seq is not None:
+            inject_wait_targets_for_option(cur_option, step_idx, atoms_seq)
+        step_idx += 1
+        logging.debug(f"Using option {cur_option.name}{cur_option.objects}"
+                      f"{cur_option.params} from process plan.")
+        return cur_option
+
+    return _option_policy
+
+
+def process_plan_to_greedy_policy(
+    process_plan: Sequence[_GroundEndogenousProcess],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+    abstract_function: Optional[Callable[[State], Set[GroundAtom]]] = None,
+    atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+) -> Callable[[State], Action]:
+    """Convert a process plan to a greedy policy."""
+    option_policy = process_plan_to_greedy_option_policy(
+        process_plan,
+        goal,
+        rng,
+        necessary_atoms_seq=necessary_atoms_seq,
+        atoms_seq=atoms_seq)
+    return option_policy_to_policy(option_policy,
+                                   abstract_function=abstract_function)
 
 
 def sample_applicable_option(param_options: List[ParameterizedOption],
@@ -1444,7 +2071,7 @@ def sample_applicable_ground_nsrt(
     if len(applicable_nsrts) == 0:
         return None
     idx = rng.choice(len(applicable_nsrts))
-    return applicable_nsrts[idx]
+    return applicable_nsrts[idx]  # type: ignore[return-value]
 
 
 def action_arrs_to_policy(
@@ -1803,18 +2430,25 @@ def run_hill_climbing(
     heuristic: Callable[[_S], float],
     early_termination_heuristic_thresh: Optional[float] = None,
     enforced_depth: int = 0,
+    exhaustive_lookahead: bool = False,
     parallelize: bool = False,
     verbose: bool = True,
     timeout: float = float('inf')
 ) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
-    For each node, the best child node is always selected, if that child is
+    For each node, this search looks for an improvement up to `enforced_depth`.
+    If `exhaustive_lookahead` is False (default), for each node, the best child
+    node is always selected, if that child is
     an improvement over the node. If no children improve on the node, look
     at the children's children, etc., up to enforced_depth, where enforced_depth
     0 corresponds to simple hill climbing. Terminate when no improvement can
     be found. early_termination_heuristic_thresh allows for searching until
     heuristic reaches a specified value.
+    Let b be the branching factor, d be the enforced_depth, this has time
+    complxity of O(b^{d+1}).
+    If True, it searches the entire horizon up to the
+    enforced depth and picks the best overall improvement.
 
     Lower heuristic is better.
     """
@@ -1823,12 +2457,13 @@ def run_hill_climbing(
         initial_state, 0, 0)
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
-    visited = {initial_state}
+    # visited = {initial_state} # <--- deleted for exhaustive_lookahead
     if verbose:
         logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                      f"with heuristic {last_heuristic}")
     start_time = time.perf_counter()
     while True:
+        visited = {cur_node.state}  # <--- added for exhaustive_lookahead
 
         # Stops when heuristic reaches specified value.
         if early_termination_heuristic_thresh is not None \
@@ -1882,15 +2517,27 @@ def run_hill_climbing(
                             best_heuristic = child_heuristic
                             best_child_node = child_node
             all_best_heuristics.append(best_heuristic)
-            if last_heuristic > best_heuristic:
+
+            if not exhaustive_lookahead and last_heuristic > best_heuristic:
                 # Some improvement found.
                 if verbose:
                     logging.info(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
+            if not current_depth_nodes:
+                if verbose:
+                    logging.info(
+                        f"No more successors to explore at depth {depth}.")
+                break  # No need to search deeper if there are no more nodes.
+
             if verbose:
-                logging.info(f"No improvement found at depth {depth}")
+                if exhaustive_lookahead:
+                    logging.info(f"Finished depth {depth}. "
+                                 f"Best heuristic so far: {best_heuristic}")
+                elif last_heuristic <= best_heuristic:
+                    logging.info(f"No improvement found at depth {depth}")
+
         if best_child_node is None:
             if verbose:
                 logging.info("\nTerminating hill climbing, no more successors")
@@ -1906,9 +2553,13 @@ def run_hill_climbing(
         if verbose:
             logging.info(f"\nHill climbing reached new state {cur_node.state} "
                          f"with heuristic {last_heuristic}")
+
     states, actions = _finish_plan(cur_node)
-    assert len(states) == len(heuristics)
-    return states, actions, heuristics
+    # The number of heuristics might not match the plan length perfectly now,
+    # so we should regenerate them from the final plan.
+    final_heuristics = [heuristic(s) for s in states]
+    assert len(states) == len(final_heuristics)
+    return states, actions, final_heuristics
 
 
 def run_policy_guided_astar(
@@ -2210,7 +2861,11 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
         stripped_pred = strip_predicate(atom.predicate)
         stripped_atom = GroundAtom(stripped_pred, atom.objects)
         stripped_goal.add(stripped_atom)
-    return Task(task.init, stripped_goal, alt_goal=task.alt_goal)
+    return Task(task.init,
+                stripped_goal,
+                alt_goal=task.alt_goal,
+                goal_nl=task.goal_nl,
+                evaluator=task.evaluator)
 
 
 def create_vlm_predicate(
@@ -2224,29 +2879,60 @@ def create_vlm_predicate(
             objects: Sequence[Object]) -> bool:  # pragma: no cover.
         raise Exception("VLM predicate classifier should never be called!")
 
-    return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
+    return VLMPredicate(name, types, _stripped_classifier,
+                        get_vlm_query_str)  # type: ignore[arg-type]
 
 
 def create_llm_by_name(
         model_name: str) -> LargeLanguageModel:  # pragma: no cover
     """Create particular llm using a provided name."""
-    if "gemini" in model_name:
+    if CFG.pretrained_model_service_provider == "openai":
+        return OpenAILLM(model_name)
+    if CFG.pretrained_model_service_provider == "google":
         return GoogleGeminiLLM(model_name)
-    return OpenAILLM(model_name)
+    if CFG.pretrained_model_service_provider == "openrouter":
+        return OpenRouterLLM(model_name)
+    raise ValueError(f"Unknown pretrained model service provider: "
+                     f"{CFG.pretrained_model_service_provider}")
 
 
 def create_vlm_by_name(
         model_name: str) -> VisionLanguageModel:  # pragma: no cover
     """Create particular vlm using a provided name."""
-    if "gemini" in model_name:
+    if CFG.pretrained_model_service_provider == "openai":
+        return OpenAIVLM(model_name)
+    if CFG.pretrained_model_service_provider == "google":
         return GoogleGeminiVLM(model_name)
-    return OpenAIVLM(model_name)
+    if CFG.pretrained_model_service_provider == "openrouter":
+        return OpenRouterVLM(model_name)
+    raise ValueError(f"Unknown pretrained model service provider: "
+                     f"{CFG.pretrained_model_service_provider}")
+
+
+def strip_enumeration_prefix(line: str) -> str:
+    """Strip a leading list-enumeration prefix like ``0:``, ``1.``, ``2)``.
+
+    Agents sometimes number plan/sketch lines, mirroring the numbered
+    format the system itself prints in logs and prior-failure previews
+    (e.g. ``0: Pick(robot:robot, block:block)``). The option-plan parser
+    keys on the option name being the first token of the line, so an
+    unstripped number prefix turns ``0: Pick(...)`` into the bogus token
+    ``"0: Pick"`` and the whole plan parses as empty. Stripping is
+    deliberately conservative: it matches only a leading run of digits
+    followed by one of ``:.)`` so prose bullets like ``- Step 1:`` are
+    left untouched (their option name is still not the first token, so
+    they are correctly ignored as preamble).
+    """
+    return re.sub(r'^\s*\d+\s*[:.)]\s*', '', line)
 
 
 def parse_model_output_into_option_plan(
-    model_prediction: str, objects: Collection[Object],
-    types: Collection[Type], options: Collection[ParameterizedOption],
-    parse_continuous_params: bool
+    model_prediction: str,
+    objects: Collection[Object],
+    types: Collection[Type],
+    options: Collection[ParameterizedOption],
+    parse_continuous_params: bool,
+    strict: bool = False
 ) -> List[Tuple[ParameterizedOption, Sequence[Object], Sequence[float]]]:
     """Assuming text for an option plan that is predicted as text by a large
     model, parse it into a sequence of ParameterizedOptions coupled with a list
@@ -2256,9 +2942,23 @@ def parse_model_output_into_option_plan(
     We assume the model's output is such that each line is formatted as
     option_name(obj0:type0, obj1:type1,...)[continuous_param0,
     continuous_param1, ...].
+
+    By default the parser tolerates freeform model output: preamble lines
+    are skipped, parsing stops at the first non-option line after the plan
+    starts, and malformed lines are dropped with only an INFO log. With
+    ``strict=True`` (for tool inputs that are pure plan text) any line
+    that fails to parse into a step raises ``ValueError`` naming the line
+    and the problem - silently dropping a step and executing the rest has
+    cost agents whole sessions of confusion.
     """
     option_plan: List[Tuple[ParameterizedOption, Sequence[Object],
                             Sequence[float]]] = []
+
+    def _reject(msg: str) -> None:
+        if strict:
+            raise ValueError(msg)
+        logging.info(msg)
+
     # Setup dictionaries enabling us to easily map names to specific
     # Python objects during parsing.
     option_name_to_option = {op.name: op for op in options}
@@ -2266,22 +2966,31 @@ def parse_model_output_into_option_plan(
     obj_name_to_obj = {o.name: o for o in objects}
     options_str_list = model_prediction.split('\n')
     for option_str in options_str_list:
-        option_str_stripped = option_str.strip()
+        # Tolerate a leading enumeration prefix ("0:", "1.", "2)") that
+        # agents emit when mirroring the numbered sketch format shown in
+        # logs; without this the bogus first token makes the plan parse
+        # as empty.
+        option_str_stripped = strip_enumeration_prefix(option_str.strip())
         option_name = option_str_stripped.split('(')[0]
-        # Skip empty option strs.
-        if not option_str:
+        # Skip empty option strs (including whitespace-only lines, which
+        # indented triple-quoted plan text produces; rejecting those in
+        # strict mode read as "Line      ... doesn't contain a valid
+        # option name" - an error about nothing).
+        if not option_str_stripped:
             continue
         if option_name not in option_name_to_option.keys() or \
             "(" not in option_str:
-            logging.info(
-                f"Line {option_str} output by model doesn't "
-                "contain a valid option name. Terminating option plan "
-                "parsing.")
-            break
+            if option_plan or strict:
+                # Already found some options; stop on first non-option line.
+                _reject(f"Line {option_str} output by model doesn't "
+                        "contain a valid option name. Terminating option "
+                        "plan parsing.")
+                break
+            # Skip preamble lines (analysis text before the plan starts).
+            continue
         if parse_continuous_params and "[" not in option_str:
-            logging.info(
-                f"Line {option_str} output by model doesn't contain a "
-                "'[' and is thus improperly formatted.")
+            _reject(f"Line {option_str} output by model doesn't contain a "
+                    "'[' and is thus improperly formatted.")
             break
         option = option_name_to_option[option_name]
         # Now that we have the option, we need to parse out the objects
@@ -2290,11 +2999,14 @@ def parse_model_output_into_option_plan(
             start_index = option_str_stripped.index('(') + 1
             end_index = option_str_stripped.index(')', start_index)
         except ValueError:
-            logging.info(
+            _reject(
                 f"Line {option_str} output by model is improperly formatted.")
             break
-        typed_objects_str_list = option_str_stripped[
-            start_index:end_index].split(',')
+        # Empty parens (a 0-argument option) must yield zero object strings,
+        # not [''] (which would be rejected as a malformed object-type pair).
+        parens_content = option_str_stripped[start_index:end_index].strip()
+        typed_objects_str_list = (parens_content.split(',')
+                                  if parens_content else [])
         objs_list = []
         continuous_params_list = []
         malformed = False
@@ -2302,46 +3014,49 @@ def parse_model_output_into_option_plan(
             object_type_str_list = type_object_string.strip().split(':')
             # We expect this list to be [object_name, type_name].
             if len(object_type_str_list) != 2:
-                logging.info(f"Line {option_str} output by model has a "
-                             "malformed object-type list.")
+                _reject(f"Line {option_str} output by model has a "
+                        "malformed object-type list.")
                 malformed = True
                 break
             object_name = object_type_str_list[0]
             type_name = object_type_str_list[1]
             if object_name not in obj_name_to_obj.keys():
-                logging.info(f"Line {option_str} output by model has an "
-                             "invalid object name.")
+                _reject(f"Line {option_str} output by model has an "
+                        "invalid object name.")
                 malformed = True
                 break
             obj = obj_name_to_obj[object_name]
             # Check that the type of this object agrees
             # with what's expected given the ParameterizedOption.
             if type_name not in type_name_to_type:
-                logging.info(f"Line {option_str} output by model has an "
-                             "invalid type name.")
+                _reject(f"Line {option_str} output by model has an "
+                        "invalid type name.")
                 malformed = True
                 break
             try:
                 if option.types[i] not in type_name_to_type[
                         type_name].get_ancestors():
-                    logging.info(
-                        f"Line {option_str} output by model has an "
-                        "invalid type that doesn't agree with the option"
-                        f"{option}")
+                    _reject(f"Line {option_str} output by model has an "
+                            "invalid type that doesn't agree with the option"
+                            f"{option}")
                     malformed = True
                     break
             except IndexError:
                 # In this case, there's more supplied arguments than the
                 # option has.
-                logging.info(f"Line {option_str} output by model has an "
-                             "too many object arguments for option"
-                             f"{option}")
+                _reject(f"Line {option_str} output by model has "
+                        "too many object arguments for option "
+                        f"{option.name}, which expects "
+                        f"{len(option.types)} argument(s).")
                 malformed = True
                 break
             objs_list.append(obj)
         # The types of the objects match, but we haven't yet checked if
         # all arguments of the option have an associated object.
-        if len(objs_list) != len(option.types):
+        if not malformed and len(objs_list) != len(option.types):
+            _reject(f"Line {option_str} output by model supplies "
+                    f"{len(objs_list)} object argument(s) but option "
+                    f"{option.name} expects {len(option.types)}.")
             malformed = True
         # Now, we attempt to parse out the continuous parameters.
         if parse_continuous_params:
@@ -2354,18 +3069,42 @@ def parse_model_output_into_option_plan(
                 try:
                     curr_cont_param = float(stripped_continuous_param_str)
                 except ValueError:
-                    logging.info(f"Line {option_str} output by model has an "
-                                 "invalid continouous parameter that can't be"
-                                 "converted to a float.")
+                    # A '~' inside the params block is a misplaced
+                    # ground-sampler region annotation; name the correct
+                    # syntax instead of a bare float-parse failure.
+                    hint = ""
+                    if "~" in stripped_continuous_param_str:
+                        hint = (" Region annotations go AFTER the closing "
+                                "']' of the params block: "
+                                "`Opt(obj:type)[p1, p2] ~ [w1, w2]`, one "
+                                "half-width per parameter - not inside "
+                                "`[...]`.")
+                    _reject(f"Line {option_str} output by model has an "
+                            "invalid continuous parameter "
+                            f"{stripped_continuous_param_str!r} that can't "
+                            f"be converted to a float.{hint}")
                     malformed = True
                     break
                 continuous_params_list.append(curr_cont_param)
-            if len(continuous_params_list) != option.params_space.shape[0]:
-                logging.info(f"Line {option_str} output by model has "
-                             "invalid continouous parameter(s) that don't "
-                             f"agree with {option}{option.params_space}.")
-                malformed = True
+            if malformed:
+                # A parameter failed to parse: stop parsing further lines
+                # (same truncation the count-mismatch below applies).
                 break
+            if len(continuous_params_list) != option.params_space.shape[0]:
+                if strict and not continuous_params_list:
+                    # An explicit empty `[]` is the tool sketch grammar's
+                    # "no seed": pass the empty list through and let the
+                    # caller interpret it (refinement samples the params;
+                    # exact-execution paths fail at grounding with a clear
+                    # message).
+                    pass
+                else:
+                    _reject(f"Line {option_str} output by model has "
+                            f"{len(continuous_params_list)} continuous "
+                            f"parameter(s) but option {option.name} expects "
+                            f"{option.params_space.shape[0]}.")
+                    malformed = True
+                    break
         if not malformed:
             option_plan.append((option, objs_list, continuous_params_list))
     return option_plan
@@ -2443,6 +3182,8 @@ def query_vlm_for_atom_vals(
         return set()
     true_atoms: Set[GroundAtom] = set()
     # Get quantities necessary to construct prompt to query VLM.
+    if state.simulator_state is None:
+        return true_atoms
     assert state.simulator_state is not None
     assert isinstance(state.simulator_state["images"], List)
     curr_state_imgs = state.simulator_state["images"]
@@ -2473,8 +3214,11 @@ def query_vlm_for_atom_vals(
     # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
-    vlm_input_imgs = \
-        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
+    if CFG.env in ["pybullet_coffee"]:
+        vlm_input_imgs = list(imgs)  # type: ignore
+    else:
+        vlm_input_imgs = \
+            [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
     vlm_output = vlm.sample_completions(vlm_query_str,
                                         vlm_input_imgs,
                                         0.0,
@@ -2506,13 +3250,23 @@ def abstract(state: State,
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
-    Duplicate arguments in predicates are allowed.
+    Duplicate arguments in predicates are allowed. Latent-aware
+    classifiers (`agent_po_sim_predicate_invention`) read their latent
+    from `state.latent` via `Predicate.holds` — abstract itself does
+    nothing extra to support them.
     """
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+    derived_preds, primitive_preds = set(), set()
+    for pred in preds:
+        if isinstance(pred, DerivedPredicate):
+            derived_preds.add(pred)
+        else:
+            primitive_preds.add(pred)
+
     # Next, classify all non-VLM predicates.
     atoms = set()
-    for pred in preds:
+    for pred in primitive_preds:
         if pred not in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
@@ -2526,6 +3280,20 @@ def abstract(state: State,
                 vlm_atoms.add(GroundAtom(pred, choice))
         true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
         atoms |= true_vlm_atoms
+
+    # Evaluate derived predicates.
+    if len(derived_preds) > 0:
+        try:
+            atoms |= abstract_with_derived_predicates(atoms, derived_preds,
+                                                      list(state))
+        except PredicateEvaluationError as e:
+            raise e
+            # buggy_pred = e.pred
+            # # logging.debug(f"preds before {buggy_pred} is removed: {preds}")
+            # cnpt_preds.remove(buggy_pred)
+            # # logging.debug(f"preds after {buggy_pred} is removed: {preds}")
+            # return abstract(state, prim_preds | cnpt_preds, vlm,
+            #                 return_valid_preds)
     return atoms
 
 
@@ -2561,12 +3329,17 @@ def all_ground_operators_given_partial(
         yield ground_op
 
 
-def all_ground_nsrts(nsrt: NSRT,
+def all_ground_nsrts(nsrt: Union[NSRT, CausalProcess],
                      objects: Collection[Object]) -> Iterator[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects."""
     types = [p.type for p in nsrt.parameters]
     for choice in get_object_combinations(objects, types):
-        yield nsrt.ground(tuple(choice))
+        # only return if there are no repeated arguments
+        if CFG.no_repeated_arguments_in_grounding:
+            if len(choice) == len(set(choice)):
+                yield nsrt.ground(tuple(choice))  # type: ignore[misc]
+        else:
+            yield nsrt.ground(tuple(choice))  # type: ignore[misc]
 
 
 def all_ground_nsrts_fd_translator(
@@ -2865,6 +3638,24 @@ def create_ground_atom_dataset(
     return ground_atom_dataset
 
 
+def create_ground_atom_option_dataset(
+        trajectories: List[LowLevelTrajectory],
+        predicates: Set[Predicate]) -> List[AtomOptionTrajectory]:
+    """Apply all predicates to all trajectories in the dataset and also
+    annotate with options (HLA)."""
+    ground_atom_option_dataset = []
+    for traj in trajectories:
+        # Note: this is currently just based on the current states.
+        # We may want to extend this to state history in the future.
+        atoms = [abstract(s, predicates) for s in traj.states]
+        options = [a.get_option() for a in traj.actions]
+        ground_atom_option_dataset.append(
+            AtomOptionTrajectory(
+                traj.states, atoms, options, traj.is_demo,
+                traj.train_task_idx if traj.is_demo else None))
+    return ground_atom_option_dataset
+
+
 def prune_ground_atom_dataset(
         ground_atom_dataset: List[GroundAtomTrajectory],
         kept_predicates: Collection[Predicate]) -> List[GroundAtomTrajectory]:
@@ -2930,6 +3721,43 @@ def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
         ground_atom_dataset_to_pkl.append(trajectory)
     with open(dataset_fname, "wb") as f:
         pkl.dump(ground_atom_dataset_to_pkl, f)
+
+
+def pkl_dump_with_retry(obj: Any, f: IO[bytes]) -> None:
+    """``pkl.dump``, retried once after a collection if it raises TypeError.
+
+    Saving a learned artifact intermittently dies with ``TypeError: cannot
+    pickle '_abc._abc_data' object``, which is the C-level cache behind an
+    abstract base class. On CI it is reproducible for a given set of tests --
+    the same failures twice on the same shard, three times over -- and it has
+    been seen from two call sites, ``nsrt_learning_approach._learn_nsrts`` and
+    ``gnn_approach.learn_from_offline_dataset``. Locally it appears at roughly
+    one run in four with the code, test order and PYTHONHASHSEED all fixed.
+
+    The root cause is NOT established. What is: an ``_abc_data`` holds WEAK
+    references, so whether dill trips over one plausibly depends on collection
+    timing, which is the one thing that varies run to run under everything
+    else being pinned. ``gc.collect()`` before retrying is aimed at exactly
+    that. **This is a mitigation on a hypothesis, not a fix on a diagnosis** --
+    if it stops the failures it is also the evidence for the hypothesis, and
+    if it does not, that rules the hypothesis out.
+
+    Serialising to bytes first rather than retrying into ``f`` matters: a dump
+    that raises part-way has already written a prefix, and a retry appending
+    to that would leave a corrupt file that only fails at load time, which is
+    much worse than the error being fixed here.
+
+    Any TypeError is retried, not only the ``_abc_data`` one. Matching on the
+    message would break silently when it is reworded, and an object that is
+    genuinely unpicklable fails the second time too and raises as it always
+    would -- so the broad catch costs one wasted attempt and hides nothing.
+    """
+    try:
+        blob = pkl.dumps(obj)
+    except TypeError:
+        gc.collect()
+        blob = pkl.dumps(obj)
+    f.write(blob)
 
 
 def merge_ground_atom_datasets(
@@ -3017,14 +3845,20 @@ def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
 
 
 def get_applicable_operators(
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
+    ground_ops: Collection[Union[GroundNSRTOrSTRIPSOperator,
+                                 _GroundEndogenousProcess]],
+    atoms: Collection[GroundAtom]
+) -> Iterator[Union[GroundNSRTOrSTRIPSOperator, _GroundEndogenousProcess]]:
     """Iterate over ground operators whose preconditions are satisfied.
 
     Note: the order may be nondeterministic. Users should be invariant.
     """
     for op in ground_ops:
-        applicable = op.preconditions.issubset(atoms)
+        if isinstance(op, (_GroundNSRT, _GroundSTRIPSOperator)):
+            applicable = op.preconditions.issubset(atoms)
+        elif isinstance(op, _GroundEndogenousProcess):
+            applicable = op.condition_at_start.issubset(atoms)
+
         if applicable:
             yield op
 
@@ -3070,7 +3904,7 @@ def get_successors_from_ground_ops(
     """
     seen_successors = set()
     for ground_op in get_applicable_operators(ground_ops, atoms):
-        next_atoms = apply_operator(ground_op, atoms)
+        next_atoms = apply_operator(ground_op, atoms)  # type: ignore[type-var]
         if unique:
             frozen_next_atoms = frozenset(next_atoms)
             if frozen_next_atoms in seen_successors:
@@ -3419,6 +4253,73 @@ class VideoMonitor(LoggingMonitor):
 
 
 @dataclass
+class StreamingVideoMonitor(LoggingMonitor):
+    """A VideoMonitor variant that encodes frames to disk as they arrive.
+
+    Peak memory is one frame instead of a whole episode's worth
+    (VideoMonitor buffers every frame until the caller saves, ~1.2GB for
+    a 500-step episode at 900x900). Frames stream into a hidden temp
+    file in the output directory; after the episode the caller must
+    either ``finalize(outfile)`` to move the clip into place or
+    ``discard()`` to delete it. ``discard()`` is a no-op after
+    ``finalize()``, so an unconditional trailing ``discard()`` is the
+    idiom for "keep only if some earlier branch finalized". The
+    trade-offs vs. buffering: encoding cost is paid even for clips that
+    end up discarded, and a process crash mid-episode leaves the hidden
+    temp file behind.
+
+    Use VideoMonitor instead when the raw frames are needed after the
+    episode (e.g. saving per-step images).
+    """
+    _render_fn: Callable[[Optional[Action], Optional[str]], Video]
+    _writer: Any = field(init=False, default=None)
+    _tmp_path: Optional[str] = field(init=False, default=None)
+
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self.discard()
+
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        del obs  # unused
+        for frame in self._render_fn(action, None):
+            if self._writer is None:
+                # Temp file lives in the final output directory so
+                # finalize()'s rename never crosses filesystems.
+                outdir = video_run_dir()
+                fd, self._tmp_path = tempfile.mkstemp(prefix=".streaming_",
+                                                      suffix=".mp4",
+                                                      dir=outdir)
+                os.close(fd)
+                self._writer = imageio.get_writer(self._tmp_path,
+                                                  fps=CFG.video_fps)
+            self._writer.append_data(np.asarray(frame, dtype=np.uint8))
+
+    def finalize(self, outfile: str) -> None:
+        """Close the writer and move the clip to video_dir/run_subdir.
+
+        A no-op if no frame was ever observed.
+        """
+        if self._writer is None:
+            return
+        self._writer.close()
+        outpath = os.path.join(video_run_dir(), outfile)
+        assert self._tmp_path is not None
+        os.replace(self._tmp_path, outpath)
+        self._writer = None
+        self._tmp_path = None
+        logging.info(f"Wrote out to {outpath}")
+
+    def discard(self) -> None:
+        """Delete the temp clip, unless already finalized (then no-op)."""
+        if self._writer is None:
+            return
+        self._writer.close()
+        assert self._tmp_path is not None
+        os.remove(self._tmp_path)
+        self._writer = None
+        self._tmp_path = None
+
+
+@dataclass
 class SimulateVideoMonitor(LoggingMonitor):
     """A monitor that calls render_state on each state and action seen.
 
@@ -3461,14 +4362,21 @@ def create_video_from_partial_refinements(
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
+        logging.debug("reset env for create video")
         state = env.reset(train_or_test, task_idx)
-        for _ in range(max_num_steps):
+        # logging.debug(f"{pformat(state.pretty_str())}")
+        for _i in range(max_num_steps):
+            # logging.debug(f"state: {state.pretty_str()}")
             try:
                 act = policy(state)
+                # logging.debug(f"act: {act}")
             except OptionExecutionFailure:
                 video.extend(env.render())
-                break
-            video.extend(env.render(act))
+                if not CFG.video_not_break_on_exception:
+                    break
+            else:
+                video.extend(env.render(act))
+            # logging.debug("Finished rendering.")
             try:
                 state = env.step(act)
             except EnvironmentFailure:
@@ -3488,26 +4396,85 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int) -> Image:
     return data
 
 
-def save_video(outfile: str, video: Video) -> None:
-    """Save the video to video_dir/outfile."""
-    outdir = CFG.video_dir
+# Matches only the run dirs configure_logging mints, so pruning can never
+# recurse into a directory this module did not create.
+_RUN_DIR_RE = re.compile(r"^run_\d{8}_\d{6}$")
+
+
+def _prune_old_video_runs(outdir: str) -> None:
+    """Keep only the newest CFG.video_max_runs_kept run dirs beside outdir.
+
+    Run-scoped video dirs never collide, so nothing reclaims the space
+    that the old flat layout reclaimed by overwriting. Pruning the
+    oldest runs of this approach/experiment_id/seed restores that, but
+    on a run granularity and only ever discarding whole runs older than
+    the ones kept.
+    """
+    if not CFG.run_subdir or CFG.video_max_runs_kept <= 0:
+        return  # not a run-scoped dir, or pruning disabled
+    parent = os.path.dirname(os.path.normpath(outdir))
+    try:
+        # run_<timestamp> sorts chronologically, so the tail is the oldest.
+        runs = sorted(
+            d for d in os.listdir(parent)
+            if _RUN_DIR_RE.match(d) and os.path.isdir(os.path.join(parent, d)))
+    except OSError:
+        return
+    for stale in runs[:-CFG.video_max_runs_kept]:
+        path = os.path.join(parent, stale)
+        if os.path.realpath(path) == os.path.realpath(outdir):
+            continue  # never prune the run currently being written
+        shutil.rmtree(path, ignore_errors=True)
+        logging.info(f"Pruned old videos: {path}")
+
+
+def video_run_dir() -> str:
+    """Create and return this run's video dir, pruning older runs' dirs.
+
+    Every writer routes through here, so pruning cannot be skipped by
+    whichever one a config happens to select: save_video buffers an
+    episode, while StreamingVideoMonitor writes its own file and never
+    calls it.
+    """
+    outdir = os.path.join(CFG.video_dir, CFG.run_subdir)
     os.makedirs(outdir, exist_ok=True)
-    outpath = os.path.join(outdir, outfile)
-    imageio.mimwrite(outpath, video, fps=CFG.video_fps)  # type: ignore
+    _prune_old_video_runs(outdir)
+    return outdir
+
+
+def save_video(outfile: str, video: Video) -> None:
+    """Save the video to video_dir/<run subdir>/outfile."""
+    outpath = os.path.join(video_run_dir(), outfile)
+    video_uint8 = [np.array(frame).astype(np.uint8) for frame in video]
+    imageio.mimwrite(outpath, video_uint8, fps=CFG.video_fps)  # type: ignore
     logging.info(f"Wrote out to {outpath}")
+
+
+def save_images_parallel(outfile_prefix: str, video: Video) -> None:
+    """Save the video as individual images in parallel."""
+    outdir = CFG.image_dir
+    outdir = os.path.join(outdir, os.path.dirname(outfile_prefix))
+    outfile_prefix = os.path.basename(outfile_prefix)
+
+    os.makedirs(outdir, exist_ok=True)
+    width = len(str(len(video)))
+
+    def _write_frame(i: int, image: Any) -> None:
+        image_number = str(i).zfill(width)
+        outfile = outfile_prefix + f"_image_{image_number}.png"
+        outpath = os.path.join(outdir, outfile)
+        image_array = np.array(image)
+        imageio.imwrite(outpath, image_array.astype(np.uint8))
+        logging.info(f"Wrote out to {outpath}")
+
+    with ThreadPoolExecutor() as executor:
+        for i, frame in enumerate(video):
+            executor.submit(_write_frame, i, frame)
 
 
 def save_images(outfile_prefix: str, video: Video) -> None:
     """Save the video as individual images to image_dir."""
-    outdir = CFG.image_dir
-    os.makedirs(outdir, exist_ok=True)
-    width = len(str(len(video)))
-    for i, image in enumerate(video):
-        image_number = str(i).zfill(width)
-        outfile = outfile_prefix + f"_image_{image_number}.png"
-        outpath = os.path.join(outdir, outfile)
-        imageio.imwrite(outpath, image)
-        logging.info(f"Wrote out to {outpath}")
+    return save_images_parallel(outfile_prefix, video)
 
 
 def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
@@ -3579,6 +4546,14 @@ def update_config_with_parser(parser: ArgumentParser, args: Dict[str,
     for d in [arg_specific_settings, args]:
         for k, v in d.items():
             setattr(CFG, k, v)
+    # Skill-factory simulator envs are built from CFG, so a config change
+    # invalidates them. Clear via sys.modules rather than importing: if the
+    # module was never imported, nothing can be cached, and importing it here
+    # would pull pybullet into processes that never use skills.
+    skill_base = sys.modules.get(
+        "predicators.ground_truth_models.skill_factories.base")
+    if skill_base is not None:
+        skill_base.clear_shared_simulator_cache()
 
 
 def reset_config(args: Optional[Dict[str, Any]] = None,
@@ -3591,6 +4566,14 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     parser = create_arg_parser()
     reset_config_with_parser(parser, args, default_seed,
                              default_render_state_dpi)
+    # The fatal-query counter is process-wide state alongside CFG (a
+    # class attribute so it survives per-attempt manager recreation);
+    # a config reset starts a fresh run, so it must not inherit another
+    # run's (or test's) consecutive failures. Imported lazily: utils is
+    # imported by the agent_sdk package, so a top-level import cycles.
+    # pylint: disable-next=import-outside-toplevel
+    from predicators.agent_sdk.session_base import BaseAgentSessionManager
+    BaseAgentSessionManager._consecutive_fatal_queries = 0  # pylint: disable=protected-access
 
 
 def reset_config_with_parser(parser: ArgumentParser,
@@ -3628,8 +4611,11 @@ def get_config_path_str(experiment_id: Optional[str] = None) -> str:
     """
     if experiment_id is None:
         experiment_id = CFG.experiment_id
-    return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{CFG.included_options}__{experiment_id}")
+    if CFG.use_counterfactual_dataset_path_name:
+        return f"{CFG.env}__{CFG.seed}__{CFG.experiment_id}__query"
+    return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__"
+            f"{CFG.excluded_predicates}__"
+            f"{CFG.included_options}__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:
@@ -3706,10 +4692,14 @@ def string_to_python_object(value: str) -> Any:
 def flush_cache() -> None:
     """Clear all lru caches."""
     gc.collect()
-    wrappers = [
-        a for a in gc.get_objects()
-        if isinstance(a, functools._lru_cache_wrapper)  # pylint: disable=protected-access
-    ]
+    _lru_type = functools._lru_cache_wrapper  # pylint: disable=protected-access
+    wrappers = []
+    for a in gc.get_objects():
+        try:
+            if isinstance(a, _lru_type):
+                wrappers.append(a)
+        except Exception:  # pylint: disable=broad-except
+            continue
 
     for wrapper in wrappers:
         wrapper.cache_clear()
@@ -3767,6 +4757,187 @@ def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
     """A sampler for an NSRT with no continuous parameters."""
     del state, goal, rng, objs  # unused
     return np.array([], dtype=np.float32)  # no continuous parameters
+
+
+class ConstantDelay(DelayDistribution):
+    """ConstantDelay class."""
+
+    def __init__(self, delay: Union[int, float, torch.Tensor]):
+        # keep dtype consistent with the rest of the model
+        self.delay = torch.as_tensor(delay, dtype=torch.get_default_dtype())
+        # reusable – matches self.delay’s dtype/device
+        self._neg_inf = torch.tensor(float("-inf"),
+                                     dtype=self.delay.dtype,
+                                     device=self.delay.device)
+
+    def copy(self) -> ConstantDelay:
+        """Return a copy of this distribution."""
+        return ConstantDelay(self.delay.clone())
+
+    def sample(self) -> int:
+        return int(self.delay.item())
+
+    def set_parameters(self, parameters: Sequence[torch.Tensor],
+                       **kwargs: Any) -> None:
+        self.delay = parameters[0]
+        # Invalidate cached properties
+        self.__dict__.pop("_str", None)
+        self.__dict__.pop("_hash", None)
+
+    def get_parameters(self) -> Sequence[float]:
+        """Return the parameters of the distribution."""
+        return [self.delay.item()]
+
+    def probability(self, k: int) -> float:
+        return 1.0 if k == int(self.delay.item()) else 0.0
+
+    def log_prob(self, k: Union[int, torch.Tensor]) -> torch.Tensor:
+        """Vectorised log-prob; differentiable w.r.t.
+
+        self.delay.
+        """
+        if not isinstance(k, torch.Tensor):
+            k_tensor = torch.tensor(k,
+                                    dtype=torch.long,
+                                    device=self.delay.device)
+        else:
+            k_tensor = k.long().to(self.delay.device)
+
+        zeros = torch.zeros_like(k_tensor, dtype=torch.get_default_dtype())
+        neg_inf = torch.full_like(k_tensor,
+                                  float("-inf"),
+                                  dtype=torch.get_default_dtype())
+        return torch.where(k_tensor == self.delay.long(), zeros, neg_inf)
+
+    @cached_property
+    def _str(self) -> str:
+        return f"ConstantDelay({self.delay:.4f})"
+
+
+class DiscreteGaussianDelay(DelayDistribution):
+    r"""Truncated discrete Gaussian distribution  (a.k.a. Discrete Normal).
+
+    Parameters
+    ----------
+    mu : float or Tensor
+        Location parameter (can be any real number).
+    sigma : float or Tensor
+        Scale (> 0).  Smaller values → tighter mass around ``mu``.
+    max_k : int, optional
+        Build / cache the PMF on the support  k = 0 … max_k-1  (default 300).
+    """
+
+    def __init__(self,
+                 mu: torch.Tensor,
+                 sigma: torch.Tensor,
+                 max_k: int = 300) -> None:
+        if not torch.all(sigma > 0):
+            raise ValueError("Initial sigma must be positive.")
+
+        self.log_mu = torch.log(mu)
+        self.log_sigma = torch.log(sigma)
+        self._max_k = max_k
+        self._update_cache()
+
+    def copy(self) -> DiscreteGaussianDelay:
+        """Return a copy of this distribution."""
+        return DiscreteGaussianDelay(self.mu.clone(), self.sigma.clone(),
+                                     self._max_k)
+
+    @property
+    def sigma(self) -> torch.Tensor:
+        """The actual standard deviation, derived from the optimized
+        log_sigma."""
+        return torch.exp(self.log_sigma)
+
+    @property
+    def mu(self) -> torch.Tensor:
+        """The mean of the discrete Gaussian."""
+        return torch.exp(self.log_mu)
+
+    # ------------------------------------------------------------------ #
+    # Internals
+    # ------------------------------------------------------------------ #
+    def _update_cache(self) -> None:
+        """Rebuild cached log-PMF / PMF / CDF using safe numerics."""
+        EPS = 1e-8
+
+        mu = self.mu
+        sigma_val = self.sigma
+        sigma = torch.clamp(sigma_val, min=EPS)  # ensure positivity
+        if not torch.all(sigma > 0):
+            raise ValueError("Initial sigma must be positive.")
+
+        assert isinstance(self._max_k, int)
+        ks = torch.arange(self._max_k, dtype=mu.dtype,
+                          device=mu.device)  # k = 0 … max_k-1
+
+        # Unnormalised log-probability of a discrete Gaussian
+        #   p̃(k) = exp( −(k−μ)² / (2σ²) )
+        # Work in log-space for stability:
+        log_p_unnorm = -0.5 * ((ks - mu)**2) / (sigma**2)
+
+        # Remove any accidental NaNs / ±Inf
+        log_p_unnorm = torch.nan_to_num(log_p_unnorm,
+                                        nan=-torch.inf,
+                                        posinf=-torch.inf,
+                                        neginf=-torch.inf)
+
+        # Normalise on the bounded support 0 … max_k-1
+        log_norm = torch.logsumexp(log_p_unnorm, dim=0)
+        self._log_pmf = log_p_unnorm - log_norm
+
+        self._pmf = self._log_pmf.exp()
+        self._cdf = torch.cumsum(self._pmf, dim=0)
+
+    # ------------------------------------------------------------------ #
+    # Public interface (identical to DoublePoissonDelay)
+    # ------------------------------------------------------------------ #
+    def set_parameters(self, parameters: Sequence[torch.Tensor],
+                       **kwargs: Any) -> None:
+        self.log_mu, self.log_sigma = parameters
+        if "max_k" in kwargs and kwargs["max_k"] is not None:
+            self._max_k = kwargs["max_k"]
+        self._update_cache()
+        # Invalidate cached repr/hash if present
+        self.__dict__.pop('_str', None)
+        self.__dict__.pop('_hash', None)
+
+    def get_parameters(self) -> Sequence[float]:
+        """Return the parameters of the distribution."""
+        return [self.mu.item(), self.sigma.item()]
+
+    def probability(self, k: int) -> float:
+        if 0 <= k < self._max_k:
+            return float(self._pmf[k])
+        return 0.0
+
+    def log_prob(self, k: Union[int, torch.Tensor]) -> torch.Tensor:
+        if not isinstance(k, torch.Tensor):
+            k_tensor = torch.tensor(k, dtype=torch.long)
+        else:
+            k_tensor = k.long()
+
+        k_flat = k_tensor.flatten()
+        log_probs_flat = torch.full_like(k_flat,
+                                         float('-inf'),
+                                         dtype=self._log_pmf.dtype)
+
+        mask = (k_flat >= 0) & (k_flat < self._max_k)
+        if mask.any():
+            log_probs_flat[mask] = self._log_pmf[k_flat[mask]]
+
+        return log_probs_flat.reshape(k_tensor.shape)
+
+    def sample(self, sample_mode: bool = True) -> int:
+        if sample_mode:
+            return int(self.mu.item())
+        u = torch.rand(1).item()
+        return int(torch.searchsorted(self._cdf, torch.tensor(u)))
+
+    @cached_property
+    def _str(self) -> str:
+        return f"DiscreteGaussianDelay({self.mu:.4f}, {self.sigma:.4f})"
 
 
 @functools.lru_cache(maxsize=None)
@@ -4085,3 +5256,329 @@ def add_text_to_draw_img(
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw
+
+
+def wrap_angle(angle: float) -> float:
+    """Wrap an angle in radians to [-pi, pi]."""
+    return np.arctan2(np.sin(angle), np.cos(angle))
+
+
+def get_parameterized_option_by_name(
+        options: Set[ParameterizedOption],
+        option_name: str) -> Optional[ParameterizedOption]:
+    """Retrieve an option by its name from a set of options."""
+    return next((option for option in options if option.name == option_name),
+                None)
+
+
+def get_object_by_name(objects: Collection[Object],
+                       name: str) -> Optional[Object]:
+    """Get an object by its name from a collection of objects.
+
+    Args:
+        objects: Collection of objects to search through
+        name: Name of the object to find
+
+    Returns:
+        The object if found, None otherwise
+    """
+    return next((obj for obj in objects if obj.name == name), None)
+
+
+def configure_logging() -> None:
+    """Configure logging with colored output."""
+    # Create a single formatter instance to be reused
+    colored_formatter = colorlog.ColoredFormatter(
+        '%(log_color)s%(levelname)s: %(message)s',
+        log_colors={
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'red,bg_white',
+        },
+        reset=True,
+        style='%')
+    # Log to stderr.
+    colorlog_handler = colorlog.StreamHandler()
+    colorlog_handler.setFormatter(colored_formatter)
+    handlers: List[logging.Handler] = [colorlog_handler]
+    if CFG.log_file:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        # save_video mirrors this subdir under CFG.video_dir. Both are derived
+        # from the one timestamp so a run's videos and logs always agree on the
+        # run id, which recomputing the clock per artifact would not guarantee.
+        CFG.run_subdir = (f"{CFG.approach}/{CFG.experiment_id}/"
+                          f"seed{CFG.seed}/run_{timestamp}/")
+        CFG.log_file += CFG.run_subdir
+        os.makedirs(CFG.log_file, exist_ok=True)
+
+        # Handler for DEBUG level messages
+        debug_handler = logging.FileHandler(os.path.join(
+            CFG.log_file, "debug.log"),
+                                            mode='w')
+        debug_handler.setLevel(logging.DEBUG)
+        debug_handler.setFormatter(colored_formatter)
+        handlers.append(debug_handler)
+
+        # Handler for INFO level messages
+        info_handler = logging.FileHandler(os.path.join(
+            CFG.log_file, "info.log"),
+                                           mode='w')
+        info_handler.setLevel(logging.INFO)
+        info_handler.setFormatter(colored_formatter)
+        handlers.append(info_handler)
+
+    logging.basicConfig(level=CFG.loglevel,
+                        format="%(message)s",
+                        handlers=handlers,
+                        force=True)
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+    logging.getLogger('libpng').setLevel(logging.ERROR)
+    logging.getLogger('PIL').setLevel(logging.ERROR)
+    logging.getLogger('openai').setLevel(logging.INFO)
+    # Used by openai package
+    logging.getLogger("httpx").setLevel(logging.INFO)
+    logging.getLogger("httpcore").setLevel(logging.INFO)
+    # The transport babyrobot drives the real arm over. It logs a line per
+    # channel at DEBUG -- one per request, so a hardware run at
+    # loglevel=DEBUG buries its own output in "--> new channel <uuid>".
+    # WARNING still surfaces a transport that is actually failing.
+    logging.getLogger("zerorpc").setLevel(logging.WARNING)
+
+
+def log_initial_info(str_args: str) -> None:
+    """Log initial configuration and setup information."""
+    if CFG.log_file:
+        logging.info(f"Logging to {CFG.log_file}")
+    logging.info(f"Running command: python {str_args}")
+    logging.info("Full config:")
+    logging.info(CFG)
+    logging.info(f"Git commit hash: {get_git_commit_hash()}")
+
+
+def add_label_to_video(video: Video,
+                       prefix: str,
+                       imgs_dir: str,
+                       save: bool = True) -> Video:
+    """Add a label to each frame of the video and save the images."""
+    os.makedirs(imgs_dir, exist_ok=True)
+    new_video: Video = []
+    for i, img in enumerate(video):
+        img_name = prefix + f"frame_{i+1}"
+        labeled_img = add_label_to_image(
+            img,  # type: ignore[arg-type]
+            img_name,
+            imgs_dir,
+            save=save)
+        new_video.append(labeled_img)  # type: ignore[arg-type]
+    return new_video
+
+
+def add_label_to_image(img: PIL.Image.Image,
+                       s_name: str,
+                       obs_dir: str,
+                       f_suffix: str = ".png",
+                       save: bool = True) -> PIL.Image.Image:
+    """Add a label to an image and potentially save."""
+    img_copy = img.copy()
+    draw = ImageDraw.Draw(img_copy)
+    font = ImageFont.load_default().font_variant(  # type: ignore[union-attr]
+        size=50)
+
+    # Get text dimensions
+    bbox = draw.textbbox((0, 0), s_name, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
+    # Calculate position (bottom right with padding)
+    padding = 10
+    x = img_copy.width - text_width - padding
+    y = img_copy.height - text_height - 2 * padding
+
+    text_color = (0, 0, 0)  # black
+    draw.text((x, y), s_name, fill=text_color, font=font)
+
+    if save:
+        os.makedirs(obs_dir, exist_ok=True)
+        img_copy.save(os.path.join(obs_dir, s_name + f_suffix))
+        logging.debug(f"Saved Image {s_name}")
+    return img_copy
+
+
+def load_all_images_from_dir(dir_path: str) -> List[PIL.Image.Image]:
+    """Load all images from a directory."""
+    images = []
+    img_paths = sorted(os.listdir(dir_path))
+    for file in img_paths:
+        if file.endswith(('.png', '.jpg')):
+            images.append(PIL.Image.open(os.path.join(dir_path, file)))
+    return images
+
+
+def all_subsets(input_set: Iterable[Any]) -> Iterator[Set[Any]]:
+    """Generates all subsets of a given set.
+
+    Args:
+        input_set: An iterable (e.g., a list, set, tuple)
+                   from which to generate subsets.
+
+    Yields:
+        tuple: Each subset as a tuple.
+    """
+    s = list(input_set)  # Convert to list to handle various iterable inputs
+    n = len(s)
+    for i in range(n + 1):  # Iterate from subset size 0 up to n
+        for subset in itertools.combinations(s, i):
+            yield set(subset)
+
+
+def add_in_auxiliary_predicates(predicates: Set[Predicate]) -> Set[Predicate]:
+    """Add auxiliary predicates from derived predicates."""
+
+    def add_auxiliary(pred: Predicate, preds: Set[Predicate]) -> None:
+        if isinstance(pred, DerivedPredicate):
+            if pred.auxiliary_predicates:
+                preds.update(pred.auxiliary_predicates)
+                for aux_pred in pred.auxiliary_predicates:
+                    add_auxiliary(aux_pred, preds)
+
+    new_preds = predicates.copy()
+    for pred in predicates:
+        add_auxiliary(pred, new_preds)
+    return new_preds
+
+
+def get_derived_predicates(
+        predicates: Set[Predicate]) -> Set[DerivedPredicate]:
+    """Get all derived predicates from a set of predicates."""
+    return {pred for pred in predicates if isinstance(pred, DerivedPredicate)}
+
+
+# def abstract_with_derived_predicates(atoms, derived_preds, objects):
+#     """Compute all derived atoms via layered evaluation (fewer passes).
+#        Potentially faster than the current implementation."""
+#     # Build dependency graph over derived preds
+#     is_derived = {p for p in derived_preds}
+#     indeg = {p: 0 for p in derived_preds}
+#     edges = {p: set() for p in derived_preds}
+#     for p in derived_preds:
+#         for aux in getattr(p, "auxiliary_predicates", []):
+#             # only count deps on other derived preds
+#             q = next(
+#                 (dp for dp in derived_preds
+#                  if dp.name == aux.name), None)
+#             if q:
+#                 edges[q].add(p); indeg[p] += 1
+
+#     # Kahn’s algorithm => layers
+#     frontier = [p for p in derived_preds if indeg[p] == 0]
+#     layers: list[list] = []
+#     while frontier:
+#         layer = list(frontier); layers.append(layer); frontier = []
+#         for u in layer:
+#             for v in edges[u]:
+#                 indeg[v] -= 1
+#                 if indeg[v] == 0:
+#                     frontier.append(v)
+
+#     # Evaluate per layer; state grows monotonically
+#     state = set(atoms)
+#     derived_all = set()
+#     # (Optional) cache object choices per predicate once
+#     by_type = {}
+#     for o in objects:
+#         by_type.setdefault(o.type, []).append(o)
+#     choices_cache = {
+#         p: list(itertools.product(*(by_type[t] for t in p.types)))
+#         for p in derived_preds
+#     }
+
+#     for layer in layers:
+#         for p in layer:
+#             for choice in choices_cache[p]:
+#                 if p.holds(state, choice):
+#                     derived_all.add(GroundAtom(p, choice))
+#         state |= derived_all  # grow state for next layer
+
+#     return derived_all
+
+
+def abstract_with_derived_predicates(
+        atoms: Set[GroundAtom], derived_preds: Collection[DerivedPredicate],
+        objects: Collection[Object]) -> Set[GroundAtom]:
+    """Compute the fixed point of concept predicate atoms."""
+    primitive_atoms = atoms
+    new_concept_atoms: Set[GroundAtom] = set()
+    prev_new_concept_atoms: Set[GroundAtom] = set()
+    counter = 0
+    while True:
+        # All the concept atoms that holds; all the previous atoms
+        atoms = primitive_atoms | new_concept_atoms
+        new_concept_atoms = _abstract_with_derived_predicates(
+            atoms, derived_preds, objects)
+        # logging.debug(f"ite {counter} concept atoms: {new_concept_atoms}")
+        converged = new_concept_atoms == prev_new_concept_atoms
+        if converged:
+            # logging.debug("converged")
+            break
+        prev_new_concept_atoms = new_concept_atoms
+        counter += 1
+    return new_concept_atoms
+
+
+def _abstract_with_derived_predicates(
+        abs_state: Set[GroundAtom],
+        derived_preds: Collection[DerivedPredicate],
+        objects: Collection[Object]) -> Set[GroundAtom]:
+    """Get the atoms based on the existing atomic state and concept
+    predicates."""
+    atoms: Set[GroundAtom] = set()
+    for pred in derived_preds:
+        for choice in get_object_combinations(objects, pred.types):
+            try:
+                if pred.holds(abs_state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+            except Exception as e:
+                logging.error(f"Error in evaluating concept predicate {pred}: "
+                              f"{e}")
+                # raise e
+                raise PredicateEvaluationError(
+                    f"Error in evaluating concept predicate {pred}: {e}", pred)
+    return atoms
+
+
+def get_base_supporter_predicates(
+        root_predicate: DerivedPredicate) -> Set[Predicate]:
+    """Finds all primitive (non-derived) supporter predicates for a given root
+    derived predicate by traversing its dependency graph."""
+    base_predicates: Set[Predicate] = set()
+
+    # Use a worklist to process predicates in a breadth-first manner.
+    predicates_to_process: List[Predicate] = list(
+        root_predicate.auxiliary_predicates or [])
+    processed_predicates: Set[Predicate] = {root_predicate}
+
+    while predicates_to_process:
+        pred = predicates_to_process.pop(0)
+
+        if pred in processed_predicates:
+            continue
+        processed_predicates.add(pred)
+
+        # If the predicate is derived, add its auxiliaries to the worklist.
+        if isinstance(pred, DerivedPredicate):
+            predicates_to_process.extend(pred.auxiliary_predicates or [])
+        # If it's a primitive predicate, we've found a base supporter.
+        else:
+            base_predicates.add(pred)
+
+    return base_predicates
+
+
+class PredicateEvaluationError(Exception):
+    """PredicateEvaluationError class."""
+
+    def __init__(self, message: str, pred: Any) -> None:
+        super().__init__(message)
+        self.pred = pred

@@ -59,7 +59,7 @@ def test_maple_q_approach(cover_num_blocks, cover_num_targets):
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
-    interaction_results, _ = _generate_interaction_results(
+    interaction_results, _, _ = _generate_interaction_results(
         cogman, env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)

@@ -68,7 +68,7 @@ def test_nsrt_reinforcement_learning_approach(nsrt_rl_reward_epsilon):
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     interaction_requests = approach.get_interaction_requests()
-    interaction_results, _ = _generate_interaction_results(
+    interaction_results, _, _ = _generate_interaction_results(
         cogman, env, teacher, interaction_requests)
     # Hack the last interaction result to be non-trivial. Note that this
     # requires hacking approach._requests_info as well, since that is used

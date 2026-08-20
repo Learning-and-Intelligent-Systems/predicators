@@ -37,7 +37,7 @@ class StickyTableEnv(BaseEnv):
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # For noisy simulation.

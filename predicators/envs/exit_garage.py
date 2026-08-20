@@ -68,7 +68,7 @@ class ExitGarageEnv(BaseEnv):
     # a new obstacle in the storage area.
     _storage_type = Type("storage", ["num_stored"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         # Predicates
         self._CarHasExited = Predicate("CarHasExited", [self._car_type],

@@ -5,7 +5,7 @@ then Execution.
 """
 import abc
 import logging
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any, Callable, List, Optional, Set, Tuple, cast
 
 from gym.spaces import Box
 
@@ -47,6 +47,20 @@ class BilevelPlanningApproach(BaseApproach):
         if option_model is None:
             option_model = create_option_model(CFG.option_model_name)
         self._option_model = option_model
+        # Let the option model terminate Wait on atom change. Without
+        # this, Wait runs to max_num_steps_option_rollout during
+        # refinement and the step is rejected for "exceeded individual
+        # horizon", even when the expected atoms have already become
+        # true. Mirrors AgentModelFreeApproach.__init__.
+        # Looked up lazily so subclasses whose _get_current_predicates
+        # depends on attributes set after super().__init__() (e.g.
+        # GrammarSearchInventionApproach._learned_predicates) don't break,
+        # and so predicates invented later are reflected at call time.
+        if CFG.wait_option_terminate_on_atom_change:
+            cast(  # pylint: disable=protected-access
+                Any, self._option_model)._abstract_function = (
+                    lambda s: utils.abstract(s, self._get_current_predicates())
+                )
         self._num_calls = 0
         self._last_plan: List[_Option] = []  # used if plan WITH sim
         self._last_nsrt_plan: List[_GroundNSRT] = []  # plan WITHOUT sim
@@ -66,8 +80,11 @@ class BilevelPlanningApproach(BaseApproach):
                 task, nsrts, preds, timeout, seed)
             self._last_nsrt_plan = nsrt_plan
             self._last_atoms_seq = atoms_seq
-            policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
-                                                      self._rng)
+            policy = utils.nsrt_plan_to_greedy_policy(
+                nsrt_plan,
+                task.goal,
+                self._rng,
+                abstract_function=lambda s: utils.abstract(s, preds))
             logging.debug("Current Task Plan:")
             for act in nsrt_plan:
                 logging.debug(act)
@@ -110,7 +127,7 @@ class BilevelPlanningApproach(BaseApproach):
                 self._task_planning_heuristic,
                 self._max_skeletons_optimized,
                 max_horizon=CFG.horizon,
-                allow_noops=CFG.sesame_allow_noops,
+                allow_waits=CFG.sesame_allow_waits,
                 use_visited_state_set=CFG.sesame_use_visited_state_set,
                 **kwargs)
         except PlanningFailure as e:

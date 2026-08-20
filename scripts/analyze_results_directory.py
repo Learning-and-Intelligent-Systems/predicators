@@ -146,9 +146,44 @@ def create_dataframes(
     column_names_and_keys: Sequence[Tuple[str, str]],
     groups: Sequence[str],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+    keep_max_cycle_only: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes."""
     df = create_raw_dataframe(column_names_and_keys, derived_keys)
+
+    if keep_max_cycle_only:
+        # Filter to keep only the highest cycle for each (experiment_id, seed, env, approach, excluded_predicates) combination  # pylint: disable=line-too-long
+        # Convert cycle to numeric for proper sorting (handle None as -1)
+        df_filtered = df.copy()
+        cycle_col = None
+        for col in df_filtered.columns:
+            if col in ('ONLINE_LEARNING_CYCLE', 'CYCLE'):
+                cycle_col = col
+                break
+
+        if cycle_col is not None:
+            df_filtered['CYCLE_NUMERIC'] = df_filtered[cycle_col].replace(
+                'None', '-1')
+            df_filtered['CYCLE_NUMERIC'] = pd.to_numeric(
+                df_filtered['CYCLE_NUMERIC'])
+
+            # Group by everything except cycle and keep row with max cycle
+            group_cols = [
+                'EXPERIMENT_ID', 'SEED', 'ENV', 'APPROACH',
+                'EXCLUDED_PREDICATES'
+            ]
+            group_cols = [
+                col for col in group_cols if col in df_filtered.columns
+            ]
+
+            grouped = df_filtered.groupby(group_cols)['CYCLE_NUMERIC']
+            max_indices = grouped.idxmax()
+
+            df = df_filtered.loc[max_indices]
+            df = df.drop('CYCLE_NUMERIC', axis=1)
+        else:
+            print("Warning: No cycle column found for filtering")
+
     grouped = df.groupby(list(groups))
     means = grouped.mean(numeric_only=True)
     stds = grouped.std(numeric_only=True, ddof=0)

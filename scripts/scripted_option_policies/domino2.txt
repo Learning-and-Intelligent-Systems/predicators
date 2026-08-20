@@ -1,0 +1,6 @@
+Plan:
+Pick(robot:robot, domino_1:domino)[0.0825]
+Place(robot:robot)[0.8898, 1.3266, 0.5695, 0.7854]
+Pick(robot:robot, domino_2:domino)[0.0825]
+Place(robot:robot)[0.8205, 1.3609, 0.5695, 1.5708]
+Push(robot:robot)[0.045, 0.0825]

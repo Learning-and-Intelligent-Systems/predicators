@@ -25,7 +25,7 @@ class VLMPredicateEnv(BaseEnv):
     for these yet. These are forthcoming.
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -86,7 +86,7 @@ class IceTeaMakingEnv(VLMPredicateEnv):
     """A (simplified) version of a tea-making task that's closer to pick-and-
     place than real tea-making."""
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Env-specific types.

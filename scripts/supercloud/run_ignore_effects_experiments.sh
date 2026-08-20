@@ -43,7 +43,7 @@ for ENV in ${ALL_ENVS[@]}; do
             # LOFT baseline without random replays. Same note on harmlessness as for cluster-and-intersect.
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks ${DEMOS} --disable_harmlessness_check True
             # LOFT baseline with random replays. Same note on harmlessness as for cluster-and-intersect.
-            python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_random_replays_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks ${DEMOS} --disable_harmlessness_check True --offline_data_method demo+replay --sesame_allow_noops False --offline_data_num_replays 2500
+            python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_random_replays_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks ${DEMOS} --disable_harmlessness_check True --offline_data_method demo+replay --sesame_allow_waits False --offline_data_num_replays 2500
             # Prediction error baseline that optimizes via hill climbing. Not
             # guaranteed to preserve harmlessness.
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_pred_error_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_intersect_sideline_prederror --num_train_tasks ${DEMOS} --disable_harmlessness_check True

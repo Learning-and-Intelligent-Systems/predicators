@@ -1,0 +1,36 @@
+# Thin launcher: run the domino friction-sysID experiment ("ours" arm).
+# Usage: python scripts/local/launch_simp.py -c predicatorv3/exp_domino.yaml --parallel
+# Env definitions live in envs/all.yaml and approach definitions in
+# approaches/all.yaml (all parked by default); this file only un-skips the
+# env + arm(s) it runs and sets agent-specific ENVS overrides.
+---
+includes:
+  - common.yaml
+  - envs/all.yaml
+  - approaches/all.yaml
+ENVS:
+  # NOTE: launch_simp runs the ENVS x APPROACHES cross-product - park
+  # arms here before launching if the full matrix is not wanted.
+  domino:
+    SKIP: True
+  domino_turns:
+    SKIP: True
+  # Forward (over-reach) arm: true friction 0.1, planner believes 0.5.
+  domino_low_friction:
+    SKIP: True
+  # Reverse (under-reach) arm: true friction 0.5, planner believes 0.1.
+  domino_high_friction:
+    SKIP: True
+  domino_high_friction_turn:
+    SKIP: False
+APPROACHES:
+  agent_oracle_hybrid_sim:
+    SKIP: True
+    FLAGS:
+      agent_sim_learn_kept_predicates_names: ["Holding", "HandEmpty"]
+  agent_oracle_hybrid_sim_ground_sampler:
+    SKIP: True
+  agent_po_predicate_invention_al:
+    SKIP: False
+    FLAGS:
+      skip_initial_test: True

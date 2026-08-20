@@ -22,7 +22,7 @@ class GridRowEnv(BaseEnv):
     learning a sampler.
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -186,7 +186,7 @@ class GridRowDoorEnv(GridRowEnv):
     robot_height = 0.75
     light_width = 0.25
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         self._door_type = Type(
             "door",

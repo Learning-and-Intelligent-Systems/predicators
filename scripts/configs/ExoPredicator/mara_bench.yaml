@@ -1,0 +1,377 @@
+# Config file for generating the mara_bench videos
+# Excample run: 
+#    python scripts/local/launch_simp.py -c mara_bench.yaml
+---
+APPROACHES:
+  # oracle_nsrt:
+  #   NAME: "oracle"
+  oracle:
+    NAME: "oracle_process_planning"
+    FLAGS:
+      # boil_use_normal_delay: True
+      demonstrator: "oracle_process_planning"
+      terminate_on_goal_reached_and_option_terminated: True
+  # param_learning:
+  #   NAME: "param_learning_process_planning"
+  #   ARGS:
+  #     - "load_data"
+  #   FLAGS:
+  #     # boil_use_constant_delay: True
+  #     demonstrator: "oracle_process_planning"
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     boil_goal: "human_happy" # Can also be "task_completed", "simple"
+  # offline_model_learning:
+  #   # This can learn the JugFilled and WaterBoiled process but not spill.
+  #   NAME: "process_learning_and_planning"
+  #   ARGS:
+  #     - "load_data"
+  #   FLAGS:
+  #     demonstrator: "oracle_process_planning"
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     strips_learner: "llm"
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     exogenous_process_learner: "cluster_and_llm_select"
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  # online_model_learning:
+  #   # This can learn the JugFilled, WaterBoiled and WaterSpilled process.
+  #   NAME: "online_process_learning_and_planning"
+  #   ARGS:
+  #     - "load_data"
+  #   FLAGS:
+  #     # boil_use_constant_delay: True
+  #     demonstrator: "oracle_process_planning"
+  #     explorer: "exploit_planning"
+  #     online_nsrt_learning_requests_per_cycle: 1  # just 1 for now
+  #     max_num_steps_interaction_request: 500
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     strips_learner: "llm"
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     exogenous_process_learner: "cluster_and_llm_select"
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  #     online_learning_early_stopping: True
+  #     num_online_learning_cycles: 1
+  # predicate_invention:
+  #   NAME: "online_predicate_invention_and_process_planning"
+  #   # ARGS:
+  #   #   - "load_data"
+  #   #   - "load_approach"
+  #   #   - "restart_learning" # Add to restart learning after skipping cycles.
+  #   FLAGS:
+  #     # skip_until_cycle: 1
+  #     excluded_predicates: "NoWaterSpilled,WaterBoiled,JugFilled,NoJugAtFaucetOrAtFaucetAndFilled"
+  #     demonstrator: "oracle_process_planning"
+  #     explorer: "exploit_planning"
+  #     online_nsrt_learning_requests_per_cycle: 1  # just 1 for now
+  #     max_num_steps_interaction_request: 300 # 300 should be enough
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     # exogenous_process_learner: "cluster_and_llm_select"
+  #     exogenous_process_learner: "cluster_and_search_process_learner"
+  #     # exogenous_process_learner: "cluster_and_inverse_planning"
+  #     # process_scoring_method: "count_fp"
+  #     exogenous_process_learner_do_intersect: True
+  #     process_learner_check_false_positives: False
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  #     online_learning_early_stopping: True
+  #     # pause_after_process_learning_for_inspection: True
+  #     num_online_learning_cycles: 10
+  #     rgb_observation: False # for visual predicators
+  #     # Testing predicate invention:
+  #     vlm_predicator_oracle_base_predicates: False
+  #     vlm_predicator_oracle_learned_predicates: False
+  #     vlm_predicator_use_grammar: True
+  #     grammar_search_grammar_use_single_feature: False
+  #     grammar_search_grammar_use_skip_grammar: False
+  #     grammar_search_grammar_includes_negation: True
+  #     grammar_search_grammar_includes_foralls: False
+  #     grammar_search_additional_bonus_for_matching_plan: 20
+  #     grammar_search_prune_redundant_preds: False
+  #     grammar_search_search_algorithm: "hill_climbing"
+  #     grammar_search_task_planning_timeout: 3
+  #     learnable_delay_distribution: "constant" # "constant", "cmp", "normal"
+  #     bilevel_planning_explorer_enumerate_plans: True
+  #     online_nsrt_learning_requests_per_task: 8 # 8 2
+  #     grammar_search_expected_nodes_optimal_demo_prob: 0.5
+  #     cluster_and_inverse_planning_candidates: "top_consistent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "top_n"
+  #     cluster_and_inverse_planning_top_consistent_method: "top_p_percent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "threshold"
+  #     cluster_and_inverse_planning_top_p_percent: 4
+  #     cluster_process_learner_top_n_conditions: 32
+  #     exploit_bilevel_planning_explorer_fallback_explorer: "RandomNSRTs"
+  #     learn_process_parameters: True
+  #     cluster_and_search_process_learner_parallel_condition: True
+  #     cluster_and_search_process_learner_parallel_pnad: True
+  #     cluster_and_search_process_learner_llm_select_condition: False
+  #     cluster_and_search_process_learner_llm_select_atoms: False
+  #     cluster_and_search_vi_steps: 500
+  #     cluster_learning_one_effect_per_process: True
+  #     process_param_learning_patience: 10000
+  #     process_condition_search_prune_with_fp_count: True
+  #     grammar_search_expected_nodes_max_skeletons: 1
+  #     grammar_search_operator_complexity_weight: 0.1
+  #     grammar_search_hill_climbing_depth: 1
+  #     vlm_predicator_num_proposal_batches: 1
+  #     process_learning_process_per_physical_core: False
+
+ENVS:
+  # boil:
+  #   NAME: "pybullet_boil"
+  #   FLAGS:
+  #     excluded_objects_in_state_str: "switch"
+  #     pybullet_ik_validate: False
+  #     max_num_steps_option_rollout: 50
+  #     bilevel_plan_without_sim: True
+  #     horizon: 500 # 300 should be enough, 50 is good during dev
+  #     # boil_goal: "task_completed" # This option isn't fully ready because
+  #       # with the current only_learn_exogenous_processes setting, it won't try
+  #       # to learn the precondition for the DeclareComplete option.
+  #     boil_goal: "human_happy" # Can also be "task_completed", "simple"
+  #     # boil_goal: "simple"
+  #     boil_require_jug_full_to_heatup: True
+  # boil_smpl:
+  #   NAME: "pybullet_boil"
+  #   FLAGS:
+  #     excluded_objects_in_state_str: "switch"
+  #     pybullet_ik_validate: False
+  #     max_num_steps_option_rollout: 50
+  #     bilevel_plan_without_sim: True
+  #     horizon: 150
+  #     boil_goal: "human_happy" # Can also be "task_completed", "simple"
+  #     boil_goal_simple_human_happy: True
+  # cover:
+  #   NAME: "pybullet_cover"
+  # cover_cf:
+  #   NAME: "pybullet_cover"
+  #   FLAGS:
+  #     cover_blocks_change_color_when_cover: True
+  # blocks:
+  #   NAME: "pybullet_blocks"
+  # blocks_cf:
+  #   NAME: "pybullet_blocks"
+  #   FLAGS:
+  #     blocks_high_towers_are_unstable: True
+  # coffee:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     coffee_rotated_jug_ratio: 0
+  #     sesame_check_expected_atoms: False
+  #     coffee_machine_have_light_bar: False
+  #     coffee_move_back_after_place_and_push: True
+  #     coffee_machine_has_plug: False
+  #     coffee_combined_move_and_twist_policy: True
+  #     option_model_terminate_on_repeat: False
+  #     coffee_use_pixelated_jug: True
+  #     coffee_fill_jug_gradually: True
+  #     pybullet_ik_validate: False
+  #     sesame_max_skeletons_optimized: 1
+  #     max_num_steps_option_rollout: 100
+  #     bilevel_plan_without_sim: True
+  # coffee_cf:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     coffee_plug_break_after_plugged_in: True
+  #     coffee_rotated_jug_ratio: 0
+  #     sesame_check_expected_atoms: False
+  #     coffee_machine_have_light_bar: False
+  #     coffee_move_back_after_place_and_push: True
+  #     coffee_machine_has_plug: True
+  #     option_model_terminate_on_repeat: False
+  #     coffee_use_pixelated_jug: True
+  #     pybullet_ik_validate: False
+  #     sesame_max_skeletons_optimized: 1
+  #     max_num_steps_option_rollout: 100
+  # balance:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     sesame_task_planning_heuristic: "goal_count"
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  # balance_cf:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     balance_wierd_balance: True
+  #     sesame_task_planning_heuristic: "goal_count"
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  # grow:
+  #   NAME: "pybullet_grow"
+  #   FLAGS:
+  #     pybullet_ik_validate: False
+  #     coffee_use_pixelated_jug: True
+  #     max_num_steps_option_rollout: 50
+  #     grow_weak_pour_terminate_condition: True
+  #     grow_place_option_no_sampler: True
+  #     bilevel_plan_without_sim: True
+  #     option_model_terminate_on_repeat: False
+  #     horizon: 300
+  # grow_cf:
+  #   NAME: "pybullet_grow"
+  #   FLAGS:
+  #     grow_plant_same_color_as_cup: True
+  #     pybullet_ik_validate: False
+  #     coffee_use_pixelated_jug: True
+  #     max_num_steps_option_rollout: 50
+  # circuit:
+  #   NAME: "pybullet_circuit"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     terminate_on_goal_reached: False
+  #     pybullet_ik_validate: False
+  # circuit_cf:
+  #   NAME: "pybullet_circuit"
+  #   FLAGS:
+  #     circuit_light_doesnt_need_battery: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     terminate_on_goal_reached: False
+  # float:
+  #   NAME: "pybullet_float"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     option_model_terminate_on_repeat: False
+  # float_cf:
+  #   NAME: "pybullet_float"
+  #   FLAGS:
+  #     float_water_level_doesnt_raise: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     option_model_terminate_on_repeat: False
+  domino:
+    NAME: "pybullet_domino_grid"
+    ARGS:
+      - "video_not_break_on_exception"
+    FLAGS:
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      horizon: 100
+      pybullet_ik_validate: False
+      bilevel_plan_without_sim: True
+      # option_model_terminate_on_repeat: False
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      use_gt_helpers: True
+      domino_include_connected_predicate: False # necessary to generate valid plan
+      domino_prune_actions: False
+      domino_num_dominos_max: 3
+      domino_num_dominos_min: 3
+      domino_num_targets_max: 1
+      domino_num_targets_min: 1
+  # domino_cf:
+  #   NAME: "pybullet_domino_grid"
+  #   ARGS:
+  #     - "video_not_break_on_exception"
+  #   FLAGS:
+  #     domino_some_dominoes_are_connected: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     horizon: 60
+  #     pybullet_ik_validate: False
+  # laser:
+  #   NAME: "pybullet_laser"
+  #   FLAGS:
+  #     bilevel_plan_without_sim: True
+  #     laser_use_debug_line_for_beams: False
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  # laser_cf:
+  #   NAME: "pybullet_laser"
+  #   FLAGS:
+  #     laser_zero_reflection_angle: True
+  #     bilevel_plan_without_sim: True
+  #     laser_use_debug_line_for_beams: False
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  # ants:
+  #   NAME: "pybullet_ants"
+  #   FLAGS:
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     terminate_on_goal_reached: False
+  # ants_cf:
+  #   NAME: "pybullet_ants"
+  #   FLAGS:
+  #     ants_ants_attracted_to_points: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     pybullet_ik_validate: False
+  #     terminate_on_goal_reached: False
+  # fan:
+  #   NAME: "pybullet_fan"
+  #   FLAGS:
+  #     excluded_objects_in_state_str: "switch"
+  #     pybullet_ik_validate: False
+  #     sesame_check_expected_atoms: False
+  #     sesame_max_skeletons_optimized: 1
+  #     bilevel_plan_without_sim: True
+  #     option_model_terminate_on_repeat: False
+  #     # terminate_on_goal_reached: True # maybe required for successful eval
+  # fan_cf:
+  #   NAME: "pybullet_fan"
+  #   FLAGS:
+  #     fan_fans_blow_opposite_direction: True
+  #     sesame_max_skeletons_optimized: 1
+  #     sesame_check_expected_atoms: False
+  #     terminate_on_goal_reached: False
+  #     pybullet_ik_validate: False
+ARGS:
+  - "debug"
+  - "use_gui"
+  # - "make_demo_videos"
+  - "make_failure_videos"
+  - "make_test_videos"
+  # - "make_demo_images"  # support images
+  # - "make_failure_images"  # query images
+  # - "make_test_images"  # query images
+  # - "save_atoms"
+FLAGS:
+  # This is particularly useful in some envs. In blocks with high towers are
+  # unstable, this is useful to capture the unstability and to avoid force from
+  # the prev. episode to affect the current episode.
+
+  # A successful demo needs this to be True, or else it will get an option plan
+  # exhausted error from the option_policy. 
+  # When do we need this to be False? Was it in cases when we wanted to generate
+  # a more complete video?
+  pretrained_model_service_provider: "openrouter" # "openrouter" or "openai"
+  llm_model_name: "google/gemini-2.5-pro" # "openai/gpt-4o", "gpt-4.1", "gpt-4o"
+  llm_openai_max_response_tokens: 1e6
+  terminate_on_goal_reached: False
+  num_train_tasks: 1
+  num_test_tasks: 5
+  video_fps: 20
+  pybullet_camera_height: 900
+  pybullet_camera_width: 900
+  # use_classification_problem_setting: False # This decides the entry point
+  # use_counterfactual_dataset_path_name: True  # for generating images or videos
+  keep_failed_demos: True
+  planning_filter_unreachable_nsrt: False
+  planning_check_dr_reachable: False
+  sesame_task_planning_heuristic: 'h_ff' # goal_count, lm_cut, h_max, h_ff
+  timeout: 600
+  log: 'logs/'
+  no_repeated_arguments_in_grounding: True
+START_SEED: 0
+NUM_SEEDS: 1

@@ -5,6 +5,7 @@ from typing import Dict, Sequence, Set
 import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
+from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
@@ -15,7 +16,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"coffee"}
+        return {"coffee", "pybullet_coffee"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
@@ -25,7 +26,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
         jug_type = types["jug"]
         cup_type = types["cup"]
-        machine_type = types["machine"]
+        machine_type = types["coffee_machine"]
+        plug_type = types["plug"]
 
         # Predicates
         CupFilled = predicates["CupFilled"]
@@ -41,10 +43,18 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PressingButton = predicates["PressingButton"]
         Twisting = predicates["Twisting"]
         NotSameCup = predicates["NotSameCup"]
+        if CFG.coffee_jug_pickable_pred:
+            JugPickable = predicates["JugPickable"]
+        if CFG.coffee_machine_has_plug:
+            PluggedIn = predicates["PluggedIn"]
 
         # Options
-        MoveToTwistJug = options["MoveToTwistJug"]
-        TwistJug = options["TwistJug"]
+        if not CFG.coffee_use_pixelated_jug:
+            if CFG.coffee_combined_move_and_twist_policy:
+                Twist = options["Twist"]
+            else:
+                MoveToTwistJug = options["MoveToTwistJug"]
+                TwistJug = options["TwistJug"]
         PickJug = options["PickJug"]
         PlaceJugInMachine = options["PlaceJugInMachine"]
         TurnMachineOn = options["TurnMachineOn"]
@@ -52,57 +62,102 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         nsrts = set()
 
-        # MoveToTwistJug
-        robot = Variable("?robot", robot_type)
-        jug = Variable("?jug", jug_type)
-        parameters = [robot, jug]
-        option_vars = [robot, jug]
-        option = MoveToTwistJug
-        preconditions = {
-            LiftedAtom(OnTable, [jug]),
-            LiftedAtom(HandEmpty, [robot]),
-        }
-        add_effects = {
-            LiftedAtom(Twisting, [robot, jug]),
-        }
-        delete_effects = {
-            LiftedAtom(HandEmpty, [robot]),
-        }
-        ignore_effects: Set[Predicate] = set()
-        move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters,
-                                      preconditions, add_effects,
-                                      delete_effects, ignore_effects, option,
-                                      option_vars, null_sampler)
-        nsrts.add(move_to_twist_jug_nsrt)
+        if CFG.coffee_machine_has_plug:
+            # PlugIn
+            plug = Variable("?plug", plug_type)
+            robot = Variable("?robot", robot_type)
+            jug = Variable("?jug", jug_type)
+            parameters = [robot, plug, jug]
+            option_vars = [robot, plug]
+            option = options["PlugIn"]
+            preconditions = {
+                LiftedAtom(HandEmpty, [robot]),
+                LiftedAtom(OnTable, [jug]),
+                # just a limitation of the current controller
+            }
+            add_effects = {
+                LiftedAtom(PluggedIn, [plug]),
+            }
+            plug_in_nsrt = NSRT("PlugIn",
+                                parameters, preconditions, add_effects, set(),
+                                set(), option, option_vars, null_sampler)
+            nsrts.add(plug_in_nsrt)
 
-        # TwistJug
-        robot = Variable("?robot", robot_type)
-        jug = Variable("?jug", jug_type)
-        parameters = [robot, jug]
-        option_vars = [robot, jug]
-        option = TwistJug
-        preconditions = {
-            LiftedAtom(OnTable, [jug]),
-            LiftedAtom(Twisting, [robot, jug]),
-        }
-        add_effects = {
-            LiftedAtom(HandEmpty, [robot]),
-        }
-        delete_effects = {
-            LiftedAtom(Twisting, [robot, jug]),
-        }
-        ignore_effects = set()
+        if not CFG.coffee_use_pixelated_jug:
+            if not CFG.coffee_combined_move_and_twist_policy:
+                # MoveToTwistJug
+                robot = Variable("?robot", robot_type)
+                jug = Variable("?jug", jug_type)
+                parameters = [robot, jug]
+                option_vars = [robot, jug]
+                option = MoveToTwistJug
+                preconditions = {
+                    LiftedAtom(OnTable, [jug]),
+                    LiftedAtom(HandEmpty, [robot]),
+                }
+                add_effects = {
+                    LiftedAtom(Twisting, [robot, jug]),
+                }
+                delete_effects = {
+                    LiftedAtom(HandEmpty, [robot]),
+                }
+                move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters,
+                                              preconditions, add_effects,
+                                              delete_effects, set(), option,
+                                              option_vars, null_sampler)
+                nsrts.add(move_to_twist_jug_nsrt)
 
-        def twist_jug_sampler(state: State, goal: Set[GroundAtom],
-                              rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
-            del state, goal, objs  # unused
-            return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
+                # TwistJug
+                robot = Variable("?robot", robot_type)
+                jug = Variable("?jug", jug_type)
+                parameters = [robot, jug]
+                option_vars = [robot, jug]
+                option = TwistJug
+                preconditions = {
+                    LiftedAtom(OnTable, [jug]),
+                    LiftedAtom(Twisting, [robot, jug]),
+                }
+                add_effects = {
+                    LiftedAtom(HandEmpty, [robot]),
+                }
+                if CFG.coffee_jug_pickable_pred:
+                    add_effects.add(LiftedAtom(JugPickable, [jug]))
+                delete_effects = {
+                    LiftedAtom(Twisting, [robot, jug]),
+                }
 
-        twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions,
-                              add_effects, delete_effects, ignore_effects,
-                              option, option_vars, twist_jug_sampler)
-        nsrts.add(twist_jug_nsrt)
+                def twist_jug_sampler(state: State, goal: Set[GroundAtom],
+                                      rng: np.random.Generator,
+                                      objs: Sequence[Object]) -> Array:
+                    del state, goal, objs  # unused
+                    return np.array(rng.uniform(-1, 1, size=(1, )),
+                                    dtype=np.float32)
+
+                sampler = (twist_jug_sampler
+                           if CFG.coffee_twist_sampler else null_sampler)
+                twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions,
+                                      add_effects, delete_effects, set(),
+                                      option, option_vars, sampler)
+                nsrts.add(twist_jug_nsrt)
+            else:
+                # Twist
+                robot = Variable("?robot", robot_type)
+                jug = Variable("?jug", jug_type)
+                parameters = [robot, jug]
+                option_vars = [robot, jug]
+                option = Twist
+                preconditions = {
+                    LiftedAtom(OnTable, [jug]),
+                    LiftedAtom(HandEmpty, [robot]),
+                }
+                add_effects = set()
+                if CFG.coffee_jug_pickable_pred:
+                    add_effects.add(LiftedAtom(JugPickable, [jug]))
+                delete_effects = set()
+                twist_nsrt = NSRT("Twist", parameters,
+                                  preconditions, add_effects, delete_effects,
+                                  set(), option, option_vars, null_sampler)
+                nsrts.add(twist_nsrt)
 
         # PickJugFromTable
         robot = Variable("?robot", robot_type)
@@ -112,8 +167,10 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = PickJug
         preconditions = {
             LiftedAtom(OnTable, [jug]),
-            LiftedAtom(HandEmpty, [robot])
+            LiftedAtom(HandEmpty, [robot]),
         }
+        if CFG.coffee_jug_pickable_pred:
+            preconditions.add(LiftedAtom(JugPickable, [jug]))
         add_effects = {
             LiftedAtom(Holding, [robot, jug]),
         }
@@ -121,10 +178,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnTable, [jug]),
             LiftedAtom(HandEmpty, [robot])
         }
-        ignore_effects = set()
         pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
                                         preconditions, add_effects,
-                                        delete_effects, ignore_effects, option,
+                                        delete_effects, set(), option,
                                         option_vars, null_sampler)
         nsrts.add(pick_jug_from_table_nsrt)
 
@@ -145,17 +201,17 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {
             LiftedAtom(Holding, [robot, jug]),
         }
-        ignore_effects = set()
         place_jug_in_machine_nsrt = NSRT("PlaceJugInMachine", parameters,
                                          preconditions, add_effects,
-                                         delete_effects, ignore_effects,
-                                         option, option_vars, null_sampler)
+                                         delete_effects, set(), option,
+                                         option_vars, null_sampler)
         nsrts.add(place_jug_in_machine_nsrt)
 
         # TurnMachineOn
         robot = Variable("?robot", robot_type)
         jug = Variable("?jug", jug_type)
         machine = Variable("?machine", machine_type)
+        plug = Variable("?plug", plug_type)
         parameters = [robot, jug, machine]
         option_vars = [robot, machine]
         option = TurnMachineOn
@@ -163,17 +219,18 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(JugInMachine, [jug, machine]),
         }
+        if CFG.coffee_machine_has_plug:
+            parameters.append(plug)
+            preconditions.add(LiftedAtom(PluggedIn, [plug]))
         add_effects = {
             LiftedAtom(JugFilled, [jug]),
             LiftedAtom(MachineOn, [machine]),
             LiftedAtom(PressingButton, [robot, machine]),
         }
         delete_effects = set()
-        ignore_effects = set()
-        turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,
-                                    add_effects, delete_effects,
-                                    ignore_effects, option, option_vars,
-                                    null_sampler)
+        turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars, null_sampler)
         nsrts.add(turn_machine_on_nsrt)
 
         # PickJugFromMachine
@@ -196,11 +253,10 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(JugInMachine, [jug, machine]),
             LiftedAtom(PressingButton, [robot, machine]),
         }
-        ignore_effects = set()
         pick_jug_from_machine_nsrt = NSRT("PickJugFromMachine", parameters,
                                           preconditions, add_effects,
-                                          delete_effects, ignore_effects,
-                                          option, option_vars, null_sampler)
+                                          delete_effects, set(), option,
+                                          option_vars, null_sampler)
         nsrts.add(pick_jug_from_machine_nsrt)
 
         # PourFromNowhere
@@ -212,9 +268,11 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = Pour
         preconditions = {
             LiftedAtom(Holding, [robot, jug]),
-            LiftedAtom(JugFilled, [jug]),
+            # LiftedAtom(JugFilled, [jug]),
             LiftedAtom(NotAboveCup, [robot, jug]),
         }
+        if CFG.approach != "vlm_online_invention":
+            preconditions.add(LiftedAtom(JugFilled, [jug]))
         add_effects = {
             LiftedAtom(JugAboveCup, [jug, cup]),
             LiftedAtom(RobotAboveCup, [robot, cup]),
@@ -223,10 +281,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {
             LiftedAtom(NotAboveCup, [robot, jug]),
         }
-        ignore_effects = set()
         pour_from_nowhere_nsrt = NSRT("PourFromNowhere", parameters,
                                       preconditions, add_effects,
-                                      delete_effects, ignore_effects, option,
+                                      delete_effects, set(), option,
                                       option_vars, null_sampler)
         nsrts.add(pour_from_nowhere_nsrt)
 
@@ -240,11 +297,13 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = Pour
         preconditions = {
             LiftedAtom(Holding, [robot, jug]),
-            LiftedAtom(JugFilled, [jug]),
+            # LiftedAtom(JugFilled, [jug]),
             LiftedAtom(JugAboveCup, [jug, other_cup]),
             LiftedAtom(RobotAboveCup, [robot, other_cup]),
             LiftedAtom(NotSameCup, [cup, other_cup]),
         }
+        if CFG.approach != "vlm_online_invention":
+            preconditions.add(LiftedAtom(JugFilled, [jug]))
         add_effects = {
             LiftedAtom(JugAboveCup, [jug, cup]),
             LiftedAtom(RobotAboveCup, [robot, cup]),
@@ -254,10 +313,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(JugAboveCup, [jug, other_cup]),
             LiftedAtom(RobotAboveCup, [robot, other_cup]),
         }
-        ignore_effects = set()
         pour_from_other_cup_nsrt = NSRT("PourFromOtherCup", parameters,
                                         preconditions, add_effects,
-                                        delete_effects, ignore_effects, option,
+                                        delete_effects, set(), option,
                                         option_vars, null_sampler)
         nsrts.add(pour_from_other_cup_nsrt)
 

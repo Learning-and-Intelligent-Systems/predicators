@@ -1,0 +1,11 @@
+# scene   : domino_straight.json  (roles from domino_real_{start,target}_id)
+# goal    : Toppled(domino_0)   -- domino_0 is capture id 5 = TARGET
+# roles   : start=domino_1 (id 6, x=0.616)  target=domino_0 (id 5, x=0.947)
+# bridge  : 2 movables evenly spaced across the 0.331 m gap -> 0.110 m pitch
+#           (one domino leaves a 0.227 m gap, past a 0.15 m domino's reach)
+Pick(robot:robot, domino_4:domino)[0.065700]
+Place(robot:robot)[0.7263, 1.2763, 0.57, 1.413]
+Pick(robot:robot, domino_5:domino)[0.065700]
+Place(robot:robot)[0.8367, 1.2790, 0.57, 1.413]
+Push(robot:robot, domino_1:domino)[0.04, 0.03]
+Wait(robot:robot)[]

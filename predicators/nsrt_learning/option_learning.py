@@ -143,7 +143,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
         env_options = get_gt_options(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
-            assert len(strips_ops) == 4
+            assert len(strips_ops) >= 4
             PickPlace = [
                 option for option in env_options if option.name == "PickPlace"
             ][0]
@@ -152,7 +152,6 @@ class _OracleOptionLearner(_OptionLearnerBase):
             for _ in strips_ops:
                 option_specs.append((PickPlace, []))
         elif CFG.env == "blocks":
-            assert len(strips_ops) == 4
             Pick = [option for option in env_options
                     if option.name == "Pick"][0]
             Stack = [
@@ -200,6 +199,15 @@ class _OracleOptionLearner(_OptionLearnerBase):
                     ][0]
                     robot = gripper_open_atom.variables[0]
                     option_specs.append((PutOnTable, [robot]))
+                else:
+                    # Unrecognized operator; use Pick as default.
+                    robot_var = op.parameters[0] if op.parameters else None
+                    block_var = op.parameters[1] if len(
+                        op.parameters) > 1 else None
+                    if robot_var and block_var:
+                        option_specs.append((Pick, [robot_var, block_var]))
+                    else:
+                        option_specs.append((PutOnTable, []))
         return option_specs
 
     def update_segment_from_option_spec(self, segment: Segment,

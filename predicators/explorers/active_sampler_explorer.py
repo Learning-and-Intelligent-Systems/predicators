@@ -102,8 +102,11 @@ class ActiveSamplerExplorer(BaseExplorer):
     def _log(self, msg: str) -> None:
         self._logger.info(msg)
 
-    def get_exploration_strategy(self, train_task_idx: int,
-                                 timeout: int) -> ExplorationStrategy:
+    def get_exploration_strategy(
+            self,
+            train_task_idx: int,
+            timeout: int,
+            log_info: bool = False) -> ExplorationStrategy:
         """Wrap the parent termination function so that we can log the final
         outcome in ground_op_hist."""
         policy, termination_fn = super().get_exploration_strategy(

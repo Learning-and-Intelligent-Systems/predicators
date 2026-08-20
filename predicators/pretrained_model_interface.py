@@ -6,6 +6,7 @@ Models (LLM's)
 
 import abc
 import base64
+import json
 import logging
 import os
 from io import BytesIO
@@ -15,6 +16,7 @@ import google.generativeai as genai
 import imagehash
 import openai
 import PIL.Image
+import requests
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from predicators.settings import CFG
@@ -165,11 +167,13 @@ class LargeLanguageModel(PretrainedLargeModel):
 class OpenAIModel():
     """Common interface with methods for all OpenAI-based models."""
 
+    _openai_key: Optional[str] = None
+
     def set_openai_key(self, key: Optional[str] = None) -> None:
         """Set the OpenAI API key."""
         if key is None:
-            assert "OPENAI_API_KEY" in os.environ
-            key = os.environ["OPENAI_API_KEY"]
+            key = os.environ.get("OPENAI_API_KEY")
+        self._openai_key = key
 
     @retry(wait=wait_random_exponential(min=1, max=60),
            stop=stop_after_attempt(10))
@@ -394,3 +398,168 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
             for _ in range(num_completions)
         ]
         return responses
+
+
+###############################################################################
+# 1)  Shared utilities
+###############################################################################
+class OpenRouterModel:
+    """Common interface for anything that calls the OpenRouter gateway."""
+
+    _ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+    _key: Optional[str] = None
+
+    def set_openrouter_key(self, key: Optional[str] = None) -> None:
+        """Read the API key from env unless one is passed explicitly."""
+        if key is None:
+            assert "OPENROUTER_API_KEY" in os.environ, \
+                "Set `OPENROUTER_API_KEY` in your environment!"
+            key = os.environ["OPENROUTER_API_KEY"]
+        self._key = key
+
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(10))
+    def call_openrouter_api(self,
+                            *,
+                            model: str,
+                            messages: list,
+                            seed: Optional[int] = None,
+                            max_tokens: int = 128,
+                            temperature: float = 0.2,
+                            http_referer: Optional[str] = None,
+                            x_title: Optional[str] = None,
+                            verbose: bool = False) -> str:
+        """Direct POST to /chat/completions."""
+        headers = {
+            "Authorization": f"Bearer {self._key}",
+            "Content-Type": "application/json",
+        }
+        if http_referer:
+            headers["HTTP-Referer"] = http_referer
+        if x_title:
+            headers["X-Title"] = x_title
+
+        body = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        if seed is not None:
+            body["seed"] = seed  # supported by OpenRouter
+
+        resp = requests.post(self._ENDPOINT,
+                             headers=headers,
+                             data=json.dumps(body))
+        resp.raise_for_status()
+        payload = resp.json()
+
+        if verbose:
+            logging.debug(f"OpenRouter response: {payload}")
+
+        # The shape mirrors OpenAI responses.
+        assert "choices" in payload and payload[
+            "choices"], "Unexpected response"
+        text = payload["choices"][0]["message"]["content"]
+        assert text is not None
+        return text
+
+
+###############################################################################
+# 2)  LLM wrapper
+###############################################################################
+class OpenRouterLLM(LargeLanguageModel, OpenRouterModel):
+    """OpenRouter‑routed pure text model (no images)."""
+
+    def __init__(self, model_name: str) -> None:
+        self._model_name = model_name
+        self._max_tokens = CFG.llm_openai_max_response_tokens  # reuse same cfg
+        self.set_openrouter_key()
+
+    def get_id(self) -> str:
+        return f"OpenRouter-{self._model_name}"
+
+    def _sample_completions(
+        self,
+        prompt: str,
+        imgs: Optional[List[PIL.Image.Image]],
+        temperature: float,
+        seed: int,
+        stop_token: Optional[str] = None,  # OpenRouter does *not* expose stop
+        num_completions: int = 1) -> List[str]:
+        del imgs, stop_token  # not used here
+        messages = [{"role": "user", "content": prompt}]
+        return [
+            self.call_openrouter_api(
+                model=self._model_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=self._max_tokens,
+                seed=seed,
+            ) for _ in range(num_completions)
+        ]
+
+
+###############################################################################
+# 3)  Helper for VLMs (image encoding)
+###############################################################################
+def _to_data_url_png(img: PIL.Image.Image,
+                     target_res: Optional[int] = None) -> str:
+    """Resize *longest* side to `target_res`, encode PNG → base64 → data
+    URL."""
+    resized = img
+    if target_res:
+        factor = target_res / max(img.size)
+        resized = img.resize(
+            (int(img.width * factor), int(img.height * factor)))
+    buf = BytesIO()
+    resized.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    return f"data:image/png;base64,{b64}"
+
+
+###############################################################################
+# 4)  VLM wrapper
+###############################################################################
+class OpenRouterVLM(VisionLanguageModel, OpenRouterModel):
+    """Vision‑Language model served via OpenRouter (e.g. `openai/gpt-4o`)."""
+
+    def __init__(self, model_name: str) -> None:
+        self._model_name = model_name
+        self._max_tokens = CFG.llm_openai_max_response_tokens
+        self.set_openrouter_key()
+
+    def get_id(self) -> str:
+        return f"OpenRouter-{self._model_name}"
+
+    def _sample_completions(self,
+                            prompt: str,
+                            imgs: Optional[List[PIL.Image.Image]],
+                            temperature: float,
+                            seed: int,
+                            stop_token: Optional[str] = None,
+                            num_completions: int = 1) -> List[str]:
+        assert imgs is not None, "OpenRouterVLM expects at least one image"
+        del stop_token  # unsupported
+
+        # Build the multi‑modal message in the same structure OpenAI uses
+        def make_messages() -> list:
+            content = [{"type": "text", "text": prompt}]
+            for img in imgs:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {  # type: ignore[dict-item]
+                        "url": _to_data_url_png(img)
+                    }
+                })
+            return [{"role": "user", "content": content}]
+
+        return [
+            self.call_openrouter_api(
+                model=self._model_name,
+                messages=make_messages(),
+                temperature=temperature,
+                max_tokens=self._max_tokens,
+                seed=seed,
+            ) for _ in range(num_completions)
+        ]

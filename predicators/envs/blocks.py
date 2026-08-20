@@ -29,7 +29,7 @@ from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
 class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_height: ClassVar[float] = 0.2
+    table_height: ClassVar[float] = 0.4
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     # Note that these boundaries are for the block positions, and that a
@@ -48,8 +48,10 @@ class BlocksEnv(BaseEnv):
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
+    open_fingers: ClassVar[float] = 0.04
+    closed_fingers: ClassVar[float] = 0.01
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -71,6 +73,8 @@ class BlocksEnv(BaseEnv):
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._blocks: List[Object] = []
+        self._create_blocks()
         # Hyperparameters from CFG.
         self._block_size = CFG.blocks_block_size
         self._num_blocks_train = CFG.blocks_num_blocks_train
@@ -83,8 +87,11 @@ class BlocksEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, fingers = action.arr
-        # Infer which transition function to follow
-        if fingers < 0.5:
+        # Infer which transition function to follow based on whether the
+        # finger value is closer to closed or open.
+        fingers_closing = abs(fingers - self.closed_fingers) < \
+            abs(fingers - self.open_fingers)
+        if fingers_closing:
             return self._transition_pick(state, x, y, z)
         if z < self.table_height + self._block_size:
             return self._transition_putontable(state, x, y, z)
@@ -107,7 +114,8 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", y)
         next_state.set(block, "pose_z", self.pick_z)
         next_state.set(block, "held", 1.0)
-        next_state.set(self._robot, "fingers", 0.0)  # close fingers
+        next_state.set(self._robot, "fingers",
+                       self.closed_fingers)  # close fingers
         if "clear" in self._block_type.feature_names:
             # See BlocksEnvClear
             next_state.set(block, "clear", 0)
@@ -139,7 +147,8 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", y)
         next_state.set(block, "pose_z", z)
         next_state.set(block, "held", 0.0)
-        next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        next_state.set(self._robot, "fingers",
+                       self.open_fingers)  # open fingers
         if "clear" in self._block_type.feature_names:
             # See BlocksEnvClear
             next_state.set(block, "clear", 1)
@@ -171,7 +180,8 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", cur_y)
         next_state.set(block, "pose_z", cur_z + self._block_size)
         next_state.set(block, "held", 0.0)
-        next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        next_state.set(self._robot, "fingers",
+                       self.open_fingers)  # open fingers
         if "clear" in self._block_type.feature_names:
             # See BlocksEnvClear
             next_state.set(block, "clear", 1)
@@ -209,7 +219,8 @@ class BlocksEnv(BaseEnv):
     def action_space(self) -> Box:
         # dimensions: [x, y, z, fingers]
         lowers = np.array([self.x_lb, self.y_lb, 0.0, 0.0], dtype=np.float32)
-        uppers = np.array([self.x_ub, self.y_ub, 10.0, 1.0], dtype=np.float32)
+        uppers = np.array([self.x_ub, self.y_ub, 10.0, self.open_fingers],
+                          dtype=np.float32)
         return Box(lowers, uppers)
 
     def render_state_plt(
@@ -295,11 +306,19 @@ class BlocksEnv(BaseEnv):
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
+    def _create_blocks(self) -> None:
+        for i in range(
+                max(max(CFG.blocks_num_blocks_train),
+                    max(CFG.blocks_num_blocks_test))):
+            block = Object(f"block{i}", self._block_type)
+            self._blocks.append(block)
+
     def _sample_initial_piles(self, num_blocks: int,
                               rng: np.random.Generator) -> List[List[Object]]:
         piles: List[List[Object]] = []
         for block_num in range(num_blocks):
-            block = Object(f"block{block_num}", self._block_type)
+            block = self._blocks[block_num]
+            # block = Object(f"block{block_num}", self._block_type)
             # If coin flip, start new pile
             if block_num == 0 or rng.uniform() < 0.2:
                 piles.append([])
@@ -340,8 +359,8 @@ class BlocksEnv(BaseEnv):
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
-        rf = 1.0  # fingers start out open
-        data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
+        rf = self.open_fingers  # fingers start out open
+        data[self._robot] = np.array([rx, ry, rz, rf])
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,
@@ -407,6 +426,23 @@ class BlocksEnv(BaseEnv):
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
+    def _count_block_height(self, state: State, block: Object) -> int:
+        """Count the height of the block (number of blocks it's on)."""
+        height = 0
+        current_block = block
+        blocks = state.get_objects(self._block_type)
+
+        while True:
+            below_blocks = [
+                b for b in blocks if self._On_holds(state, [current_block, b])
+            ]
+            if not below_blocks:
+                break
+            current_block = below_blocks[0]
+            height += 1
+
+        return height
+
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
@@ -414,16 +450,18 @@ class BlocksEnv(BaseEnv):
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 
-    @staticmethod
-    def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _GripperOpen_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
         rf = state.get(robot, "fingers")
-        assert rf in (0.0, 1.0)
-        return rf == 1.0
+        return abs(rf - self.open_fingers) < abs(rf - self.closed_fingers)
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
-        return self._get_held_block(state) == block
+        held_block = self._get_held_block(state)
+        if held_block is None:
+            return False
+        return held_block == block
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         if self._Holding_holds(state, objects):
@@ -510,7 +548,7 @@ class BlocksEnv(BaseEnv):
             }
         # Add the robot at a constant initial position.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
-        rf = 1.0  # fingers start out open
+        rf = self.open_fingers  # fingers start out open
         state_dict[self._robot] = {
             "pose_x": rx,
             "pose_y": ry,
@@ -550,7 +588,7 @@ class BlocksEnvClear(BlocksEnv):
     argument's states.
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Add attribute.
@@ -558,6 +596,9 @@ class BlocksEnvClear(BlocksEnv):
             "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
             "color_b", "clear"
         ])
+        # Recreate blocks with new type.
+        self._blocks = []
+        self._create_blocks()
         # Override predicates and options that use the block type
         self._On = Predicate("On", [self._block_type, self._block_type],
                              self._On_holds)

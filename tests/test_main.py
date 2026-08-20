@@ -15,9 +15,10 @@ from predicators.cogman import CogMan
 from predicators.envs.cover import CoverEnv
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
-from predicators.main import _run_testing, main
+from predicators.main import _early_stop_below_bar_msg, _run_testing, main
 from predicators.perception import create_perceiver
-from predicators.structs import Action, State, Task
+from predicators.structs import Action, DefaultState, EnvironmentTask, State, \
+    Task
 
 _GROUND_TRUTH_MODULE_PATH = predicators.ground_truth_models.__name__
 
@@ -260,6 +261,37 @@ def test_bilevel_planning_approach_failure_and_timeout():
     _run_testing(env, cogman)
 
 
+def test_early_stop_below_bar_msg():
+    """A solved episode counts toward early stopping only when its reward
+    clears the task's early_stop_min_reward bar (minus slack)."""
+    utils.reset_config({"online_learning_early_stopping_reward_slack": 0.0})
+    # No bar set: never gated.
+    no_bar_task = EnvironmentTask(DefaultState, set())
+    assert _early_stop_below_bar_msg(-1.0, no_bar_task) is None
+    # Bar set (e.g. domino optimal reward 1 - 0.05 * 3 = 0.85).
+    task = EnvironmentTask(DefaultState, set(), early_stop_min_reward=0.85)
+    # Over-built solve falls short.
+    msg = _early_stop_below_bar_msg(0.75, task)
+    assert msg is not None and "0.75" in msg and "0.85" in msg
+    # Reward computed exactly at the bar clears it despite float rounding
+    # (1 - 0.05 * 3 != 0.85 in binary).
+    assert _early_stop_below_bar_msg(1.0 - 0.05 * 3, task) is None
+    assert _early_stop_below_bar_msg(0.9, task) is None
+    # Slack relaxes the bar (one spare block at 0.05 block cost).
+    utils.update_config({"online_learning_early_stopping_reward_slack": 0.05})
+    assert _early_stop_below_bar_msg(0.80, task) is None
+    assert _early_stop_below_bar_msg(0.75, task) is not None
+    # Ignoring the bar makes any solved episode count, regardless of slack.
+    utils.update_config({
+        "online_learning_early_stopping_reward_slack":
+        0.0,
+        "online_learning_early_stopping_ignore_reward_bar":
+        True,
+    })
+    assert _early_stop_below_bar_msg(0.75, task) is None
+    assert _early_stop_below_bar_msg(-1.0, task) is None
+
+
 def test_env_failure():
     """Test coverage for EnvironmentFailure in run_testing()."""
     utils.reset_config({
@@ -282,3 +314,25 @@ def test_env_failure():
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
     _run_testing(env, cogman)
+
+
+def test_skip_initial_test():
+    """--skip_initial_test skips only the pre-loop test; per-cycle tests
+    still run and save results."""
+    utils.reset_config()
+    parent_dir = os.path.dirname(__file__)
+    results_dir = os.path.join(parent_dir, "_fake_results_skip_initial")
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "interactive_learning",
+        "--seed", "123", "--num_online_learning_cycles", "1",
+        "--excluded_predicates", "Covers",
+        "--interactive_num_ensemble_members", "1", "--num_train_tasks", "3",
+        "--num_test_tasks", "1", "--predicate_mlp_classifier_max_itr",
+        "lambda n: n * 50", "--skip_initial_test", "True", "--results_dir",
+        results_dir
+    ]
+    main()
+    saved = os.listdir(results_dir)
+    assert not any(f.endswith("__None.pkl") for f in saved)
+    assert any(f.endswith("__0.pkl") for f in saved)
+    shutil.rmtree(results_dir)

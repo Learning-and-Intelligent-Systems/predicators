@@ -1,0 +1,117 @@
+# Random actions agent on all PyBullet environments - generates test videos.
+# Usage:
+#   PYTHONPATH=. python scripts/local/launch_simp.py -c mara2/random_actions_pybullet.yaml
+---
+APPROACHES:
+  random_actions_pybullet:
+    NAME: "random_actions_pybullet"
+
+ENVS:
+  cover:
+    NAME: "pybullet_cover"
+  blocks:
+    NAME: "pybullet_blocks"
+  balance:
+    NAME: "pybullet_balance"
+  coffee:
+    NAME: "pybullet_coffee"
+    FLAGS:
+      coffee_rotated_jug_ratio: 0
+      coffee_machine_have_light_bar: False
+      coffee_move_back_after_place_and_push: True
+      coffee_machine_has_plug: False
+      coffee_combined_move_and_twist_policy: True
+      option_model_terminate_on_repeat: False
+      coffee_use_pixelated_jug: True
+      coffee_fill_jug_gradually: True
+      sesame_max_skeletons_optimized: 1
+      max_num_steps_option_rollout: 100
+      bilevel_plan_without_sim: True
+  grow:
+    NAME: "pybullet_grow"
+    FLAGS:
+      coffee_use_pixelated_jug: True
+      max_num_steps_option_rollout: 50
+      grow_weak_pour_terminate_condition: True
+      grow_place_option_no_sampler: True
+      bilevel_plan_without_sim: True
+      option_model_terminate_on_repeat: False
+  boil:
+    NAME: "pybullet_boil"
+    FLAGS:
+      excluded_objects_in_state_str: "switch"
+      max_num_steps_option_rollout: 50
+      bilevel_plan_without_sim: True
+      boil_goal: "human_happy"
+      boil_require_jug_full_to_heatup: True
+  fan:
+    NAME: "pybullet_fan"
+    FLAGS:
+      excluded_objects_in_state_str: "switch"
+      sesame_check_expected_atoms: False
+      sesame_max_skeletons_optimized: 1
+      bilevel_plan_without_sim: True
+      option_model_terminate_on_repeat: False
+  circuit:
+    NAME: "pybullet_circuit"
+    FLAGS:
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      terminate_on_goal_reached: False
+  laser:
+    NAME: "pybullet_laser"
+    FLAGS:
+      bilevel_plan_without_sim: True
+      laser_use_debug_line_for_beams: False
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+  ants:
+    NAME: "pybullet_ants"
+    FLAGS:
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      terminate_on_goal_reached: False
+  domino:
+    NAME: "pybullet_domino"
+    ARGS:
+      - "video_not_break_on_exception"
+    FLAGS:
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      bilevel_plan_without_sim: True
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      domino_include_connected_predicate: False
+      domino_prune_actions: False
+  float:
+    NAME: "pybullet_float"
+    FLAGS:
+      sesame_max_skeletons_optimized: 1
+      sesame_check_expected_atoms: False
+      option_model_terminate_on_repeat: False
+  barrier:
+    NAME: "pybullet_barrier"
+  magic_bin:
+    NAME: "pybullet_magic_bin"
+  switch:
+    NAME: "pybullet_switch"
+
+ARGS:
+  - "debug"
+  - "use_gui"
+  - "make_test_videos"
+  - "make_failure_videos"
+
+FLAGS:
+  num_train_tasks: 0
+  num_test_tasks: 1
+  horizon: 20
+  timeout: 600
+  video_fps: 20
+  pybullet_camera_height: 900
+  pybullet_camera_width: 900
+  pybullet_ik_validate: False
+  log: 'logs/'
+
+START_SEED: 0
+NUM_SEEDS: 1

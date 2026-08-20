@@ -82,7 +82,7 @@ class BurgerEnv(BaseEnv):
     num_rows = 5
     num_cols = 5
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Predicates
@@ -990,7 +990,7 @@ class BurgerNoMoveEnv(BurgerEnv):
     _cutting_board_type = Type("cutting_board", ["row", "col", "z"],
                                _station_type)
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
         self._OnGround = Predicate("OnGround", [self._item_type],
                                    self._OnGround_holds)

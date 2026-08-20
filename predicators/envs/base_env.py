@@ -2,8 +2,10 @@
 
 import abc
 import json
+import logging
 from pathlib import Path
-from typing import Callable, Collection, Dict, List, Optional, Set
+from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -14,14 +16,28 @@ from predicators import utils
 from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultEnvironmentTask, \
-    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Task, \
-    Type, Video
+    EnvironmentTask, EpisodeEvaluation, GroundAtom, Object, Observation, \
+    Predicate, State, StepOption, Task, Type, Video, step_option_labels
 
 
 class BaseEnv(abc.ABC):
     """Base environment."""
 
-    def __init__(self, use_gui: bool = True) -> None:
+    # Belief-side verification substrate: a sim-learning approach stamps
+    # this on its belief env so that physics-replaying task-evaluator
+    # certificates (e.g. the domino counterfactual push probe) judge
+    # plans under the agent's FULL current world model - base sim plus
+    # fitted residual rules - instead of a deliberately rules-free base
+    # sim. Called once per replay attempt; the returned step callable is
+    # applied after every probe physics step as
+    # ``merged = step(post_step_state, action)`` and written back. The
+    # real env never sets this, so real episodes are judged on pure env
+    # physics.
+    probe_process_model_factory: Optional[Callable[[],
+                                                   Callable[[State, Action],
+                                                            State]]] = None
+
+    def __init__(self, use_gui: bool = False) -> None:
         self._current_observation: Observation = None  # set in reset
         self._current_task = DefaultEnvironmentTask  # set in reset
         self._set_seed(CFG.seed)
@@ -54,6 +70,70 @@ class BaseEnv(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+    def get_physical_param_info(self) -> Dict[str, Dict]:
+        """Physical parameters this env exposes for system identification.
+
+        Maps parameter name to a small info dict with keys ``default``,
+        ``lo``/``hi`` (a reasonable fitting box), ``description``, and
+        optionally ``scale`` (``"log"`` for positive scale-like params
+        that should be fitted in log-space — see ``ParamSpec.scale``;
+        omit for linear). ``default`` must be THIS instance's believed
+        baseline, including any role-dependent init-time override (e.g.
+        a planning-sim friction differing from the built-in) rather than
+        just the class default, because the sysID machinery restores a
+        param to it when a fit stops declaring that param. Envs whose
+        dynamics
+        can be re-parameterized in place advertise their tunable params
+        here and accept values for them via
+        :meth:`apply_physical_param_overrides`. The base class exposes
+        none.
+        """
+        return {}
+
+    def apply_physical_param_overrides(self, params: Dict[str, float]) -> None:
+        """Override this env instance's physical dynamics in place.
+
+        ``params`` keys must be a subset of
+        :meth:`get_physical_param_info`. Implementations must make the
+        override *sticky* (survive state resets and body recreation) so
+        an identified value keeps applying during planning rollouts.
+        """
+        if params:
+            raise NotImplementedError(
+                f"{type(self).__name__} exposes no physical parameters "
+                f"(got {sorted(params)}).")
+
+    def queue_residual_commands(self, commands: Sequence) -> None:
+        """Queue physics commands for the next step (see
+        :mod:`predicators.code_sim_learning.commands`).
+
+        Follows the :meth:`apply_physical_param_overrides` pattern: the
+        base class supports none, and PyBullet envs override this with
+        the real executor. A learned simulator emitting commands
+        against an env without one is a routing bug, not a soft skip.
+        """
+        if commands:
+            raise NotImplementedError(
+                f"{type(self).__name__} cannot execute residual physics "
+                f"commands ({len(list(commands))} queued).")
+
+    @classmethod
+    def get_base_sim_source_files(cls) -> List[str]:
+        """Repo-relative source files that ARE this env's base sim.
+
+        Consumed by the sim-learning provisioning when
+        ``CFG.agent_sim_provide_base_sim_source`` is on: the listed
+        files are copied verbatim into the learning agent's sandbox as
+        reference material ("the robot knows its own simulator").
+        Declare only modules whose exposure is safe by construction -
+        the visibility contract is structural: an env that wants to
+        surface its sim core must split it into its own module(s),
+        keeping residual dynamics, task generation, and goal semantics
+        in modules that are never listed (see pybullet_fan_base.py for
+        the pattern). The base class declares none.
+        """
+        return []
+
     @abc.abstractmethod
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         """Create an ordered list of tasks for training."""
@@ -85,6 +165,11 @@ class BaseEnv(abc.ABC):
         these are the same as the original goal predicates.
         """
         return self.goal_predicates
+
+    @property
+    def target_predicates(self) -> Set[Predicate]:
+        """Get the subset of self.predicates that we want to invent."""
+        return self.predicates
 
     @property
     @abc.abstractmethod
@@ -123,6 +208,28 @@ class BaseEnv(abc.ABC):
     def using_gui(self) -> bool:
         """Whether the GUI for this environment is activated."""
         return self._using_gui
+
+    def make_fresh_test_instance(self) -> Optional["BaseEnv"]:
+        """A fresh instance of this env for one test episode, or ``None`` when
+        this env has no per-instance world state worth isolating (the caller
+        then reuses the long-lived instance).
+
+        Used by ``main._run_testing`` under
+        ``CFG.test_fresh_env_per_episode`` so a test episode's physics
+        cannot depend on what the long-lived env executed before it. The
+        already-generated task lists are shared with the fresh instance,
+        so its tasks are identical (and not re-generated). Callers must
+        ``dispose()`` the returned instance when done.
+        """
+        return None
+
+    def dispose(self) -> None:
+        """Release per-instance resources (e.g. a PyBullet client).
+
+        Called on instances returned by
+        :meth:`make_fresh_test_instance` once their episode is done.
+        No-op by default.
+        """
 
     def render_state(self,
                      state: State,
@@ -193,7 +300,15 @@ class BaseEnv(abc.ABC):
 
     @property
     def _current_state(self) -> State:
-        """Default for environments where states are observations."""
+        """Typed accessor for _current_observation when it is a State.
+
+        _current_observation is the raw Observation (which may not be a
+        State in vision-based envs). _current_state provides a
+        convenience accessor with a type assertion for the common case
+        where observations are States. Use _current_observation for
+        assignment (it is the backing field); use _current_state for
+        reads when you need a State.
+        """
         assert isinstance(self._current_observation, State)
         return self._current_observation
 
@@ -202,6 +317,11 @@ class BaseEnv(abc.ABC):
 
         Subclasses may override.
         """
+        # A task's evaluator, when present, is the success criterion — its
+        # terminated() is purely physical (goal atoms hold, however
+        # reached), so the atom-set check below is its special case.
+        if self._current_task.evaluator is not None:
+            return self._current_task.evaluator.terminated(self._current_state)
         # NOTE: this is a convenience hack because most environments that are
         # currently implemented have goal descriptions that are simply sets of
         # ground atoms. In the future, it may be better to implement this on a
@@ -211,6 +331,81 @@ class BaseEnv(abc.ABC):
         assert isinstance(goal, set)
         assert not goal or isinstance(next(iter(goal)), GroundAtom)
         return all(goal_atom.holds(self._current_state) for goal_atom in goal)
+
+    @staticmethod
+    def _extract_episode(
+        observations: Sequence[Observation], actions: Sequence[Action]
+    ) -> Tuple[Optional[List[State]], List[StepOption]]:
+        """Extract per-step States and option labels from an episode.
+
+        Returns ``(None, [])`` (with a warning) when the observations
+        are not all States, so trajectory-level checks are skipped.
+        """
+        states = [obs for obs in observations if isinstance(obs, State)]
+        if len(states) != len(observations):
+            logging.warning(
+                "[trajectory certificate] non-State observations in the "
+                "episode; skipping the trajectory check.")
+            return None, []
+        return states, step_option_labels(actions)
+
+    def check_episode_trajectory(
+            self, observations: Sequence[Observation],
+            actions: Sequence[Action]) -> Tuple[bool, str]:
+        """Trajectory-level side-condition on episode success.
+
+        Called once at episode end, after ``goal_reached`` holds, with
+        the full per-step observation/action history. Delegates to the
+        task evaluator's ``_certify(states, step_options)``, which
+        constrains HOW the goal may be reached, not just the final
+        state. Tasks without an evaluator - every plain atom-set goal -
+        accept every trajectory.
+
+        Returns ``(ok, reason)`` with a human-readable reason when the
+        trajectory is rejected.
+        """
+        evaluator = self._current_task.evaluator
+        if evaluator is None:
+            return True, ""
+        states, step_options = self._extract_episode(observations, actions)
+        if states is None:
+            return True, ""
+        # The env is the sanctioned reader of the private certify: agents
+        # only ever see the (reward, terminated) pair plus the boolean
+        # rejection flag. Passing self gives physics-needing certificates
+        # (the domino counterfactual push probe) the true env to probe
+        # with; the evaluator never stores it.
+        # pylint: disable-next=protected-access
+        return evaluator._certify(states, step_options, sim_env=self)
+
+    def evaluate_episode(self, observations: Sequence[Observation],
+                         actions: Sequence[Action]) -> EpisodeEvaluation:
+        """The task evaluator's full verdict on one executed episode.
+
+        Falls back to plain goal-atom semantics (binary reward, no
+        offline metrics) when the task has no evaluator or the
+        observations are not States.
+        """
+        evaluator = self._current_task.evaluator
+        if evaluator is not None:
+            states, step_options = self._extract_episode(observations, actions)
+            if states is not None:
+                # pylint: disable-next=protected-access
+                _, reason = evaluator._certify(states,
+                                               step_options,
+                                               sim_env=self)
+                return EpisodeEvaluation(
+                    reward=evaluator.reward(states, step_options,
+                                            sim_env=self),
+                    terminated=evaluator.terminated(states[-1]),
+                    reason=reason,
+                    offline_metrics=evaluator.offline_metrics(
+                        states, step_options))
+        terminated = self.goal_reached()
+        return EpisodeEvaluation(reward=float(terminated),
+                                 terminated=terminated,
+                                 reason="",
+                                 offline_metrics={})
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         """Create a task from a JSON file.
@@ -349,6 +544,15 @@ class BaseEnv(abc.ABC):
         assert isinstance(self._current_observation, State)
         return self._current_observation.copy()
 
+    def finish_execution(self, completed: bool) -> None:
+        """The episode is over; release anything held on its behalf.
+
+        A no-op for a simulated env, which has nothing outstanding when
+        the last action has been simulated. Overridden where an env can
+        be driving something outside itself, so ``cogman`` can end an
+        episode without knowing whether this one is.
+        """
+
     def step(self, action: Action) -> Observation:
         """Apply the action, update the state, and return an observation.
 
@@ -407,3 +611,8 @@ class BaseEnv(abc.ABC):
         # outputted in when querying the VLM. That way, we can use the same
         # function to sanitize atoms regardless of their origin.
         return [[a] for a in atom_strs]
+
+    def is_task_solvable(self, task: EnvironmentTask) -> bool:
+        """Check if the task is solvable."""
+        del task  # unused
+        return True

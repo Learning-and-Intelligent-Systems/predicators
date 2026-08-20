@@ -1,0 +1,4 @@
+Plan:
+PickJug(robby:robot, jug:jug)[0.]
+Pour(robby:robot, jug:jug, cup0:cup)[0.78]
+Pour(robby:robot, jug:jug, cup1:cup)[0.78]

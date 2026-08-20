@@ -62,6 +62,16 @@ class BaseApproach(abc.ABC):
         """
         return []
 
+    def reset_for_new_episode(self) -> None:
+        """Called by CogMan at the start of each episode, before the initial
+        solve() for that episode.
+
+        Override to reset per-episode execution state (e.g. replan
+        budgets), and in particular to distinguish the episode-start
+        solve() from mid-episode re-solves triggered by an execution
+        monitor — CogMan calls solve() identically in both cases.
+        """
+
     def solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Light wrapper around the abstract self._solve().
 
@@ -131,6 +141,19 @@ class BaseApproach(abc.ABC):
         """Reset the metrics dictionary."""
         self._metrics = defaultdict(float)
 
+    def begin_test_phase(self) -> None:
+        """Called before the test task loop begins.
+
+        Override to set up test-phase state (e.g. isolating the agent
+        session so test context doesn't leak into learning).
+        """
+
+    def end_test_phase(self) -> None:
+        """Called after the test task loop ends.
+
+        Override to tear down test-phase state.
+        """
+
 
 class BaseApproachWrapper(BaseApproach):
     """Base class for an approach that wraps another approach."""
@@ -155,6 +178,9 @@ class BaseApproachWrapper(BaseApproach):
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         return self._base_approach.learn_from_interaction_results(results)
+
+    def reset_for_new_episode(self) -> None:
+        return self._base_approach.reset_for_new_episode()
 
 
 class ApproachTimeout(ExceptionWithInfo):

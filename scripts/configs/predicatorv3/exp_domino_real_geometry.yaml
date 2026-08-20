@@ -1,0 +1,60 @@
+# Thin launcher: the domino_high_friction_turn system-ID experiment, run on
+# the real scene's physical setup -- Franka Panda on its short pedestal and
+# the extended table tile -- instead of the Fetch on a flat base.
+#
+# Usage:
+#   python scripts/local/launch_simp.py -c predicatorv3/exp_domino_real_geometry.yaml
+#
+# This is exp_domino.yaml with one env swapped. Tasks, friction mismatch
+# (true 0.5 / believed 0.1), span and turn-leg bands, turn ratio, blue budget
+# and reward semantics are identical to the domino_high_friction_turn arm, and
+# the dominoes are the same simulated blocks. The robot and the table are the
+# only things that move, so the two runs answer "does this result survive the
+# real robot's kinematics?" and nothing else.
+#
+# Because the blocks did not change, the 2026-07-12 band calibration carries
+# over unchanged -- those bands are a property of the blocks and the friction
+# pair. Re-probe only if you change one of those:
+#   python scripts/domino_debug/probe_min_block_bands.py reach \
+#       --frictions 0.1 0.5 --env pybullet_domino_real_geometry --robot panda
+#
+# This is NOT exp_domino_real.yaml. That one runs the pybullet_domino_real
+# env, which discards the generated tasks and rebuilds a single task from a
+# perceived scene JSON; the min-block machinery never runs there. This one
+# keeps every generated task and changes only the physical setup.
+---
+includes:
+  - common.yaml
+  - envs/all.yaml
+  - approaches/all.yaml
+FLAGS:
+  num_online_learning_cycles: 3
+ENVS:
+  # launch_simp runs the ENVS x APPROACHES cross-product - park arms here
+  # before launching if the full matrix is not wanted.
+  domino:
+    SKIP: True
+  domino_turns:
+    SKIP: True
+  domino_low_friction:
+    SKIP: True
+  domino_high_friction:
+    SKIP: True
+  # The simulated-setup arm this one is paired against. Un-skip it to run
+  # both and compare; parked by default so a launch is the real-setup arm
+  # alone.
+  domino_high_friction_turn:
+    SKIP: True
+  domino_high_friction_turn_real:
+    SKIP: False
+APPROACHES:
+  agent_oracle_hybrid_sim:
+    SKIP: True
+    FLAGS:
+      agent_sim_learn_kept_predicates_names: ["Holding", "HandEmpty"]
+  agent_oracle_hybrid_sim_ground_sampler:
+    SKIP: True
+  agent_po_predicate_invention_al:
+    SKIP: False
+    FLAGS:
+      skip_initial_test: True

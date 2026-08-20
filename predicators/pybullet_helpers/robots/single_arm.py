@@ -27,14 +27,13 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     def __init__(
             self,
-            ee_home_pose: Pose,
             physics_client_id: int,
+            ee_home_pose: Optional[Pose] = None,
             base_pose: Pose = Pose.identity(),
     ) -> None:
         # The home positions and orientations should be "reasonable" because
         # IK will always reset to home before starting. Bad home poses will
         # lead to IK failure cases in some situations.
-        self._ee_home_pose = ee_home_pose
         self.physics_client_id = physics_client_id
 
         # Pose of base of robot.
@@ -48,6 +47,16 @@ class SingleArmPyBulletRobot(abc.ABC):
             useFixedBase=True,
             physicsClientId=self.physics_client_id,
         )
+
+        # If no home end-effector pose was requested, use the one induced by
+        # the robot's home configuration. Robots without a home configuration
+        # have no notion of a default home pose, so one must be given.
+        if ee_home_pose is None:
+            assert self.home_joint_positions is not None, (
+                f"{self.get_name()} has no home configuration, so an "
+                "ee_home_pose must be provided.")
+            ee_home_pose = self.forward_kinematics(self.home_joint_positions)
+        self._ee_home_pose = ee_home_pose
 
         # Robot initially at home pose.
         self.go_home()
@@ -228,22 +237,147 @@ class SingleArmPyBulletRobot(abc.ABC):
         """The value at which the finger joints should be closed."""
         raise NotImplementedError("Override me!")
 
+    @property
+    def push_ee_yaw_offset(self) -> float:
+        """End-effector yaw during Push, relative to the pushed object's yaw.
+
+        Defaults to 0.0, which is what the Fetch hand was verified with
+        on domino chains and fan/boil switches (2026-07-14). A gripper
+        whose geometry differs overrides this.
+        ``CFG.skill_push_ee_yaw_offset`` overrides it for everyone when
+        set, for experiments.
+        """
+        return 0.0
+
+    @classmethod
+    def home_arm_joint_positions(cls) -> Optional[List[float]]:
+        """The robot's canonical home configuration (arm joints only, no
+        fingers), if it has one.
+
+        This is the arm's natural resting configuration, e.g. the one
+        its real-robot driver homes to. It induces the robot's default
+        home end-effector pose, and pins down which IK branch the robot
+        homes to, so that homing lands on the canonical configuration
+        rather than a contorted one.
+        """
+        return None
+
+    @classmethod
+    def home_ee_pose_in_base(cls) -> Optional[Pose]:
+        """The end-effector pose induced by the home configuration, in the
+        robot's base frame, if the robot has a home configuration.
+
+        Precomputed by the subclass so that callers can locate the home
+        pose without loading a URDF.
+        """
+        return None
+
+    @property
+    def home_joint_positions(self) -> Optional[JointPositions]:
+        """The canonical home configuration with open fingers inserted, in the
+        same order as arm_joints."""
+        home_arm = self.home_arm_joint_positions()
+        if home_arm is None:
+            return None
+        joint_positions = list(home_arm)
+        first_finger_idx, second_finger_idx = sorted(
+            [self.left_finger_joint_idx, self.right_finger_joint_idx])
+        joint_positions.insert(first_finger_idx, self.open_fingers)
+        joint_positions.insert(second_finger_idx, self.open_fingers)
+        return joint_positions
+
     @cached_property
     def initial_joint_positions(self) -> JointPositions:
         """The joint values for the robot in its home pose."""
-        joint_positions = self.inverse_kinematics(self._ee_home_pose,
-                                                  validate=True)
+        joint_positions = self._home_joint_positions_for_ee_pose()
+        if joint_positions is None:
+            joint_positions = self.inverse_kinematics(self._ee_home_pose,
+                                                      validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
         joint_positions[self.left_finger_joint_idx] = self.open_fingers
         joint_positions[self.right_finger_joint_idx] = self.open_fingers
         return joint_positions
 
-    def reset_state(self, robot_state: Array) -> None:
+    def _home_joint_positions_for_ee_pose(self) -> Optional[JointPositions]:
+        """The IK solution for the home end-effector pose that holds the
+        canonical home configuration's arm shape, or None if this robot has no
+        home configuration (or IKFast finds nothing for it).
+
+        Plain IK would pick the solution closest to the seed over *all*
+        joints, which lets the free joint dominate: when the home
+        orientation differs from the canonical one by a wrist roll (as
+        it does in the real domino env, whose home orientation is also
+        its grasp orientation), the roll costs more than swinging the
+        shoulder, and IK returns a contorted arm with an unrolled
+        wrist. Selecting on the non-free joints only leaves the free
+        joint to absorb the roll and keeps the canonical arm shape.
+
+        When the home orientation differs by more than a roll (e.g. a
+        sideways pushing orientation), no solution holds the canonical
+        shape; the selection then returns the least contorted solution
+        available, which is still a reasonable home.
+        """
+        home = self.home_joint_positions
+        ikfast_info = self.ikfast_info()
+        if home is None or ikfast_info is None:
+            return None
+        self.set_joints(home)
+        ik_solutions = ikfast_closest_inverse_kinematics(
+            self, world_from_target=self._ee_home_pose)
+        if not ik_solutions:
+            return None
+        # IK solutions cover the arm joints only; drop the fingers from the
+        # home configuration so the two are indexed alike.
+        finger_idxs = {self.left_finger_joint_idx, self.right_finger_joint_idx}
+        home_arm = [v for i, v in enumerate(home) if i not in finger_idxs]
+        free_idxs = {
+            self.arm_joint_names.index(joint_name)
+            for joint_name in ikfast_info.free_joints
+        }
+        shape_idxs = [i for i in range(len(home_arm)) if i not in free_idxs]
+
+        def shape_distance(solution_idx: int) -> float:
+            solution = ik_solutions[solution_idx]
+            return max(abs(solution[i] - home_arm[i]) for i in shape_idxs)
+
+        best_idx = min(range(len(ik_solutions)), key=shape_distance)
+        joint_positions = list(ik_solutions[best_idx])
+        # Add the fingers back, which IK does not solve for.
+        for finger_idx in sorted(finger_idxs):
+            joint_positions.insert(finger_idx, self.open_fingers)
+        try:
+            self._validate_joints_state(joint_positions, self._ee_home_pose)
+        except ValueError:
+            # A near-miss solution; fall back to plain IK in the caller.
+            return None
+        self.set_joints(joint_positions)
+        return joint_positions
+
+    def reset_state(
+        self,
+        robot_state: Array,
+        joint_positions: Optional[JointPositions] = None,
+        trust_joints: bool = False,
+    ) -> None:
         """Reset the robot state to match the input state.
 
         The robot_state corresponds to the State vector for the robot
-        object.
+        object. If joint_positions is provided, the arm joints are set
+        directly from it; otherwise IK is run from the EE pose, which
+        loses information not encoded in (x, y, z, tilt, wrist) — most
+        importantly wrist roll. Preserving exact joints is required for
+        held-object grasps to round-trip through state save/restore
+        without geometric drift.
+
+        ``trust_joints=True`` skips the EE-pose roundtrip check and uses
+        ``joint_positions`` as-is. Pass it only when the joints are
+        authoritative — e.g. they came from a previous ``_get_state``
+        call on this robot, surfaced via a PyBulletState's
+        ``simulator_state`` dict. The default (False) keeps the legacy
+        guardrail that falls back to IK when the supplied joints look
+        like a non-matching hint (see callers that attach nominal joints
+        to plain states).
         """
         rx, ry, rz, qx, qy, qz, qw, rf = robot_state
         p.resetBasePositionAndOrientation(
@@ -252,6 +386,30 @@ class SingleArmPyBulletRobot(abc.ABC):
             self._base_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
+        target = np.array([rx, ry, rz, qx, qy, qz, qw, rf], dtype=np.float32)
+        if joint_positions is not None:
+            # arm_joints includes fingers, so set_joints already
+            # restored both — skip the snapped-finger overwrite below
+            # so continuous finger values round-trip cleanly.
+            self.set_joints(list(joint_positions))
+            if trust_joints:
+                return
+            # Some callers attach nominal joints to plain states as a reset
+            # hint; preserve exact joints only when they really reconstruct
+            # the requested EE pose, otherwise fall back to IK. Position
+            # tol matches State.allclose (1e-3) so a 4 mm hint mismatch
+            # forces IK. Orientation uses a looser 1e-2 because the
+            # Euler->Quat roundtrip in pybullet_env._extract_robot_state can
+            # add ~1e-3 noise; it also tries both signs because q and -q
+            # encode the same rotation and the roundtrip canonicalises sign.
+            live = self.get_state()
+            pos_match = np.allclose(live[:3], target[:3], atol=1e-3)
+            orn_match = (np.allclose(live[3:7], target[3:7], atol=1e-2)
+                         or np.allclose(live[3:7], -target[3:7], atol=1e-2))
+            finger_match = abs(float(live[7]) - float(target[7])) <= 1e-2
+            if pos_match and orn_match and finger_match:
+                return
+
         # First, reset the joint values to initial joint positions,
         # so that IK is consistent (less sensitive to initialization).
         self.set_joints(self.initial_joint_positions)
@@ -261,7 +419,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         pose = Pose((rx, ry, rz), (qx, qy, qz, qw))
         self.inverse_kinematics(pose, validate=True)
 
-        # Handle setting the robot finger joints.
+        # IK does not touch fingers, so snap them from the EE state.
         for finger_id in [self.left_finger_id, self.right_finger_id]:
             p.resetJointState(self.robot_id,
                               finger_id,
@@ -311,6 +469,21 @@ class SingleArmPyBulletRobot(abc.ABC):
                 physicsClientId=self.physics_client_id,
             )
 
+    @property
+    def finger_motor_force(self) -> Optional[float]:
+        """Maximum motor force (N) for the finger joints, or None to keep
+        PyBullet's default (effectively unlimited) motor force.
+
+        Skills routinely command finger targets past a grasped object
+        and rely on contact to stall the fingers; a robot whose gripper
+        crushes through objects under unlimited force should override
+        this with its URDF effort limit. NOTE: a finite cap means joint
+        damping is no longer masked by motor authority, so the finger
+        joints' URDF damping must satisfy damping < 2 * mass / dt or
+        the fingers oscillate unstably.
+        """
+        return None
+
     def set_motors(self, joint_positions: JointPositions) -> None:
         """Update the motors to move toward the given joint positions."""
         assert len(joint_positions) == len(self.arm_joints)
@@ -324,6 +497,21 @@ class SingleArmPyBulletRobot(abc.ABC):
                 targetPositions=joint_positions,
                 physicsClientId=self.physics_client_id,
             )
+            # Re-issue the finger motors with a finite force cap for
+            # robots that request one (overriding the command above for
+            # just those two joints).
+            if self.finger_motor_force is not None:
+                p.setJointMotorControlArray(
+                    bodyUniqueId=self.robot_id,
+                    jointIndices=[self.left_finger_id, self.right_finger_id],
+                    controlMode=p.POSITION_CONTROL,
+                    targetPositions=[
+                        joint_positions[self.left_finger_joint_idx],
+                        joint_positions[self.right_finger_joint_idx],
+                    ],
+                    forces=[self.finger_motor_force] * 2,
+                    physicsClientId=self.physics_client_id,
+                )
         elif CFG.pybullet_control_mode == "reset":
             self.set_joints(joint_positions)
         else:

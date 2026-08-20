@@ -46,7 +46,7 @@ class NoisyButtonEnv(BaseEnv):
     _successful_press_thresh: ClassVar[float] = 1e-2
     _press_thresh: ClassVar[float] = 2 * _successful_press_thresh
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         # Types

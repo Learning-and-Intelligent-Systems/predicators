@@ -169,6 +169,11 @@
     <origin rpy="0 0 -0.785398163397" xyz="0 0 0"/>
   </joint>
   <link name="panda_hand">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.01 0 0.03"/>
+      <mass value="0.73"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0025" iyz="0" izz="0.0017"/>
+    </inertial>
     <visual>
       <geometry>
         <mesh filename="package://franka_description/meshes/visual/hand.dae"/>
@@ -181,6 +186,11 @@
     </collision>
   </link>
   <link name="panda_leftfinger">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0.0145 0.0227"/>
+      <mass value="0.015"/>
+      <inertia ixx="2.375e-06" ixy="0" ixz="0" iyy="2.375e-06" iyz="0" izz="7.5e-07"/>
+    </inertial>
     <visual>
       <geometry>
         <mesh filename="package://franka_description/meshes/visual/finger.dae"/>
@@ -193,6 +203,11 @@
     </collision>
   </link>
   <link name="panda_rightfinger">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 -0.0145 0.0227"/>
+      <mass value="0.015"/>
+      <inertia ixx="2.375e-06" ixy="0" ixz="0" iyy="2.375e-06" iyz="0" izz="7.5e-07"/>
+    </inertial>
     <visual>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
@@ -212,6 +227,7 @@
     <origin rpy="0 0 0" xyz="0 0 0.0584"/>
     <axis xyz="0 1 0"/>
     <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
+    <dynamics damping="5.0"/>
   </joint>
   <joint name="panda_finger_joint2" type="prismatic">
     <parent link="panda_hand"/>
@@ -219,6 +235,7 @@
     <origin rpy="0 0 0" xyz="0 0 0.0584"/>
     <axis xyz="0 -1 0"/>
     <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
+    <dynamics damping="5.0"/>
     <mimic joint="panda_finger_joint1"/>
   </joint>
   <link name="tool_link"/>

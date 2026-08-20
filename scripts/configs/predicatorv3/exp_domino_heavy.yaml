@@ -1,0 +1,20 @@
+# Thin launcher: validate the heavy-block (mass-only mismatch) domino tasks
+# with the oracle-sim upper-bound arm (GT hybrid sim + GT physical params,
+# i.e. the planner knows the gray block's true heavy mass).
+# Usage: python scripts/local/launch_simp.py -c predicatorv3/exp_domino_heavy.yaml --parallel
+# Env definitions live in envs/all.yaml and approach definitions in
+# approaches/all.yaml (all parked by default); this file only un-skips the
+# env + arm(s) it runs.
+---
+includes:
+  - common.yaml
+  - envs/all.yaml
+  - approaches/all.yaml
+ENVS:
+  domino_heavy:
+    SKIP: False
+APPROACHES:
+  agent_oracle_hybrid_sim:
+    SKIP: False
+    FLAGS:
+      agent_sim_learn_kept_predicates_names: ["Holding", "HandEmpty"]

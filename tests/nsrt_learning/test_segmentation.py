@@ -143,11 +143,13 @@ def test_segment_trajectory():
     known_option_segments = segment_trajectory(known_option_ll_traj, preds,
                                                known_option_atom_seq)
     assert len(known_option_segments) == 4
-    # Segment with atoms changes instead.
+    # Segment with atoms changes instead. The atom_changes segmenter now
+    # counts the last unchanged steps as a segment by default, so we get 1
+    # segment even when atoms never change.
     utils.reset_config({"segmenter": "atom_changes"})
     assert len(
         segment_trajectory(known_option_ll_traj, preds,
-                           known_option_atom_seq)) == 0
+                           known_option_atom_seq)) == 1
     unknown_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)] + [state1],
         [action0, action1, action2, action0, action1])

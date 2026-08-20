@@ -228,7 +228,7 @@ def _run_proxy_analysis_for_predicates(
         score_function = create_score_function(score_function_name,
                                                initial_predicates,
                                                atom_dataset, candidates,
-                                               train_tasks)
+                                               train_tasks, None)
         start_time = time.perf_counter()
         score = score_function.evaluate(frozenset(predicates))
         eval_time = time.perf_counter() - start_time

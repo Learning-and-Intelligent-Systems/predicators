@@ -1,0 +1,432 @@
+# Config file for generating the mara_bench videos
+# Excample run: 
+#    python scripts/local/launch_simp.py -c mara_bench.yaml
+---
+APPROACHES:
+  # no_invent:
+  #   NAME: "oracle_process_planning"
+  #   FLAGS:
+  #     demonstrator: "oracle_process_planning"
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     bilevel_plan_without_sim: True
+  #     running_no_invent_baseline: True
+  # vlm_plan_zero_shot: # ViLa zero-shot baseline
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     demonstrator: "oracle_process_planning"
+  #     num_train_tasks: 0
+  #     bilevel_plan_without_sim: True
+  #     llm_model_name: "google/gemini-2.5-pro" # "openai/gpt-4o", "gpt-4.1", "gpt-4o"
+  #     vlm_open_loop_no_image: True
+  # vlm_plan_few_shot: # ViLa few-shot baseline
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     demonstrator: "oracle_process_planning"
+  #     bilevel_plan_without_sim: True
+  #     llm_model_name: "google/gemini-2.5-pro" # "openai/gpt-4o", "gpt-4.1", "gpt-4o"
+  #     vlm_open_loop_no_image: True
+  #     vlm_open_loop_use_training_demos: True
+  # offline_model_learning:
+  #   # This can learn the JugFilled and WaterBoiled process but not spill.
+  #   NAME: "process_learning_and_planning"
+  #   ARGS:
+  #     - "load_data"
+  #   FLAGS:
+  #     demonstrator: "oracle_process_planning"
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     strips_learner: "llm"
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     exogenous_process_learner: "cluster_and_llm_select"
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  # online_model_learning:
+  #   # This can learn the JugFilled, WaterBoiled and WaterSpilled process.
+  #   NAME: "online_process_learning_and_planning"
+  #   ARGS:
+  #     - "load_data"
+  #   FLAGS:
+  #     # boil_use_constant_delay: True
+  #     demonstrator: "oracle_process_planning"
+  #     explorer: "exploit_planning"
+  #     online_nsrt_learning_requests_per_cycle: 8  # just 1 for now
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     strips_learner: "llm"
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     exogenous_process_learner: "cluster_and_llm_select"
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  #     online_learning_early_stopping: True
+  #     num_online_learning_cycles: 1
+  # predicate_invention:
+  #   NAME: "online_predicate_invention_and_process_planning"
+  #   # ARGS:
+  #   #   - "load_data"
+  #   #   - "load_approach"
+  #   #   - "restart_learning" # Add to restart learning after skipping cycles.
+  #   FLAGS:
+  #     bilevel_plan_without_sim: True
+  #     # skip_until_cycle: 4
+  #     demonstrator: "oracle_process_planning"
+  #     explorer: "exploit_planning"
+  #     online_nsrt_learning_requests_per_cycle: 8  # just 1 for now
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     # exogenous_process_learner: "cluster_and_llm_select"
+  #     exogenous_process_learner: "cluster_and_search_process_learner"
+  #     # exogenous_process_learner: "cluster_and_inverse_planning"
+  #     # process_scoring_method: "count_fp"
+  #     exogenous_process_learner_do_intersect: True
+  #     process_learner_check_false_positives: False
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  #     online_learning_early_stopping: True
+  #     # pause_after_process_learning_for_inspection: True
+  #     num_online_learning_cycles: 10
+  #     rgb_observation: False # for visual predicators
+  #     # Testing predicate invention:
+  #     vlm_predicator_oracle_base_predicates: False # temp: if learn with oracle proposal work
+  #     vlm_predicator_oracle_learned_predicates: False
+  #     vlm_predicator_use_grammar: True
+  #     grammar_search_grammar_use_single_feature: False
+  #     grammar_search_grammar_use_skip_grammar: False
+  #     grammar_search_grammar_includes_negation: True
+  #     grammar_search_grammar_includes_foralls: False
+  #     grammar_search_additional_bonus_for_matching_plan: 20
+  #     grammar_search_prune_redundant_preds: False
+  #     grammar_search_search_algorithm: "hill_climbing"
+  #     grammar_search_task_planning_timeout: 3
+  #     bilevel_planning_explorer_enumerate_plans: True
+  #     online_nsrt_learning_requests_per_task: 8 # 8 2
+  #     grammar_search_expected_nodes_optimal_demo_prob: 0.5
+  #     cluster_and_inverse_planning_candidates: "top_consistent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "top_n"
+  #     cluster_and_inverse_planning_top_consistent_method: "top_p_percent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "threshold"
+  #     cluster_and_inverse_planning_top_p_percent: 4
+  #     cluster_process_learner_top_n_conditions: 32
+  #     exploit_bilevel_planning_explorer_fallback_explorer: "RandomNSRTs"
+  #     learn_process_parameters: True
+  #     cluster_and_search_process_learner_parallel_condition: True
+  #     cluster_and_search_process_learner_parallel_pnad: True
+  #     cluster_and_search_process_learner_llm_select_condition: False
+  #     cluster_and_search_process_learner_llm_rank_atoms: False
+  #     cluster_and_search_process_learner_llm_propose_top_conditions: True
+  #     cluster_and_search_vi_steps: 500
+  #     cluster_learning_one_effect_per_process: True
+  #     process_param_learning_patience: 10000
+  #     process_condition_search_prune_with_fp_count: True
+  #     grammar_search_expected_nodes_max_skeletons: 1
+  #     grammar_search_operator_complexity_weight: 0.1
+  #     grammar_search_hill_climbing_depth: 1
+  #     vlm_predicator_num_proposal_batches: 1
+  #     process_learning_process_per_physical_core: True
+  #     skip_test_until_last_ite_or_early_stopping: True
+  # ablate_bayes:
+  #   NAME: "online_predicate_invention_and_process_planning"
+  #   # ARGS:
+  #   #   - "load_data"
+  #   #   - "load_approach"
+  #   #   - "restart_learning" # Add to restart learning after skipping cycles.
+  #   FLAGS:
+  #     process_learner_ablate_bayes: True
+  #     bilevel_plan_without_sim: True
+  #     # skip_until_cycle: 4
+  #     demonstrator: "oracle_process_planning"
+  #     explorer: "exploit_planning"
+  #     online_nsrt_learning_requests_per_cycle: 8  # just 1 for now
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     # exogenous_process_learner: "cluster_and_llm_select"
+  #     exogenous_process_learner: "cluster_and_search_process_learner"
+  #     # exogenous_process_learner: "cluster_and_inverse_planning"
+  #     # process_scoring_method: "count_fp"
+  #     exogenous_process_learner_do_intersect: True
+  #     process_learner_check_false_positives: False
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  #     online_learning_early_stopping: True
+  #     # pause_after_process_learning_for_inspection: True
+  #     num_online_learning_cycles: 10
+  #     rgb_observation: False # for visual predicators
+  #     # Testing predicate invention:
+  #     vlm_predicator_oracle_base_predicates: False # temp: if learn with oracle proposal work
+  #     vlm_predicator_oracle_learned_predicates: False
+  #     vlm_predicator_use_grammar: True
+  #     grammar_search_grammar_use_single_feature: False
+  #     grammar_search_grammar_use_skip_grammar: False
+  #     grammar_search_grammar_includes_negation: True
+  #     grammar_search_grammar_includes_foralls: False
+  #     grammar_search_additional_bonus_for_matching_plan: 20
+  #     grammar_search_prune_redundant_preds: False
+  #     grammar_search_search_algorithm: "hill_climbing"
+  #     grammar_search_task_planning_timeout: 3
+  #     bilevel_planning_explorer_enumerate_plans: True
+  #     online_nsrt_learning_requests_per_task: 8 # 8 2
+  #     grammar_search_expected_nodes_optimal_demo_prob: 0.5
+  #     cluster_and_inverse_planning_candidates: "top_consistent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "top_n"
+  #     cluster_and_inverse_planning_top_consistent_method: "top_p_percent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "threshold"
+  #     cluster_and_inverse_planning_top_p_percent: 4
+  #     cluster_process_learner_top_n_conditions: 32
+  #     exploit_bilevel_planning_explorer_fallback_explorer: "RandomNSRTs"
+  #     learn_process_parameters: True
+  #     cluster_and_search_process_learner_parallel_condition: True
+  #     cluster_and_search_process_learner_parallel_pnad: True
+  #     cluster_and_search_process_learner_llm_select_condition: False
+  #     cluster_and_search_process_learner_llm_rank_atoms: False
+  #     cluster_and_search_process_learner_llm_propose_top_conditions: True
+  #     cluster_and_search_vi_steps: 500
+  #     cluster_learning_one_effect_per_process: True
+  #     process_param_learning_patience: 10000
+  #     process_condition_search_prune_with_fp_count: True
+  #     grammar_search_expected_nodes_max_skeletons: 1
+  #     grammar_search_operator_complexity_weight: 0.1
+  #     grammar_search_hill_climbing_depth: 1
+  #     vlm_predicator_num_proposal_batches: 1
+  #     process_learning_process_per_physical_core: True
+  #     skip_test_until_last_ite_or_early_stopping: True
+  # ablate_llm:
+  #   NAME: "online_predicate_invention_and_process_planning"
+  #   # ARGS:
+  #   #   - "load_data"
+  #   #   - "load_approach"
+  #   #   - "restart_learning" # Add to restart learning after skipping cycles.
+  #   FLAGS:
+  #     bilevel_plan_without_sim: True
+  #     # skip_until_cycle: 4
+  #     demonstrator: "oracle_process_planning"
+  #     explorer: "exploit_planning"
+  #     online_nsrt_learning_requests_per_cycle: 8  # just 1 for now
+  #     # This following is needed to generate a successful demo trajectory, or 
+  #     # else the demo collection will fail with an option plan exhausted error.
+  #     find_best_matching_pnad_skip_if_effect_not_subset: False
+  #     # exogenous_process_learner: "cluster_and_llm_select"
+  #     exogenous_process_learner: "cluster_and_search_process_learner"
+  #     # exogenous_process_learner: "cluster_and_inverse_planning"
+  #     # process_scoring_method: "count_fp"
+  #     exogenous_process_learner_do_intersect: True
+  #     process_learner_check_false_positives: False
+  #     # To have demos to stop when option terminates.
+  #     terminate_on_goal_reached: False
+  #     terminate_on_goal_reached_and_option_terminated: True
+  #     only_learn_exogenous_processes: True
+  #     online_learning_early_stopping: True
+  #     # pause_after_process_learning_for_inspection: True
+  #     num_online_learning_cycles: 10
+  #     rgb_observation: False # for visual predicators
+  #     # Testing predicate invention:
+  #     vlm_predicator_oracle_base_predicates: False # temp: if learn with oracle proposal work
+  #     vlm_predicator_oracle_learned_predicates: False
+  #     vlm_predicator_use_grammar: True
+  #     grammar_search_grammar_use_single_feature: False
+  #     grammar_search_grammar_use_skip_grammar: False
+  #     grammar_search_grammar_includes_negation: True
+  #     grammar_search_grammar_includes_foralls: False
+  #     grammar_search_additional_bonus_for_matching_plan: 20
+  #     grammar_search_prune_redundant_preds: False
+  #     grammar_search_search_algorithm: "hill_climbing"
+  #     grammar_search_task_planning_timeout: 3
+  #     bilevel_planning_explorer_enumerate_plans: True
+  #     online_nsrt_learning_requests_per_task: 8 # 8 2
+  #     grammar_search_expected_nodes_optimal_demo_prob: 0.5
+  #     cluster_and_inverse_planning_candidates: "top_consistent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "top_n"
+  #     cluster_and_inverse_planning_top_consistent_method: "top_p_percent"
+  #     # cluster_and_inverse_planning_top_consistent_method: "threshold"
+  #     cluster_and_inverse_planning_top_p_percent: 4
+  #     cluster_process_learner_top_n_conditions: 32
+  #     exploit_bilevel_planning_explorer_fallback_explorer: "RandomNSRTs"
+  #     learn_process_parameters: True
+  #     cluster_and_search_process_learner_parallel_condition: True
+  #     cluster_and_search_process_learner_parallel_pnad: True
+  #     cluster_and_search_process_learner_llm_propose_top_conditions: False
+  #     cluster_and_search_vi_steps: 500
+  #     cluster_learning_one_effect_per_process: True
+  #     process_param_learning_patience: 10000
+  #     process_condition_search_prune_with_fp_count: True
+  #     grammar_search_expected_nodes_max_skeletons: 1
+  #     grammar_search_operator_complexity_weight: 0.1
+  #     grammar_search_hill_climbing_depth: 1
+  #     vlm_predicator_num_proposal_batches: 1
+  #     process_learning_process_per_physical_core: True
+  #     skip_test_until_last_ite_or_early_stopping: True
+  ours_always_test:
+    NAME: "online_predicate_invention_and_process_planning"
+    FLAGS:
+      bilevel_plan_without_sim: True
+      demonstrator: "oracle_process_planning"
+      explorer: "exploit_planning"
+      exploit_bilevel_planning_explorer_fallback_explorer: "RandomNSRTs"
+      bilevel_planning_explorer_enumerate_plans: True
+      online_nsrt_learning_requests_per_cycle: 8  # just 1 for now
+      # This following is needed to generate a successful demo trajectory, or 
+      # else the demo collection will fail with an option plan exhausted error.
+      find_best_matching_pnad_skip_if_effect_not_subset: False
+      # exogenous_process_learner: "cluster_and_llm_select"
+      exogenous_process_learner: "cluster_and_search_process_learner"
+      # exogenous_process_learner: "cluster_and_inverse_planning"
+      # process_scoring_method: "count_fp"
+      exogenous_process_learner_do_intersect: True
+      process_learner_check_false_positives: False
+      # To have demos to stop when option terminates.
+      terminate_on_goal_reached: False
+      terminate_on_goal_reached_and_option_terminated: True
+      only_learn_exogenous_processes: True
+      online_learning_early_stopping: True
+      num_online_learning_cycles: 10
+      # Testing predicate invention:
+      learn_process_parameters: True
+      grammar_search_grammar_use_single_feature: False
+      grammar_search_grammar_use_skip_grammar: False
+      grammar_search_grammar_includes_foralls: False
+      grammar_search_additional_bonus_for_matching_plan: 20
+      grammar_search_prune_redundant_preds: False
+      grammar_search_task_planning_timeout: 3
+      grammar_search_expected_nodes_optimal_demo_prob: 0.5
+      grammar_search_expected_nodes_max_skeletons: 1
+      grammar_search_operator_complexity_weight: 0.1
+      grammar_search_hill_climbing_depth: 1
+      online_nsrt_learning_requests_per_task: 8 # 8 2
+      cluster_and_inverse_planning_top_p_percent: 4
+      cluster_process_learner_top_n_conditions: 32
+      cluster_and_search_process_learner_parallel_pnad: True
+      cluster_and_search_process_learner_llm_propose_top_conditions: True
+      cluster_and_search_vi_steps: 500
+      cluster_learning_one_effect_per_process: True
+      process_param_learning_patience: 10000
+      process_condition_search_prune_with_fp_count: True
+      vlm_predicator_num_proposal_batches: 1
+      process_learning_process_per_physical_core: True
+      skip_test_until_last_ite_or_early_stopping: False
+      num_test_tasks: 10
+ENVS:
+  # boil_smpl:
+  #   NAME: "pybullet_boil"
+  #   FLAGS:
+  #     excluded_objects_in_state_str: "switch"
+  #     max_num_steps_option_rollout: 50
+  #     horizon: 150
+  #     boil_goal: "human_happy" # Can also be "task_completed", "simple"
+  #     boil_goal_simple_human_happy: True
+  coffee:
+    NAME: "pybullet_coffee"
+    FLAGS:
+      excluded_predicates: "JugFilled,Twisting,HandTilted,PressingButton,NotSameCup,RobotAboveCup"
+      coffee_rotated_jug_ratio: 0
+      coffee_num_cups_train: [1]
+      coffee_machine_have_light_bar: False
+      coffee_move_back_after_place_and_push: True
+      coffee_machine_has_plug: False
+      coffee_combined_move_and_twist_policy: True
+      coffee_use_pixelated_jug: True
+      coffee_fill_jug_gradually: True
+      max_num_steps_option_rollout: 100
+      horizon: 300
+  grow:
+    NAME: "pybullet_grow"
+    FLAGS:
+      excluded_predicates: "SameColor,HandTilted"
+      coffee_use_pixelated_jug: True
+      max_num_steps_option_rollout: 50
+      grow_weak_pour_terminate_condition: True
+      grow_place_option_no_sampler: True
+      horizon: 400
+  boil:
+    NAME: "pybullet_boil"
+    FLAGS:
+      excluded_predicates: "NoWaterSpilled,WaterBoiled,JugFilled,NoJugAtFaucetOrAtFaucetAndFilled"
+      excluded_objects_in_state_str: "switch"
+      max_num_steps_option_rollout: 50
+      horizon: 500 # 300 should be enough, 50 is good during dev
+      # boil_goal: "task_completed" # This option isn't fully ready because
+        # with the current only_learn_exogenous_processes setting, it won't try
+        # to learn the precondition for the DeclareComplete option.
+      boil_goal: "human_happy" # Can also be "task_completed", "simple"
+      # boil_goal: "simple"
+      boil_require_jug_full_to_heatup: True
+      vlm_predicator_num_proposal_batches: 1
+  fan:
+    NAME: "pybullet_fan"
+    FLAGS:
+      excluded_predicates: "FanFacingSide,OppositeFan,Controls"
+      excluded_objects_in_state_str: "switch,loc,target"
+      process_planning_heuristic_weight: 10
+      terminate_on_goal_reached: True # maybe required for successful eval
+      cluster_learning_one_effect_per_process: False
+      process_param_learning_use_empirical: True
+      process_learning_use_empirical: True
+      horizon: 500
+      grammar_search_task_planning_timeout: 5
+  domino:
+    NAME: "pybullet_domino_grid"
+    FLAGS:
+      excluded_predicates: "InFront,DominoNotGlued"
+      excluded_objects_in_state_str: "loc,rot,angle,direction"
+      horizon: 200
+      domino_initialize_at_finished_state: False
+      domino_use_domino_blocks_as_target: True
+      use_gt_helpers: True
+      domino_include_connected_predicate: False # necessary to generate valid plan
+      domino_prune_actions: False
+      process_planning_heuristic_weight: 2.0
+      process_planning_use_abstract_policy: False
+      domino_has_glued_dominos: True
+      keep_failed_demos: True
+      env_has_impossible_goals: True
+      num_train_tasks: 2
+      max_initial_demos: 2
+      process_param_learning_use_empirical: True
+      process_learning_use_empirical: True
+ARGS:
+  - "debug"
+  # - "use_gui"
+  # - "make_demo_videos"
+  # - "make_failure_videos"
+  # - "make_test_videos"
+  # - "make_demo_images"  # support images
+  # - "make_failure_images"  # query images
+  # - "make_test_images"  # query images
+  # - "save_atoms"
+FLAGS:
+  # This is particularly useful in some envs. In blocks with high towers are
+  # unstable, this is useful to capture the unstability and to avoid force from
+  # the prev. episode to affect the current episode.
+
+  # A successful demo needs this to be True, or else it will get an option plan
+  # exhausted error from the option_policy. 
+  # When do we need this to be False? Was it in cases when we wanted to generate
+  # a more complete video?
+  max_num_steps_interaction_request: 300 # 300 should be enough
+  pretrained_model_service_provider: "openrouter" # "openrouter" or "openai"
+  llm_model_name: "google/gemini-2.5-pro" # "openai/gpt-4o", "gpt-4.1", "gpt-4o"
+  llm_openai_max_response_tokens: 1e6
+  terminate_on_goal_reached: False
+  pybullet_ik_validate: False
+  num_train_tasks: 1
+  num_test_tasks: 50
+  video_fps: 20
+  pybullet_camera_height: 900
+  pybullet_camera_width: 900
+  # use_classification_problem_setting: False # This decides the entry point
+  # use_counterfactual_dataset_path_name: True  # for generating images or videos
+  planning_filter_unreachable_nsrt: False
+  planning_check_dr_reachable: True
+  process_task_planning_heuristic: 'h_ff' # goal_count, lm_cut, h_max, h_ff
+  timeout: 600
+  log: 'logs/'
+  no_repeated_arguments_in_grounding: True
+START_SEED: 0
+NUM_SEEDS: 3

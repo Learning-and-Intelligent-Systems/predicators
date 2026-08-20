@@ -1,0 +1,6 @@
+Plan:
+Pick(robot:robot, domino_1:domino)[]
+Place(robot:robot, domino_1:domino, domino_3:domino, loc_y1_x1:loc, ang_90:angle)[]
+Pick(robot:robot, domino_2:domino)[]
+Place(robot:robot, domino_2:domino, domino_0:domino, loc_y1_x2:loc, ang_90:angle)[]
+Push(robot:robot, domino_0:domino)[]

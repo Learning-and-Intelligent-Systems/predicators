@@ -1,0 +1,196 @@
+# Thin launcher: real-world domino testing through the Predicators
+# pipeline.
+# Usage: python scripts/local/launch_simp.py -c predicatorv3/exp_domino_real.yaml
+---
+includes:
+  - common.yaml
+  - envs/all.yaml
+  - approaches/all.yaml
+FLAGS:
+  # One cycle for the first integration run: the point is to get one episode
+  # all the way through record -> post-process -> fit. Raise it once that
+  # path is known to work; with human_reset off there is no prompt between
+  # episodes, so a multi-cycle run would start the second one on whatever the
+  # first left behind.
+  num_online_learning_cycles: 1
+  wait_option_max_steps: 200
+  # One exploration episode per cycle. common.yaml asks for 2, but the
+  # explorer replays the same fixed plan every time, so the second episode
+  # costs a full run of the hardware (and a human scene reset) to collect a
+  # near-duplicate of the first.
+  online_nsrt_learning_requests_per_cycle: 1
+NUM_SEEDS: 1
+# Agent-only env overrides: deep-merged on top of envs/all.yaml. These
+# excluded_predicates are dropped for "ours" runs (matches exp_domino.yaml;
+# oracle.yaml would keep them in).
+ENVS:
+  domino_real:
+    SKIP: False
+    FLAGS:
+      excluded_predicates: "InitialBlock,MovableBlock,Tilting,Upright,InFront"
+      real_robot_execute: True
+      # LIVE: the arm moves and the cameras look. Learning a friction from
+      # real observations needs a real cascade to observe, so neither half
+      # can be faked -- a dry arm leaves the scene untouched and a blind run
+      # has nothing to report. (For the no-motion rung instead, set
+      # real_robot_dry True with perception "none" and the two flags below
+      # False; "none" with the look on raises at executor construction.)
+      real_robot_dry: False
+      # -- open-loop execution, recorded end to end --------------------------
+      # The whole episode's motion ships in one batch once it has been
+      # simulated, so the arm runs the plan as one contiguous stroke instead
+      # of idling through the next option's motion planning. Mutually
+      # exclusive with the boundary look, which is asserted at construction:
+      # a look has to happen BETWEEN two options and batching leaves no such
+      # moment.
+      real_robot_open_loop_episode: True
+      real_robot_observe_at_option_boundary: False
+      # Start the take in front of Push rather than in front of the whole
+      # batch. Only the cascade is scored: on run_20260818_092302 the first
+      # onset was 107 s into a 131 s track, so the pick-and-place before it
+      # was ~80% of the video and none of the evidence. The arm still runs
+      # the bridge as one batch, then pauses once while the take opens.
+      #
+      # This also lines the track's frame 0 up with the arrangement the push
+      # acts on, which is what the id matching compares against -- with the
+      # take starting at the reset, that run could not match 2 of 4 dominoes
+      # and logged 122 warnings.
+      real_robot_record_from_option: "Push"
+      # The cameras record the whole execution; the poses come out of
+      # post-processing afterwards. NOT "zed": that is the marker pipeline,
+      # whose 20mm tags do not resolve at this camera distance (1 of ~7 on
+      # one camera, 0 on the other), and it would also fight the recorder
+      # for the cameras. "scene_file" replays the captured layout, which is
+      # what a fixed-plan replay wants -- the plan names specific objects and
+      # a rebuild could renumber them.
+      real_robot_perception: "scene_file"
+      real_robot_human_reset: False
+      real_robot_record_episodes: True
+      real_robot_process_takes: True
+      # Fit the poses from 30264679. Markerless is single-camera and the two
+      # are not interchangeable: on hand-measured ground truth this one is 6x
+      # better on orientation (1.03 deg median against 6.29), which is what
+      # the topple onsets are read off. The other tracks more frames (99.9%
+      # against 82%), so revisit if coverage turns out to matter more.
+      real_robot_track_camera: "30264679"
+      # Trim the still lead-in before SAM-2 sees it. The take starts at the
+      # reset and the twin then simulates every option with the arm parked:
+      # on run_20260817_162250 that was 152 s of a static scene out of 420 s
+      # recorded, ~6.5k of 18.1k frames. Needs BabyRobotPredicator's
+      # --trim-motion; an older driver ignores the request rather than
+      # failing, and test_the_driver_honours_the_trim_request_once_it_can
+      # says which of the two you have.
+      real_robot_trim_still_frames: True
+      # Stage 2 needs one box per domino. Draw them once at the start of the
+      # run, in a drag window, while a human is still at the bench -- rather
+      # than producing a boxes.json out of band beforehand, or having a window
+      # open mid-run. Valid here because the fixed plan trains and tests on
+      # one arrangement, so the boxes drawn on the scene as it stands are the
+      # right ones for every take. Needs a display (X forwarding over SSH).
+      # Set real_robot_snapshot_boxes_json to an earlier run's boxes.json
+      # instead to skip the window entirely. The 2026-08-17 capture shipped
+      # one, drawn on this very arrangement -- scenes/
+      # domino_row_20260817_markerless/boxes.json, four boxes at 1280x720 on
+      # camera 30264679 -- so it is reusable only if the run records on the
+      # same camera at the same resolution. Check before trusting it: boxes
+      # from another camera land on empty table and stage 2 fits nothing.
+      real_robot_pick_boxes_at_start: True
+      real_robot_snapshot_boxes_json: ""
+      # -- post-processing speed ---------------------------------------------
+      # run_20260818_092302 took 1008 s to turn a 138 s take into a track and
+      # missed the fit's 900 s deadline by 108 s, so the episode it had just
+      # recorded was skipped. These two take roughly 5 minutes off that.
+      #
+      # 30 of this machine's 32 cores for stage 4, which ran 16.0 cores busy
+      # for its whole 364 s. Sized for THIS box -- lower it on a smaller one,
+      # and remember the pipeline runs in the background while the next
+      # episode drives the robot.
+      real_robot_track_jobs: 30
+      # Skip masks_overlay.mp4: 163 s, rendered before stage 4 and so paid
+      # straight out of time-to-track. Turn it back on when the tracks look
+      # wrong -- it is how id swaps are spotted.
+      real_robot_track_viz: False
+      real_robot_divergence_atol: 0.02
+      # No learning for now, just hybrid sim.
+      # agent_sim_learn_oracle_sim_program: True
+      # agent_sim_learn_oracle_sim_params: True
+      # -- the mismatch ------------------------------------------------------
+      # Applied only to sims built with skip_process_dynamics=True (the
+      # approach's base env and option models), so the twin keeps the
+      # settings.py default 0.5 and goes on modelling the real table.
+      domino_planning_friction: 0.1
+      # -- the scene, and the roles it does not carry -------------------------
+      # The 2026-08-17 capture: four dominoes, all standing, on an arc rather
+      # than a row. Its records are in id order, so capture id N lands in slot
+      # N and is named domino_N.
+      domino_real_scene: "/home/amberli/babyrobot/BabyRobotPredicator/scenes/domino_row_20260817.json"
+      # This capture has no per-domino 'role' field, so the env reads the roles
+      # off these ids -- green (the one Push acts on) is capture id 3, purple
+      # (the goal) is capture id 0, and ids 1 and 2 are the movables the plan
+      # bridges with. envs/all.yaml's 6 / 5 are domino_straight.json's ids and
+      # appear nowhere in this scene; left in place the task has no target at
+      # all and _task_from_perceived asserts on it.
+      domino_real_start_id: 3
+      domino_real_target_id: 0
+      # -- learning the friction from the recording --------------------------
+      # Score the free-running rollout against the markerless pose track
+      # instead of against every recorded state. Under open-loop nothing
+      # corrects the twin, so those states ARE the twin's own simulation and
+      # scoring them recovers the twin's friction by construction -- the
+      # defect this experiment exists to fix. With this off, turning the two
+      # flags above on makes the fit worse, not better.
+      code_sim_learning_rollout_score_observed_only: True
+      # The run manifest the recorder writes, naming each episode's track.
+      code_sim_learning_rollout_track_path: "logs/zed_tracks/tracks.json"
+      # Drop the commanded arm and the non-kinematic features from the scored
+      # scope. The arm reproduces at every candidate friction so it can only
+      # dilute -- and with it in scope nothing in the episode ever rests, so
+      # rest-point segmentation can never cut.
+      code_sim_learning_rollout_scope_types: ["domino"]
+      # The fit blocks this long for tracks the manifest promised.
+      # Post-processing runs about 3x the length of a take, and the loop fits
+      # as soon as an episode ends; without the wait the fit finds nothing and
+      # falls back to the per-step scoring above.
+      code_sim_learning_track_wait_s: 900.0
+      # The markerless pipeline emits poses in the ROBOT BASE frame; a twin
+      # state is in the env's world frame. For this env the two differ by a
+      # quarter turn about z plus (0.75, 0.72) -- exactly
+      # pybullet_domino.real_geometry.base_to_world_transform, whose
+      # constants these mirror. Matching absorbs a translation by voting over
+      # candidate offsets, but not a rotation: unset, every track/twin pair
+      # lands 144-307 mm apart against a 40 mm tolerance and no domino is
+      # matched at all.
+      code_sim_learning_track_frame_yaw: 1.5707963267948966
+      code_sim_learning_track_frame_xy: [0.75, 0.72]
+APPROACHES:
+  agent_oracle_hybrid_sim:
+    SKIP: True
+  agent_po_predicate_invention_al:
+    SKIP: False
+    FLAGS:
+      # Replay one fixed plan every episode instead of planning. What is
+      # being tested is whether perception feeds the learner well enough to
+      # move the friction belief, so the exploration half should be a
+      # constant: a run that goes wrong is then the loop's fault and not the
+      # planner's, and every episode is directly comparable to the last.
+      # (explorer is only ever set in approaches/all.yaml, never in
+      # envs/all.yaml, so this override is not shadowed by the env block.)
+      explorer: "fixed_plan"
+      # Matched to domino_real_scene above: the plan names specific objects and
+      # specific world coordinates, so the two move together or the replay
+      # places dominoes into empty table. The sketch's header carries the
+      # geometry it was derived from. One alternate for this same scene sits
+      # beside it -- _release055, the same plan with the placement drop cut
+      # from 29 mm to 9 mm, for if the real placements bounce or land tilted.
+      fixed_plan_explorer_path: "scripts/plan_sketches/domino_row_20260817_bridge2.txt"
+      # The agent's own plan-testing simulator is built with
+      # skip_process_dynamics=agent_planner_use_base_simulator, and only a
+      # skip_process_dynamics=True env picks up domino_planning_friction.
+      # Left False (the default) the agent tests its plans against the TRUE
+      # friction -- its belief is not mismatched at all, and there is
+      # nothing for the sysID to discover. True is what makes the agent
+      # actually believe 0.1.
+      agent_planner_use_base_simulator: True
+      # The pre-loop test is a second full episode on the hardware before
+      # anything is learned; the experiment is about the cycle.
+      skip_initial_test: True

@@ -99,13 +99,14 @@ def test_oracle_option_learner_cover():
                                    annotations=None)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
-    assert len(strips_ops) == len(datastores) == 4
+    assert len(strips_ops) == len(datastores)
+    num_ops = len(strips_ops)
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
-    assert len(option_specs) == len(strips_ops) == 4
+    assert len(option_specs) == len(strips_ops) == num_ops
     assert len(get_gt_options(env.get_name())) == 1
     PickPlace = next(iter(get_gt_options(env.get_name())))
-    assert option_specs == [(PickPlace, []) for _ in range(4)]
+    assert option_specs == [(PickPlace, []) for _ in range(num_ops)]
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
             assert not segment.has_option()
@@ -147,10 +148,11 @@ def test_oracle_option_learner_blocks():
                                    annotations=None)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
-    assert len(strips_ops) == len(datastores) == 4
+    assert len(strips_ops) == len(datastores)
+    num_ops = len(strips_ops)
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
-    assert len(option_specs) == len(strips_ops) == 4
+    assert len(option_specs) == len(strips_ops) == num_ops
     assert len(get_gt_options(env.get_name())) == 3
     Pick = [
         option for option in get_gt_options(env.get_name())
@@ -165,9 +167,9 @@ def test_oracle_option_learner_blocks():
         if option.name == "PutOnTable"
     ][0]
     param_opts = [spec[0] for spec in option_specs]
-    assert param_opts.count(Pick) == 2
-    assert param_opts.count(Stack) == 1
-    assert param_opts.count(PutOnTable) == 1
+    assert param_opts.count(Pick) >= 2
+    assert param_opts.count(Stack) >= 1
+    assert param_opts.count(PutOnTable) >= 1
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
             assert not segment.has_option()

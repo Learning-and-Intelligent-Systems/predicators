@@ -37,7 +37,7 @@ class ScrewsEnv(BaseEnv):
     rz_y_lb = 0.0
     rz_y_ub = 5.0
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = False) -> None:
         super().__init__(use_gui)
 
         self.num_screws_train = CFG.screws_num_screws_train

@@ -1,6 +1,7 @@
 """Handle creation of environments."""
 
 import logging
+from typing import Any
 
 from predicators import utils
 from predicators.envs.base_env import BaseEnv
@@ -14,7 +15,8 @@ utils.import_submodules(__path__, __name__)
 
 def create_new_env(name: str,
                    do_cache: bool = True,
-                   use_gui: bool = True) -> BaseEnv:
+                   use_gui: bool = False,
+                   **kwargs: Any) -> BaseEnv:
     """Create a new instance of an environment from its name.
 
     If do_cache is True, then cache this env instance so that it can
@@ -22,7 +24,7 @@ def create_new_env(name: str,
     """
     for cls in utils.get_all_subclasses(BaseEnv):
         if not cls.__abstractmethods__ and cls.get_name() == name:
-            env = cls(use_gui)
+            env = cls(use_gui, **kwargs)
             break
     else:
         raise NotImplementedError(f"Unknown env: {name}")

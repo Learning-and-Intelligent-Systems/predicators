@@ -4,6 +4,7 @@ import time
 from typing import Iterator, Optional, Tuple
 from typing import Type as TypingType
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -11,7 +12,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.ball_and_cup_sticky_table import BallAndCupStickyTableEnv
-from predicators.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.envs.cover import CoverEnv
 from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
     ProceduralTasksSpannerPDDLEnv
 from predicators.ground_truth_models import _get_predicates_by_names, \
@@ -21,7 +22,7 @@ from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, Object, ParameterizedOption, Predicate, \
-    Segment, State, STRIPSOperator, Type, Variable, VLMPredicate
+    Segment, State, STRIPSOperator, Task, Type, Variable, VLMPredicate
 from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
     _TaskPlanningHeuristic
 
@@ -713,7 +714,7 @@ def test_run_policy():
                          monitor=monitor)
     except ValueError:
         pass
-    assert monitor.num_observations == 1
+    assert monitor.num_observations == 0
 
 
 def test_run_policy_with_simulator():
@@ -1052,6 +1053,41 @@ def test_strip_task():
     assert "Stripped classifier should never be called" in str(e)
 
 
+def test_strip_task_preserves_goal_nl():
+    """strip_task carries `goal_nl` through to the returned Task.
+
+    Regression: AgentSimPredicateInventionApproach hides env goal
+    predicates from the agent and exposes the natural-language goal
+    instead. ``strip_task`` is the bottleneck where that NL string has
+    to survive the goal-predicate strip pass — otherwise downstream
+    asserts that every train task carries `goal_nl` would fire.
+    """
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
+    Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
+    base_task = env.get_train_tasks()[0].task
+    nl_goal = "cover all targets with the blocks"
+    task_with_nl = Task(base_task.init, base_task.goal, goal_nl=nl_goal)
+
+    # Strip nothing: goal_nl passes through.
+    out1 = utils.strip_task(task_with_nl, {Covers, Holding})
+    assert out1.goal_nl == nl_goal
+    # Strip the goal predicate: goal_nl still passes through.
+    out2 = utils.strip_task(task_with_nl, {Holding})
+    assert out2.goal_nl == nl_goal
+
+
+def test_strip_task_propagates_missing_goal_nl():
+    """Tasks that never set ``goal_nl`` come out with ``None``, not a
+    fabricated default — callers downstream rely on the missing-NL branch."""
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
+    base_task = env.get_train_tasks()[0].task
+    assert base_task.goal_nl is None
+    out = utils.strip_task(base_task, set())
+    assert out.goal_nl is None
+
+
 def test_sample_subsets():
     """Tests for sample_subsets()."""
     universe = list(range(10))
@@ -1124,8 +1160,9 @@ def test_abstract():
     assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
     # Now, test the case where we abstract using a VLM predicate.
     utils.reset_config({"seed": 123})
-    vlm_pred = VLMPredicate("IsFishy", [], lambda s, o: NotImplementedError,
-                            lambda o: "is_fishy")
+    vlm_pred = VLMPredicate("IsFishy", [],
+                            lambda s, o: NotImplementedError,
+                            get_vlm_query_str=lambda o: "is_fishy")
     vlm_state = state.copy()
     vlm_state.simulator_state = {
         "images": [np.zeros((30, 30, 3), dtype=np.uint8)]
@@ -1134,8 +1171,9 @@ def test_abstract():
     assert len(vlm_atoms_set) == 1
     assert "IsFishy" in str(vlm_atoms_set)
     # Now, teset the case where the VLM response is wrong/bad.
-    vlm_pred2 = VLMPredicate("IsSnakey", [], lambda s, o: NotImplementedError,
-                             lambda o: "is_snakey")
+    vlm_pred2 = VLMPredicate("IsSnakey", [],
+                             lambda s, o: NotImplementedError,
+                             get_vlm_query_str=lambda o: "is_snakey")
     vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred, vlm_pred2],
                                    _DummyVLM())
     assert len(vlm_atoms_set) == 0
@@ -2547,9 +2585,12 @@ def test_create_pddl():
 
 def test_VideoMonitor():
     """Tests for VideoMonitor()."""
-    env = CoverMultistepOptions()
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
     monitor = utils.VideoMonitor(env.render)
-    policy = lambda _: Action(env.action_space.sample())
+    # Use a deterministic policy that places the held block on a target,
+    # ensuring the state (and rendering) actually changes.
+    policy = lambda _: Action(np.array([0.912], dtype=np.float32))
     task = env.get_task("test", 0).task
     traj, _ = utils.run_policy(policy,
                                env,
@@ -2568,12 +2609,50 @@ def test_VideoMonitor():
     assert not np.allclose(first_state_rendered, video[1])
 
 
+def test_StreamingVideoMonitor(tmp_path):
+    """Tests for StreamingVideoMonitor()."""
+    utils.reset_config({"env": "cover", "video_dir": str(tmp_path)})
+    env = CoverEnv()
+    monitor = utils.StreamingVideoMonitor(env.render)
+    policy = lambda _: Action(np.array([0.912], dtype=np.float32))
+    task = env.get_task("test", 0).task
+    utils.run_policy(policy,
+                     env,
+                     "test",
+                     0,
+                     task.goal_holds,
+                     max_num_steps=2,
+                     monitor=monitor)
+    # Frames were streamed to a hidden temp file, not buffered.
+    tmp_files = list(tmp_path.glob(".streaming_*.mp4"))
+    assert len(tmp_files) == 1
+    # finalize moves the clip into place; discard afterwards is a no-op.
+    monitor.finalize("clip.mp4")
+    assert (tmp_path / "clip.mp4").exists()
+    assert not list(tmp_path.glob(".streaming_*.mp4"))
+    monitor.discard()
+    assert (tmp_path / "clip.mp4").exists()
+    frames = imageio.mimread(tmp_path / "clip.mp4")
+    assert len(frames) == 3  # initial obs + 2 steps
+    # discard deletes an unfinalized clip; reset() also discards.
+    monitor.observe(env.get_observation(), None)
+    assert list(tmp_path.glob(".streaming_*.mp4"))
+    monitor.discard()
+    assert not list(tmp_path.glob(".streaming_*.mp4"))
+    # finalize with no frames observed is a no-op.
+    monitor.finalize("empty.mp4")
+    assert not (tmp_path / "empty.mp4").exists()
+
+
 def test_SimulateVideoMonitor():
     """Tests for SimulateVideoMonitor()."""
-    env = CoverMultistepOptions()
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
     task = env.get_task("test", 0).task
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    policy = lambda _: Action(env.action_space.sample())
+    # Use a deterministic policy that places the held block on a target,
+    # ensuring the state (and rendering) actually changes.
+    policy = lambda _: Action(np.array([0.912], dtype=np.float32))
     traj, _ = utils.run_policy(policy,
                                env,
                                "test",
@@ -3531,3 +3610,193 @@ def test_parse_model_output_into_option_plan():
         utils.parse_model_output_into_option_plan(options_str, [obj],
                                                   [obj_type], options,
                                                   False)) == 0
+    # A numbered/enumerated line prefix ("0:", "1.") that agents emit when
+    # mirroring the logged sketch format must parse identically to the
+    # bare line; without prefix stripping the whole plan parses as empty.
+    pick_opt = next(o for o in options if o.name == "Pick")
+    robot_type, block_type = pick_opt.types
+    robby = Object("robby", robot_type)
+    b0 = Object("b0", block_type)
+    types = [robot_type, block_type]
+    objs = [robby, b0]
+    bare = "Pick(robby:robot, b0:block)"
+    bare_plan = utils.parse_model_output_into_option_plan(
+        bare, objs, types, options, False)
+    assert len(bare_plan) == 1
+    for prefix in ("0: ", "1. ", "2) ", "  3:  "):
+        numbered = prefix + bare
+        numbered_plan = utils.parse_model_output_into_option_plan(
+            numbered, objs, types, options, False)
+        assert len(numbered_plan) == 1
+        assert numbered_plan[0][0].name == bare_plan[0][0].name
+        assert numbered_plan[0][1] == bare_plan[0][1]
+    # A prose bullet that merely mentions an option name is NOT a numbered
+    # plan line and must still be ignored (it is not stripped to an option).
+    prose = "- Step 1: Pick(robby:robot, b0:block) at the left side"
+    assert len(
+        utils.parse_model_output_into_option_plan(prose, objs, types, options,
+                                                  False)) == 0
+    # A 0-argument option with empty parens is a valid line, not a
+    # malformed object-type pair.
+    cover_options = get_gt_options("cover")
+    zero_arg = utils.parse_model_output_into_option_plan(
+        "PickPlace()[0.5]", [], [], cover_options, True)
+    assert len(zero_arg) == 1
+    assert zero_arg[0][0].name == "PickPlace"
+    assert zero_arg[0][2] == [0.5]
+    # Whitespace-only lines (indented triple-quoted plan text) are
+    # skipped, even in strict mode where they used to be rejected as
+    # "doesn't contain a valid option name".
+    indented = "   \nPickPlace()[0.5]\n   \n"
+    plan = utils.parse_model_output_into_option_plan(indented, [], [],
+                                                     cover_options,
+                                                     True,
+                                                     strict=True)
+    assert len(plan) == 1
+    # A '~' inside the params block is a misplaced region annotation: the
+    # strict error names the offending token and the correct syntax.
+    with pytest.raises(ValueError) as excinfo:
+        utils.parse_model_output_into_option_plan("PickPlace()[0.5 ~ 0.1]", [],
+                                                  [],
+                                                  cover_options,
+                                                  True,
+                                                  strict=True)
+    assert "continuous parameter" in str(excinfo.value)
+    assert "AFTER the closing" in str(excinfo.value)
+
+
+def test_parse_model_output_into_option_plan_strict():
+    """``strict=True`` turns silently-dropped/truncated lines into
+    ``ValueError``s naming the offending line.
+
+    A malformed line in an agent tool's plan argument used to be dropped
+    with only an INFO log, so the tool executed a different plan than
+    the agent wrote and the agent burned turns confused
+    (run_20260712_185741 task 1: wrong-arity Place lines silently
+    ignored for most of a session).
+    """
+    utils.reset_config()
+    options = get_gt_options("blocks")
+    pick_opt = next(o for o in options if o.name == "Pick")
+    robot_type, block_type = pick_opt.types
+    robby = Object("robby", robot_type)
+    b0 = Object("b0", block_type)
+    types = [robot_type, block_type]
+    objs = [robby, b0]
+    good = "Pick(robby:robot, b0:block)"
+    bad_extra_arg = "Pick(robby:robot, b0:block, b0:block)"
+    # Non-strict (freeform LLM output): the malformed middle line is
+    # silently dropped and the surrounding lines still parse - the
+    # historical hazard, kept for callers parsing prose-embedded plans.
+    dropped = utils.parse_model_output_into_option_plan(
+        "\n".join([good, bad_extra_arg, good]), objs, types, options, False)
+    assert len(dropped) == 2
+    # Strict: the same text is an error naming the problem.
+    with pytest.raises(ValueError, match="too many object arguments"):
+        utils.parse_model_output_into_option_plan("\n".join(
+            [good, bad_extra_arg, good]),
+                                                  objs,
+                                                  types,
+                                                  options,
+                                                  False,
+                                                  strict=True)
+    # Too FEW arguments previously had no log at all.
+    with pytest.raises(ValueError, match="expects 2"):
+        utils.parse_model_output_into_option_plan("Pick(robby:robot)",
+                                                  objs,
+                                                  types,
+                                                  options,
+                                                  False,
+                                                  strict=True)
+    # A typo'd option name after the plan starts: non-strict truncates
+    # everything after it; strict raises.
+    typo = "\n".join([good, "Plaace(robby:robot, b0:block)", good])
+    assert len(
+        utils.parse_model_output_into_option_plan(typo, objs, types, options,
+                                                  False)) == 1
+    with pytest.raises(ValueError, match="valid option name"):
+        utils.parse_model_output_into_option_plan(typo,
+                                                  objs,
+                                                  types,
+                                                  options,
+                                                  False,
+                                                  strict=True)
+    # Strict also refuses preamble prose: tool plan text is plan-only.
+    with pytest.raises(ValueError, match="valid option name"):
+        utils.parse_model_output_into_option_plan("here is my plan:\n" + good,
+                                                  objs,
+                                                  types,
+                                                  options,
+                                                  False,
+                                                  strict=True)
+    # Continuous parameters under strict: a count mismatch errors, but an
+    # explicit empty `[]` passes through as "no seed" (the refine sketch
+    # grammar; the caller decides how to interpret it).
+    cover_options = get_gt_options("cover")
+    with pytest.raises(ValueError, match="continuous parameter"):
+        utils.parse_model_output_into_option_plan("PickPlace()[0.5, 0.5]", [],
+                                                  [],
+                                                  cover_options,
+                                                  True,
+                                                  strict=True)
+    no_seed = utils.parse_model_output_into_option_plan("PickPlace()[]", [],
+                                                        [],
+                                                        cover_options,
+                                                        True,
+                                                        strict=True)
+    assert len(no_seed) == 1
+    assert no_seed[0][2] == []
+
+
+def test_pkl_dump_with_retry_survives_a_transient_failure(
+        tmp_path, monkeypatch):
+    """A TypeError on the first attempt must not lose the artifact.
+
+    The real failure is ``cannot pickle '_abc._abc_data' object``, seen
+    intermittently while saving learned NSRTs and GNN weights. It is
+    faked here because it does not reproduce on demand -- which is the
+    whole reason the retry exists rather than a targeted fix.
+    """
+    attempts = []
+    real_dumps = utils.pkl.dumps
+
+    def _flaky_dumps(obj, *args, **kwargs):
+        """Fail once with the real error, then behave."""
+        attempts.append(obj)
+        if len(attempts) == 1:
+            raise TypeError("cannot pickle '_abc._abc_data' object")
+        return real_dumps(obj, *args, **kwargs)
+
+    monkeypatch.setattr(utils.pkl, "dumps", _flaky_dumps)
+    path = tmp_path / "artifact.pkl"
+    with open(path, "wb") as f:
+        utils.pkl_dump_with_retry({"learned": [1, 2, 3]}, f)
+
+    assert len(attempts) == 2, "the failed dump was not retried"
+    with open(path, "rb") as f:
+        assert utils.pkl.load(f) == {"learned": [1, 2, 3]}
+
+
+def test_pkl_dump_with_retry_writes_nothing_when_it_fails(
+        tmp_path, monkeypatch):
+    """A persistent failure must raise and leave the file EMPTY.
+
+    Retrying into the file handle would append to the prefix the failed
+    dump already wrote, and a half-written pickle only fails at LOAD
+    time -- long after the run that produced it could have been
+    repeated.
+    """
+
+    def _always_fails(obj, *args, **kwargs):
+        """Never picklable."""
+        del obj, args, kwargs
+        raise TypeError("cannot pickle '_abc._abc_data' object")
+
+    monkeypatch.setattr(utils.pkl, "dumps", _always_fails)
+    path = tmp_path / "artifact.pkl"
+    with pytest.raises(TypeError) as excinfo:
+        with open(path, "wb") as f:
+            utils.pkl_dump_with_retry({"learned": [1, 2, 3]}, f)
+    assert "_abc_data" in str(excinfo.value), \
+        "a genuinely unpicklable object must still report why"
+    assert path.stat().st_size == 0, "a failed dump left a partial file"

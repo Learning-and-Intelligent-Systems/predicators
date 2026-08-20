@@ -7,27 +7,34 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
-    Set, Tuple
+from typing import Callable, Collection, Dict, FrozenSet, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 
 from predicators import utils
+from predicators.nsrt_learning.process_learning_main import \
+    learn_processes_from_data
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
     task_plan_grounding
+from predicators.planning_with_processes import \
+    task_plan_from_task as task_plan_with_processes
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
-    STRIPSOperator, Task, _GroundSTRIPSOperator
+from predicators.structs import CausalProcess, GroundAtom, \
+    GroundAtomTrajectory, LowLevelTrajectory, Object, OptionSpec, Predicate, \
+    Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
 
 
 def create_score_function(
-        score_function_name: str, initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory], candidates: Dict[Predicate,
-                                                                   float],
-        train_tasks: List[Task]) -> _PredicateSearchScoreFunction:
+        score_function_name: str,
+        initial_predicates: Set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory],
+        candidates: Dict[Predicate, float],
+        train_tasks: List[Task],
+        current_processes: Optional[Set[CausalProcess]],
+        use_processes: bool = False) -> _PredicateSearchScoreFunction:
     """Public method for creating a score function object."""
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
@@ -38,7 +45,7 @@ def create_score_function(
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, candidates, train_tasks,
-            ["hadd"])
+            ["hadd"])  # type: ignore[arg-type]
     match = re.match(r"([a-z\,]+)_(\w+)_lookaheaddepth(\d+)",
                      score_function_name)
     if match is not None:
@@ -59,7 +66,7 @@ def create_score_function(
                 atom_dataset,
                 candidates,
                 train_tasks,
-                heuristic_names,
+                heuristic_names=heuristic_names,
                 lookahead_depth=lookahead_depth)
         assert score_name == "count"
         return _RelaxationHeuristicCountBasedScoreFunction(
@@ -67,7 +74,7 @@ def create_score_function(
             atom_dataset,
             candidates,
             train_tasks,
-            heuristic_names,
+            heuristic_names=heuristic_names,
             lookahead_depth=lookahead_depth,
             demos_only=False)
     if score_function_name == "exact_energy":
@@ -89,9 +96,14 @@ def create_score_function(
         created_or_expanded = match.groups()[0]
         assert created_or_expanded in ("created", "expanded")
         metric_name = f"num_nodes_{created_or_expanded}"
-        return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
-                                           candidates, train_tasks,
-                                           metric_name)
+        return _ExpectedNodesScoreFunction(
+            initial_predicates,
+            atom_dataset,
+            candidates,
+            train_tasks,
+            _current_processes=current_processes,
+            _use_processes=use_processes,
+            metric_name=metric_name)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -122,11 +134,15 @@ class _PredicateSearchScoreFunction(abc.ABC):
 @dataclass(frozen=True, eq=False, repr=False)
 class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
+    _current_processes: Optional[Set[CausalProcess]] = field(default=None)
+    _use_processes: bool = False
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
+        # Lower scores are better.
         total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
-        logging.info(f"Evaluating predicates: {candidate_predicates}, with "
+        new_predicates = candidate_predicates - self._initial_predicates
+        logging.info(f"Evaluating: {new_predicates}, with "
                      f"total cost {total_cost}")
         start_time = time.perf_counter()
         pruned_atom_data = utils.prune_ground_atom_dataset(
@@ -143,36 +159,61 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
         try:
-            pnads = learn_strips_operators(low_level_trajs,
-                                           self._train_tasks,
-                                           set(candidate_predicates
-                                               | self._initial_predicates),
-                                           segmented_trajs,
-                                           verify_harmlessness=False,
-                                           verbose=False,
-                                           annotations=None)
+            if self._use_processes:
+                assert CFG.only_learn_exogenous_processes, \
+                    "Learning endogenous processes is not supported yet."
+                # We can currently use this because we are only learning
+                # exogenous processes; don't do sampler learning for actions.
+                processes = learn_processes_from_data(  # type: ignore[call-arg]
+                    low_level_trajs,
+                    self._train_tasks,
+                    set(candidate_predicates | self._initial_predicates),
+                    current_processes=self._current_processes,
+                    log_all_processes=False,
+                )
+            else:
+                pnads = learn_strips_operators(low_level_trajs,
+                                               self._train_tasks,
+                                               set(candidate_predicates
+                                                   | self._initial_predicates),
+                                               segmented_trajs,
+                                               verify_harmlessness=False,
+                                               verbose=False,
+                                               annotations=None)
         except TimeoutError:
             logging.info(
                 "Warning: Operator Learning timed out! Skipping evaluation.")
             return float('inf')
 
-        logging.debug(
-            f"Learned {len(pnads)} operators for this predicate set.")
-        for pnad in pnads:
+        if self._use_processes:
+            op_score = self.evaluate_with_operators(
+                candidate_predicates,
+                low_level_trajs,
+                segmented_trajs,
+                processes,  # type: ignore[arg-type]
+                [])
+            strips_ops = processes  # type: ignore[assignment]
+        else:
             logging.debug(
-                f"Operator {pnad.op.name} has {len(pnad.datastore)} datapoints."
-            )
-        strips_ops = [pnad.op for pnad in pnads]
-        option_specs = [pnad.option_spec for pnad in pnads]
-        op_score = self.evaluate_with_operators(candidate_predicates,
-                                                low_level_trajs,
-                                                segmented_trajs, strips_ops,
-                                                option_specs)
+                f"Learned {len(pnads)} operators for this predicate set.")
+            for pnad in pnads:
+                logging.debug(f"Operator {pnad.op.name} has "
+                              f"{len(pnad.datastore)} datapoints.")
+            strips_ops = [pnad.op
+                          for pnad in pnads]  # type: ignore[assignment]
+            option_specs = [pnad.option_spec for pnad in pnads]
+            op_score = self.evaluate_with_operators(
+                candidate_predicates, low_level_trajs, segmented_trajs,
+                strips_ops, option_specs)  # type: ignore[arg-type]
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
-        op_penalty = self._get_operator_penalty(strips_ops)
+        op_penalty = self._get_operator_penalty(
+            strips_ops)  # type: ignore[arg-type]
         total_score = op_score + pred_penalty + op_penalty
-        logging.info(f"\tTotal score: {total_score} computed in "
-                     f"{time.perf_counter()-start_time:.3f} seconds")
+        logging.info(
+            f"\tTotal score: {total_score:.3f}, "
+            f"model score: {op_score:.3f} "
+            f"pred penalty: {pred_penalty}, model penalty: {op_penalty} "
+            f"computed in {time.perf_counter()-start_time:.3f} seconds")
         return total_score
 
     def evaluate_with_operators(self,
@@ -264,19 +305,23 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 init_atoms, objects, dummy_nsrts)
             traj_goal = self._train_tasks[traj.train_task_idx].goal
             heuristic = utils.create_task_planning_heuristic(
-                CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
-                ground_nsrts, candidate_predicates | self._initial_predicates,
+                CFG.sesame_task_planning_heuristic,
+                init_atoms,
+                traj_goal,
+                ground_nsrts,  # type: ignore[type-var]
+                candidate_predicates | self._initial_predicates,
                 objects)
             try:
                 _, _, metrics = next(
-                    task_plan(init_atoms,
-                              traj_goal,
-                              ground_nsrts,
-                              reachable_atoms,
-                              heuristic,
-                              CFG.seed,
-                              CFG.grammar_search_task_planning_timeout,
-                              max_skeletons_optimized=1))
+                    task_plan(
+                        init_atoms,
+                        traj_goal,
+                        ground_nsrts,  # type: ignore[arg-type]
+                        reachable_atoms,
+                        heuristic,
+                        CFG.seed,
+                        CFG.grammar_search_task_planning_timeout,
+                        max_skeletons_optimized=1))
                 assert "num_nodes_expanded" in metrics
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
@@ -301,7 +346,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     difference gets larger.
     """
 
-    metric_name: str  # num_nodes_created or num_nodes_expanded
+    metric_name: str = field(
+        kw_only=True)  # num_nodes_created or num_nodes_expanded
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
@@ -312,30 +358,69 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
         assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
         score = 0.0
         seen_demos = 0
+        matching_plan_bonus =\
+                        CFG.grammar_search_additional_bonus_for_matching_plan
         assert len(low_level_trajs) == len(segmented_trajs)
         for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
             if seen_demos >= CFG.grammar_search_max_demos:
                 break
+            # Note: can just add here that we only look at successful
+            # trajs for computing the score; for now this is making a
+            # stronger assumption of demos
             if not ll_traj.is_demo:
                 continue
             demo_atoms_sequence = utils.segment_trajectory_to_atoms_sequence(
                 seg_traj)
             seen_demos += 1
-            init_atoms = demo_atoms_sequence[0]
             goal = self._train_tasks[ll_traj.train_task_idx].goal
-            # Ground everything once per demo.
-            objects = set(ll_traj.states[0])
-            dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
-                strips_ops, option_specs)
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms,
-                objects,
-                dummy_nsrts,
-                allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
-            heuristic = utils.create_task_planning_heuristic(
-                CFG.sesame_task_planning_heuristic, init_atoms, goal,
-                ground_nsrts, candidate_predicates | self._initial_predicates,
-                objects)
+            if CFG.grammar_search_expected_nodes_max_skeletons == -1:
+                max_skeletons = CFG.sesame_max_skeletons_optimized
+            else:
+                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+            assert max_skeletons <= CFG.sesame_max_skeletons_optimized
+            assert not CFG.sesame_use_visited_state_set
+            if self._use_processes:
+                generator = task_plan_with_processes(
+                    self._train_tasks[ll_traj.train_task_idx],
+                    candidate_predicates | self._initial_predicates,
+                    strips_ops,  # type: ignore[arg-type]
+                    CFG.seed,
+                    CFG.grammar_search_task_planning_timeout,
+                    max_skeletons_optimized=max_skeletons,
+                    use_visited_state_set=True)
+            else:
+                init_atoms = demo_atoms_sequence[0]
+                # Ground everything once per demo.
+                objects = set(ll_traj.states[0])
+                dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+                    strips_ops, option_specs)
+                ground_nsrts, reachable_atoms = \
+                    task_plan_grounding(
+                        init_atoms,
+                        objects,
+                        dummy_nsrts,
+                        allow_waits=CFG
+                        .grammar_search_expected_nodes_allow_waits
+                    )
+                heuristic = \
+                    utils.create_task_planning_heuristic(
+                        CFG.sesame_task_planning_heuristic,
+                        init_atoms,
+                        goal,
+                        ground_nsrts,  # type: ignore[type-var]
+                        candidate_predicates
+                        | self._initial_predicates,
+                        objects)
+                generator = task_plan(
+                    init_atoms,  # type: ignore[assignment]
+                    goal,
+                    ground_nsrts,  # type: ignore[arg-type]
+                    reachable_atoms,
+                    heuristic,
+                    CFG.seed,
+                    CFG.grammar_search_task_planning_timeout,
+                    max_skeletons,
+                    use_visited_state_set=False)
             # The expected time needed before a low-level plan is found. We
             # approximate this using node creations and by adding a penalty
             # for every skeleton after the first to account for backtracking.
@@ -344,28 +429,18 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
             refinable_skeleton_not_found_prob = 1.0
-            if CFG.grammar_search_expected_nodes_max_skeletons == -1:
-                max_skeletons = CFG.sesame_max_skeletons_optimized
-            else:
-                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
-            assert max_skeletons <= CFG.sesame_max_skeletons_optimized
-            assert not CFG.sesame_use_visited_state_set
-            generator = task_plan(init_atoms,
-                                  goal,
-                                  ground_nsrts,
-                                  reachable_atoms,
-                                  heuristic,
-                                  CFG.seed,
-                                  CFG.grammar_search_task_planning_timeout,
-                                  max_skeletons,
-                                  use_visited_state_set=False)
             try:
-                for idx, (_, plan_atoms_sequence,
+                for idx, (plan, plan_atoms_sequence,
                           metrics) in enumerate(generator):
                     assert goal.issubset(plan_atoms_sequence[-1])
                     # Estimate the probability that this skeleton is refinable.
-                    refinement_prob = self._get_refinement_prob(
-                        demo_atoms_sequence, plan_atoms_sequence)
+                    task_unsolvable = not goal.issubset(
+                        demo_atoms_sequence[-1])
+                    if CFG.env_has_impossible_goals and task_unsolvable:
+                        refinement_prob = 0.0
+                    else:
+                        refinement_prob = self._get_refinement_prob(
+                            demo_atoms_sequence, plan_atoms_sequence)
                     # Get the number of nodes that have been created or
                     # expanded so far.
                     assert self.metric_name in metrics
@@ -373,20 +448,42 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     # This contribution to the expected number of nodes is for
                     # the event that the current skeleton is refinable, but no
                     # previous skeleton has been refinable.
-                    p = refinable_skeleton_not_found_prob * refinement_prob
-                    expected_planning_time += p * num_nodes
+                    terminate_prob = refinable_skeleton_not_found_prob *\
+                                        refinement_prob
+                    expected_planning_time += terminate_prob * num_nodes
+                    if matching_plan_bonus != 0 and \
+                       (len(plan_atoms_sequence) == len(demo_atoms_sequence)
+                        ) and \
+                       ([seg.get_option().name for seg in seg_traj] == \
+                        [g_proc.option.name for g_proc in plan]):
+                        expected_planning_time -= matching_plan_bonus
                     # Apply a penalty to account for the time that we'd spend
                     # in backtracking if the last skeleton was not refinable.
                     if idx > 0:
                         w = CFG.grammar_search_expected_nodes_backtracking_cost
-                        expected_planning_time += p * w
+                        expected_planning_time += terminate_prob * w
                     # Update the probability that no skeleton yet is refinable.
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
-            except (PlanningTimeout, PlanningFailure):
+                    # logging.debug(
+                    #     f"id {idx}: ref_prob: "
+                    #     f"{refinement_prob}, "
+                    #     f"not_found: "
+                    #     f"{refinable_skeleton_not_found_prob}"
+                    #     f", term: {terminate_prob}"
+                    #     f", nodes: {num_nodes}"
+                    # )
+            except (PlanningTimeout, PlanningFailure) as e:
                 # Note if we failed to find any skeleton, the next lines add
                 # the upper bound with refinable_skeleton_not_found_prob = 1.0,
                 # so no special action is required.
-                pass
+                if CFG.env_has_impossible_goals:
+                    predicated_unsolvable = "not dr-reachable" in str(e)
+                    # check if the last state in the traj satisfies the goal
+                    task_unsolvable = not goal.issubset(
+                        demo_atoms_sequence[-1])
+                    if predicated_unsolvable and task_unsolvable:
+                        expected_planning_time -= \
+                           CFG.grammar_search_recognizing_unsolvable_goals_bonus
             # After exhausting the skeleton budget or timeout, we use this
             # probability to estimate a "worst-case" planning time, making the
             # soft assumption that some skeleton will eventually work.
@@ -420,7 +517,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     Subclasses must choose the heuristic function and how to evaluate
     against the demonstrations.
     """
-    heuristic_names: Sequence[str]
+    heuristic_names: Sequence[str] = field(default_factory=lambda: ["hadd"])
     demos_only: bool = field(default=True)
 
     def evaluate_with_operators(self,
@@ -690,7 +787,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with task planning."""
 
-    heuristic_names: Sequence[str] = field(default=("exact", ), init=False)
+    heuristic_names: Sequence[str] = field(default_factory=lambda: ["exact"])
 
     def _generate_heuristic(
         self,
@@ -714,8 +811,13 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
         ground_nsrts, reachable_atoms = task_plan_grounding(
             init_atoms, objects, dummy_nsrts)
         heuristic = utils.create_task_planning_heuristic(
-            CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
-            set(candidate_predicates) | self._initial_predicates, objects)
+            CFG.sesame_task_planning_heuristic,
+            init_atoms,
+            goal,
+            ground_nsrts,  # type: ignore[type-var]
+            set(candidate_predicates)
+            | self._initial_predicates,
+            objects)
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
@@ -724,14 +826,15 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = next(
-                    task_plan(atoms,
-                              goal,
-                              ground_nsrts,
-                              reachable_atoms,
-                              heuristic,
-                              CFG.seed,
-                              CFG.grammar_search_task_planning_timeout,
-                              max_skeletons_optimized=1))
+                    task_plan(
+                        atoms,
+                        goal,
+                        ground_nsrts,  # type: ignore[arg-type]
+                        reachable_atoms,
+                        heuristic,
+                        CFG.seed,
+                        CFG.grammar_search_task_planning_timeout,
+                        max_skeletons_optimized=1))
             except (PlanningFailure, PlanningTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms

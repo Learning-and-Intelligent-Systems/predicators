@@ -76,7 +76,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 train_or_test=train_or_test)
 
         return utils.option_policy_to_policy(
-            _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
+            _option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout,
+            abstract_function=lambda s: utils.abstract(
+                s, self._get_current_predicates()))
 
     def _create_explorer(self) -> BaseExplorer:
         """Create a new explorer at the beginning of each interaction cycle."""
